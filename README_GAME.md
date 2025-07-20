@@ -13,10 +13,12 @@ python play.py
 ### Game Setup
 1. **Enter your name** when prompted
 2. **Choose opponent**: Computer or another human player
-3. **Place your ships**: Follow the prompts to place all 5 ships
-   - Enter coordinates like `A1`, `B5`, `J10`
-   - Choose direction: `h` (horizontal), `v` (vertical), `ne` (northeast diagonal), `se` (southeast diagonal)
-   - Ships cannot touch each other (spacing rule)
+3. **Place your ships**: Choose manual or random placement
+   - **Random placement**: Quick setup with computer-generated positions
+   - **Manual placement**: Place each ship individually
+     - Enter coordinates like `A1`, `B5`, `J10`
+     - Choose direction: `h` (horizontal), `v` (vertical), `ne` (northeast diagonal), `se` (southeast diagonal)
+     - Ships cannot touch each other (spacing rule)
 
 ### Ship Types
 - **Carrier** (5 squares, 2 shots): The largest ship
@@ -33,10 +35,16 @@ python play.py
 5. **Win condition**: Sink all enemy ships first
 
 ### Game Display
-- 🚢 = Your ships (green = afloat, red = sunk)
-- 💥 = Hits (yellow = hit, red = sunk)
-- 💧 = Misses
-- ~ = Empty water
+
+**Ships & Shots Received Board:**
+- **Green letters** (C/B/R/S/D) = Your unhit ships (Carrier/Battleship/CRuiser/Submarine/Destroyer)
+- **Red numbers** = Round when your sunk ships were hit
+- **Yellow numbers** = Round when your afloat ships were hit
+- **Blue numbers** = Round when opponent missed
+
+**Shots Fired Board:**
+- **Cyan numbers** = Round when you fired at that position
+- ~ = Empty water (not fired at yet)
 
 ### Controls
 - **Coordinates**: Use A-J for rows, 1-10 for columns

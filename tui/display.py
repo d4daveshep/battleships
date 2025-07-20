@@ -40,10 +40,10 @@ class GameDisplay:
         """Create a visual representation of a game board"""
         table = Table(title=title, show_header=True, header_style="bold magenta")
         
-        # Add column headers (A-J)
-        table.add_column("", style="bold", width=2)
+        # Add column headers (A-J) - make columns narrower for more rectangular appearance
+        table.add_column("", style="bold", width=1)
         for col in range(10):
-            table.add_column(str(col + 1), justify="center", width=3)
+            table.add_column(str(col + 1), justify="center", width=2)
         
         # Create the grid
         for row in range(10):
@@ -81,29 +81,94 @@ class GameDisplay:
         else:
             # Normal display logic for ships & shots received board
             if shot_here and ship_here:
-                # Hit on ship
+                # Hit on ship - show round number in red/yellow
+                round_num = player.board.shots_received[coord]
                 if ship_here.is_sunk:
-                    return "[red]💥[/red]"  # Sunk ship
+                    return f"[bold red]{round_num}[/bold red]"  # Sunk ship hit
                 else:
-                    return "[yellow]💥[/yellow]"  # Hit ship
+                    return f"[bold yellow]{round_num}[/bold yellow]"  # Hit ship
             elif shot_here:
-                # Miss
-                return "[blue]💧[/blue]"
+                # Miss - show round number in blue
+                round_num = player.board.shots_received[coord]
+                return f"[bold blue]{round_num}[/bold blue]"
             elif fired_here:
                 # Show where player has fired (when not showing round numbers)
                 if ship_here and show_ships:
-                    return "[yellow]💥[/yellow]"  # Hit
+                    return f"[bold yellow]{shots_fired[coord]}[/bold yellow]"  # Hit
                 else:
-                    return "[blue]💧[/blue]"  # Miss
+                    return f"[bold blue]{shots_fired[coord]}[/bold blue]"  # Miss
             elif ship_here and show_ships:
-                # Show ship (only if show_ships is True)
+                # Show ship with letter designation
+                ship_letter = self._get_ship_letter(ship_here.ship_type)
                 if ship_here.is_sunk:
-                    return "[red]🚢[/red]"
+                    return f"[bold red]{ship_letter}[/bold red]"
                 else:
-                    return "[green]🚢[/green]"
+                    return f"[bold green]{ship_letter}[/bold green]"
             else:
                 # Empty water
-                return "[cyan]~[/cyan]"
+                return "[dim cyan]~[/dim cyan]"
+    
+    def _get_ship_letter(self, ship_type: ShipType) -> str:
+        """Get letter designation for ship types"""
+        ship_letters = {
+            ShipType.CARRIER: "C",
+            ShipType.BATTLESHIP: "B", 
+            ShipType.CRUISER: "R",
+            ShipType.SUBMARINE: "S",
+            ShipType.DESTROYER: "D"
+        }
+        return ship_letters[ship_type]
+    
+    def display_opponent_final_board(self, opponent: Player, title_suffix: str = "") -> Table:
+        """Display opponent's final board showing all ships at game end"""
+        title = f"{opponent.name}'s Final Ship Positions{title_suffix}"
+        table = Table(title=title, show_header=True, header_style="bold magenta")
+        
+        # Add column headers - narrower for rectangular appearance
+        table.add_column("", style="bold", width=1)
+        for col in range(10):
+            table.add_column(str(col + 1), justify="center", width=2)
+        
+        # Create the grid showing all ships and hits
+        for row in range(10):
+            row_data = [chr(ord('A') + row)]  # Row label (A-J)
+            
+            for col in range(10):
+                coord = Coordinate(row, col)
+                
+                # Check if there's a shot received at this position
+                shot_here = coord in opponent.board.shots_received
+                
+                # Check if there's a ship at this position
+                ship_here = opponent.board.get_ship_at_position(coord)
+                
+                if shot_here and ship_here:
+                    # Hit on ship - show round number in red/yellow
+                    round_num = opponent.board.shots_received[coord]
+                    if ship_here.is_sunk:
+                        cell = f"[bold red]{round_num}[/bold red]"  # Sunk ship hit
+                    else:
+                        cell = f"[bold yellow]{round_num}[/bold yellow]"  # Hit ship
+                elif shot_here:
+                    # Miss - show round number in blue
+                    round_num = opponent.board.shots_received[coord]
+                    cell = f"[bold blue]{round_num}[/bold blue]"
+                elif ship_here:
+                    # Show ship with letter designation
+                    ship_letter = self._get_ship_letter(ship_here.ship_type)
+                    if ship_here.is_sunk:
+                        cell = f"[bold red]{ship_letter}[/bold red]"
+                    else:
+                        cell = f"[bold green]{ship_letter}[/bold green]"
+                else:
+                    # Empty water
+                    cell = "[dim cyan]~[/dim cyan]"
+                
+                row_data.append(cell)
+            
+            table.add_row(*row_data)
+        
+        return table
     
     def display_dual_boards(self, player: Player, opponent_shots: Optional[Dict[Coordinate, int]] = None):
         """Display both player boards side by side"""
@@ -131,10 +196,10 @@ class GameDisplay:
         """Display board for ship placement with optional position highlighting"""
         table = Table(title=f"{player.name}'s Ship Placement", show_header=True, header_style="bold magenta")
         
-        # Add column headers
-        table.add_column("", style="bold", width=2)
+        # Add column headers - narrower for rectangular appearance
+        table.add_column("", style="bold", width=1)
         for col in range(10):
-            table.add_column(str(col + 1), justify="center", width=3)
+            table.add_column(str(col + 1), justify="center", width=2)
         
         # Create the grid
         for row in range(10):

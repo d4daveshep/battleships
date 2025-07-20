@@ -72,7 +72,16 @@ def demo_game_setup():
     console.print(Columns([fleet_status, hits_made], equal=True))
     
     console.print()
-    console.print("[bold green]Demo completed! Run 'uv run python play.py' to play the actual game.[/bold green]")
+    console.print("\n[bold magenta]New Features Demonstrated:[/bold magenta]")
+    console.print("1. [bold cyan]Shots Fired board[/bold cyan]: Shows round numbers when you fired")
+    console.print("2. [bold yellow]Ships & Shots Received board[/bold yellow]: Shows colored round numbers")
+    console.print("   • [bold red]Red numbers[/bold red] = Hits on sunk ships")
+    console.print("   • [bold yellow]Yellow numbers[/bold yellow] = Hits on afloat ships") 
+    console.print("   • [bold blue]Blue numbers[/bold blue] = Misses")
+    console.print("   • [bold green]Letters (C/B/R/S/D)[/bold green] = Unhit ship positions")
+    console.print("3. [bold green]Random ship placement[/bold green]: Option during setup for quick placement")
+    
+    console.print("\n[bold green]Demo completed! Run 'uv run python play.py' to play the actual game.[/bold green]")
 
 
 if __name__ == "__main__":

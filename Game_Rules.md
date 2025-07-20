@@ -7,11 +7,12 @@ The aim of the game is to sink all of your opponent's ships before they sink you
 ## Players
 
 The game is played by two players. Either two humans using their own computer or by one human playing against a computer.
+Players take turns at starting the game if multiple games are being played. But there is no real advantage to starting first or second.
 
 ## Game board
 
 The game board consists of two 10 by 10 grids representing a portion of ocean.
-Each grid is labeled with ascending letters along the horizontal axis and with ascending numbers (starting from 1) along the vertical axis.
+Each grid is labeled with ascending letters (A-J) along the horizontal axis and with ascending numbers (1-10) along the vertical axis.
 The two grids are arranged vertically.
 The bottom board is called the "Player's Ships and Shots Received" grid is where the player places their 5 ships and records the shots received from their opponent.
 The top board is called the "Shots Fired" grid and is where they fire their shots at their opponent's ships and mark the possible positions of the opponent's ships
@@ -36,7 +37,7 @@ A player's ships can be placed anywhere on the bottom grid according to the foll
 3. Ships cannot overlap or be touching another ship
 4. There must be a empty space all around a ship (except where it touches the edge of the board)
 
-When playing against a computer opponent, the computer will randomly place its ships on it's bottom board.
+When playing against a computer opponent, the computer will randomly place its ships on its bottom board.
 
 ## Game play
 
@@ -46,22 +47,16 @@ Rounds are numbered in ascending order starting at round 1.
 
 ### Each round
 
-1. Both players decide where to fire their available shots and enters them on their top grid with the round number (e.g. for round 1 they enter the number 1 in each grid square for each available shot)
-2. Player1 tells Player2 where they have fired their shots using the alphanumeric grid reference for each shot (e.g. A-4, C-5, D-8, F-1 etc)
-3. Player2 marks the shots on their bottom grid. If any of the shots coincide with a square that is part of a placed ship then this is considered a hit on that ship. E.g. if Player2 has their Battleship at D-3 to D-6 and Player1 fires a shot at D-4, this is considered a hit on the Battleship.
-4. Player2 tells Player1 which, if any, ships they have hit with their shots (e.g. 1 hit on Carrier, 1 hit on Destroyer) and if any of their ships have been sunk
-5. Player1 records these hits on the respective ship squares between the grids. E.g. If on round 3 Player2 tells Player1 that Player1's shots hit Player2's Battleship and Cruiser then Player1 records a 3 in their Battleship and a 3 in their Cruiser ships in the Hits Made area.
-
-6. Player2 tells Player1 where they have fired their shots using the alphanumeric grid reference for each shot (e.g. A-4, C-5, D-8, F-1 etc)
-7. Player1 marks the shots on their bottom grid. If any of the shots coincide with a square that is part of a placed ship then this is considered a hit on that ship. E.g. if Player1 has their Battleship at D-3 to D-6 and Player2 fires a shot at D-4, this is considered a hit on the Battleship.
-8. Player1 tells Player2 which, if any, ships they have hit with their shots (e.g. 1 hit on Carrier, 1 hit on Destroyer) and if any of their ships have been sunk
-9. Player2 records these hits on the respective ship squares between the grids. E.g. If on round 3 Player1 tells Player2 that Player2's shots hit Player1's Battleship and Cruiser then Player2 records a 3 in their Battleship and a 3 in their Cruiser ships in the Hits Made area.
-10. That is the end of the round.
+Both players decide where to fire their available shots and enter them on their Shots Fired grid (top grid) with the round number E.g. for round 1 they enter the number 1 in each grid square for each fired shot.
+Each player tells their opponent where they have fired their available shots using the alphanumeric grid reference for the shot E.g. A-4, C-5, D-8, F-1 etc. The player receiving the shots records the round number in their Ships and Shots Received grid (bottom grid)
+Each player then tells their opponent which, if any, ships they have hit with their shots and if any of their ships have been sunk with this round of shots. The grid location of the hit is not revealed only that a hit was made on a particular ship in that round.
+When a player firing shots hits their opponent's ships they record the round number in the appropriate ship in the Hits Made area.
+The order of which player tell the other first does not matter in the round. What matters is that within the round, both players make their shots, tell their opponent their shots, learn which ships they hit with their shots, record the shots fired at them by their opponent and tell their opponent which of their own ships were hit with the opponent's shots
 
 ## Number of shot available
 
 The number of shots available to a player in each round is the total number of shots for each unsunk ship.
-E.g. at the start of the game no ships are sunk so each player has 5 shots available. If a player has it's Battleship and Submarine sunk then they only have 3 shots available.
+E.g. at the start of the game no ships are sunk so each player has 5 shots available. If a player has its Battleship and Submarine sunk then they only have 3 shots available.
 When a player has had all their ships sunk they have no shots available so have lost the game.
 
 ## Firing shots
@@ -74,13 +69,12 @@ All shots fired in a round by a player have the same number label.
 Each player needs to keep track of the hits they have made on their opponents ships, these are made on the ships hit squares beneath the top grid.
 This helps determine where to fire the player's next shots.
 E.g. if they have hit their opponent's Battleship on round 1 and round 3, then they would be looking at their shots fired grid (top grid) to find where they fired shots on rounds 1 and 3 to see where the opponent's Battleship could be placed, knowing it is 4 squares long.
+It is possible to make multiple hits on the same ship in a round, in this case, each hit is recorded separately on the Hits Made area. E.g. if in round 3 two hits are made on the opponent's Carrier then the number 3 will be recorded twice on the Carrier line in the Hits Made area.
 
 ## Sinking ships
 
-Each player needs to keep track of the hits they have made on their opponents ships.
-This helps determine where to fire the player's next shots.
-
-Players take turns at starting the game if multiple games are being played.
+A ship is considered sunk when it has received the same number of hits as the length (in squares) of the ship. E.g. When a Battleship receives 4 hits, one on each of its grid positions, it is considered sunk.
+A player must announce to their opponent when one of their ships has been sunk. The opponent may be able to determine the exact location ship from the sequence of shots fired in different rounds. Sinking a ship also reduces the owning player's available shots for the remainder of the game.
 
 ## Wining the game
 

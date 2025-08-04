@@ -1,0 +1,66 @@
+<div class="game-board">
+    <table class="board-table">
+        <thead>
+            <tr>
+                <th></th>
+                {% for col in range(10) %}
+                <th>{{ col + 1 }}</th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in range(10) %}
+            <tr>
+                <td class="row-label">{{ (row + 65)|chr }}</td>
+                {% for col in range(10) %}
+                
+                {% set ship_here = find_ship_at_position(player, row, col) %}
+                {% set shot_received = find_shot_received_at_position(player, row, col) %}
+                {% set shot_fired = find_shot_fired_at_position(player, row, col) %}
+                
+                {% if show_ships %}
+                    {# Ships & Shots Received Board #}
+                    {% if shot_received and ship_here %}
+                        {# Hit on ship #}
+                        {% if ship_here.is_sunk %}
+                            <td class="cell hit sunk" data-row="{{ row }}" data-col="{{ col }}">{{ shot_received }}</td>
+                        {% else %}
+                            <td class="cell hit damaged" data-row="{{ row }}" data-col="{{ col }}">{{ shot_received }}</td>
+                        {% endif %}
+                    {% elif shot_received %}
+                        {# Miss #}
+                        <td class="cell miss" data-row="{{ row }}" data-col="{{ col }}">{{ shot_received }}</td>
+                    {% elif ship_here %}
+                        {# Unhit ship - show letter #}
+                        {% if ship_here.ship_type.name == "CARRIER" %}
+                            <td class="cell ship" data-row="{{ row }}" data-col="{{ col }}">C</td>
+                        {% elif ship_here.ship_type.name == "BATTLESHIP" %}
+                            <td class="cell ship" data-row="{{ row }}" data-col="{{ col }}">B</td>
+                        {% elif ship_here.ship_type.name == "CRUISER" %}
+                            <td class="cell ship" data-row="{{ row }}" data-col="{{ col }}">R</td>
+                        {% elif ship_here.ship_type.name == "SUBMARINE" %}
+                            <td class="cell ship" data-row="{{ row }}" data-col="{{ col }}">S</td>
+                        {% elif ship_here.ship_type.name == "DESTROYER" %}
+                            <td class="cell ship" data-row="{{ row }}" data-col="{{ col }}">D</td>
+                        {% else %}
+                            <td class="cell ship" data-row="{{ row }}" data-col="{{ col }}">?</td>
+                        {% endif %}
+                    {% else %}
+                        {# Empty water #}
+                        <td class="cell water" data-row="{{ row }}" data-col="{{ col }}">~</td>
+                    {% endif %}
+                {% else %}
+                    {# Shots Fired Board #}
+                    {% if shot_fired %}
+                        <td class="cell fired" data-row="{{ row }}" data-col="{{ col }}">{{ shot_fired }}</td>
+                    {% else %}
+                        <td class="cell water" data-row="{{ row }}" data-col="{{ col }}">~</td>
+                    {% endif %}
+                {% endif %}
+                
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>

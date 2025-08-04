@@ -1,0 +1,42 @@
+<div class="hits-made">
+    <table class="hits-table">
+        <thead>
+            <tr>
+                <th>Ship</th>
+                <th>Hits</th>
+                <th>Rounds</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for ship_type in ship_types %}
+            <tr>
+                <td class="ship-name">{{ ship_type.ship_name }}</td>
+                <td class="hit-count">
+                    {% if ship_type in player.hits_made %}
+                        {{ player.hits_made[ship_type]|length }}
+                    {% else %}
+                        0
+                    {% endif %}
+                </td>
+                <td class="hit-rounds">
+                    {% if ship_type in player.hits_made and player.hits_made[ship_type] %}
+                        {% for round_num in player.hits_made[ship_type] %}
+                            <span class="round-badge">{{ round_num }}</span>{% if not loop.last %}, {% endif %}
+                        {% endfor %}
+                    {% else %}
+                        <span class="no-hits">None</span>
+                    {% endif %}
+                </td>
+                <td class="ship-status">
+                    {% if ship_type in player.opponent_ships_sunk %}
+                        <span class="status-sunk">SUNK</span>
+                    {% else %}
+                        <span class="status-unknown">UNKNOWN</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>

@@ -39,54 +39,76 @@ class TestPlayer:
         assert len(placed_ship.positions) == 2
 
     def test_place_ship_invalid(self):
-        player = Player("Test Player")
+        player: Player = Player("Test Player")
 
         # Place first ship
-        player.place_ship(ShipType.DESTROYER, Coordinate(0, 0), Direction.HORIZONTAL)
+        player.place_ship(
+            ship_type=ShipType.DESTROYER,
+            start=Coordinate(0, 0),
+            direction=Direction.HORIZONTAL,
+        )
 
         # Try to place overlapping ship
-        result = player.place_ship(
-            ShipType.CRUISER, Coordinate(0, 0), Direction.VERTICAL
+        ship_is_placed: bool = player.place_ship(
+            ship_type=ShipType.CRUISER,
+            start=Coordinate(0, 0),
+            direction=Direction.VERTICAL,
         )
-        assert result is False
+        assert not ship_is_placed
         assert len(player.board.ships) == 1
 
     def test_fire_shots(self):
-        player = Player("Test Player")
+        player: Player = Player("Test Player")
 
         # Place a ship to have available shots
-        player.place_ship(ShipType.DESTROYER, Coordinate(0, 0), Direction.HORIZONTAL)
+        player.place_ship(
+            ship_type=ShipType.DESTROYER,
+            start=Coordinate(0, 0),
+            direction=Direction.HORIZONTAL,
+        )
 
-        targets = [Coordinate(5, 5)]
-        valid_shots = player.fire_shots(targets, 1)
+        targets: list[Coordinate] = [Coordinate(5, 5)]
+        valid_shots: list[Coordinate] = player.fire_shots(targets, 1)
 
         assert len(valid_shots) == 1
         assert valid_shots[0] == Coordinate(5, 5)
         assert Coordinate(5, 5) in player.board.shots_fired
 
     def test_fire_shots_too_many(self):
-        player = Player("Test Player")
+        player: Player = Player("Test Player")
 
         # Place a destroyer (1 shot available)
-        player.place_ship(ShipType.DESTROYER, Coordinate(0, 0), Direction.HORIZONTAL)
+        player.place_ship(
+            ship_type=ShipType.DESTROYER,
+            start=Coordinate(0, 0),
+            direction=Direction.HORIZONTAL,
+        )
+        assert player.get_available_shots() == 1
 
         # Try to fire 2 shots when only 1 available
-        targets = [Coordinate(5, 5), Coordinate(6, 6)]
+        targets: list[Coordinate] = [Coordinate(5, 5), Coordinate(6, 6)]
 
         with pytest.raises(ValueError, match="Cannot fire 2 shots"):
-            player.fire_shots(targets, 1)
+            player.fire_shots(targets=targets, round_number=1)
 
     def test_fire_shots_duplicate(self):
-        player = Player("Test Player")
+        player: Player = Player("Test Player")
 
         # Place a ship to have available shots
-        player.place_ship(ShipType.CARRIER, Coordinate(0, 0), Direction.HORIZONTAL)
+        player.place_ship(
+            ship_type=ShipType.CARRIER,
+            start=Coordinate(0, 0),
+            direction=Direction.HORIZONTAL,
+        )
+        assert player.get_available_shots() == 2
 
         # Fire first shot
-        player.fire_shots([Coordinate(5, 5)], 1)
+        player.fire_shots(targets=[Coordinate(5, 5)], round_number=1)
 
         # Try to fire at same position again
-        valid_shots = player.fire_shots([Coordinate(5, 5), Coordinate(6, 6)], 2)
+        valid_shots: list[Coordinate] = player.fire_shots(
+            targets=[Coordinate(5, 5), Coordinate(6, 6)], round_number=2
+        )
 
         # Should only return the valid shot
         assert len(valid_shots) == 1
@@ -94,14 +116,18 @@ class TestPlayer:
         assert Coordinate(5, 5) not in valid_shots
 
     def test_receive_shots_hit(self):
-        player = Player("Test Player")
+        player: Player = Player("Test Player")
 
         # Place a ship
-        player.place_ship(ShipType.DESTROYER, Coordinate(0, 0), Direction.HORIZONTAL)
+        player.place_ship(
+            ship_type=ShipType.DESTROYER,
+            start=Coordinate(0, 0),
+            direction=Direction.HORIZONTAL,
+        )
 
         # Receive shots that hit the ship
-        shots = [Coordinate(0, 0), Coordinate(1, 1)]
-        hit_ships = player.receive_shots(shots, 1)
+        shots: list[Coordinate] = [Coordinate(0, 0), Coordinate(1, 1)]
+        hit_ships: list[Ship] = player.receive_shots(shots=shots, round_number=1)
 
         assert len(hit_ships) == 1
         assert hit_ships[0].ship_type == ShipType.DESTROYER
@@ -109,14 +135,18 @@ class TestPlayer:
         assert Coordinate(1, 1) in player.board.shots_received
 
     def test_receive_shots_miss(self):
-        player = Player("Test Player")
+        player: Player = Player("Test Player")
 
         # Place a ship
-        player.place_ship(ShipType.DESTROYER, Coordinate(0, 0), Direction.HORIZONTAL)
+        player.place_ship(
+            ship_type=ShipType.DESTROYER,
+            start=Coordinate(0, 0),
+            direction=Direction.HORIZONTAL,
+        )
 
         # Receive shots that miss
-        shots = [Coordinate(5, 5)]
-        hit_ships = player.receive_shots(shots, 1)
+        shots: list[Coordinate] = [Coordinate(5, 5)]
+        hit_ships: list[Ship] = player.receive_shots(shots=shots, round_number=1)
 
         assert len(hit_ships) == 0
         assert Coordinate(5, 5) in player.board.shots_received

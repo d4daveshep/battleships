@@ -5,35 +5,37 @@ from game.player import Player
 
 class TestPlayer:
     def test_player_creation(self):
-        player:Player = Player("Test Player")
+        player: Player = Player("Test Player")
         assert player.name == "Test Player"
         assert not player.is_computer
-        assert len(player.board.ships) == 0 # No ships placed
+        assert len(player.board.ships) == 0  # No ships placed
         assert len(player.hits_made) == 5  # All ship types initialized
         assert len(player.opponent_ships_sunk) == 0
 
     def test_computer_player_creation(self):
-        player = Player("Computer", is_computer=True)
+        player: Player = Player("Computer", is_computer=True)
         assert player.name == "Computer"
         assert player.is_computer
 
     def test_place_ship(self):
-        player = Player("Test Player")
+        player: Player = Player("Test Player")
 
-        result = player.place_ship(
-            ShipType.DESTROYER, Coordinate(0, 0), Direction.HORIZONTAL
+        ship_is_placed: bool = player.place_ship(
+            ship_type=ShipType.DESTROYER,
+            start=Coordinate(0, 0),
+            direction=Direction.HORIZONTAL,
         )
-        assert result is True
+        assert ship_is_placed
         assert len(player.board.ships) == 1
 
         # Find the placed ship
-        placed_ship = None
+        placed_ship: Ship | None = None
         for ship in player.board.ships:
             if ship.ship_type == ShipType.DESTROYER:
                 placed_ship = ship
                 break
 
-        assert placed_ship is not None
+        assert placed_ship
         assert len(placed_ship.positions) == 2
 
     def test_place_ship_invalid(self):
@@ -279,4 +281,3 @@ class TestPlayer:
         # Should not change the board state
         assert len(player.board.ships) == 0
         assert not player.has_all_ships_placed()
-

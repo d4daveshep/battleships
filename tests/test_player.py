@@ -152,74 +152,91 @@ class TestPlayer:
         assert Coordinate(5, 5) in player.board.shots_received
 
     def test_record_hits_made(self):
-        player = Player("Test Player")
+        player: Player = Player("Test Player")
 
-        hits = {ShipType.DESTROYER: 1, ShipType.CARRIER: 2}
-        player.record_hits_made(hits, 1)
+        # create 1 hit on DESTROYER and 2 hits on CARRIER
+        hits: dict[ShipType, int] = {ShipType.DESTROYER: 1, ShipType.CARRIER: 2}
+        player.record_hits_made(ship_hits=hits, round_number=1)
 
+        # verify the hits made and round number they were made in
         assert player.hits_made[ShipType.DESTROYER] == [1]
         assert player.hits_made[ShipType.CARRIER] == [1, 1]  # Two hits recorded
         assert player.hits_made[ShipType.CRUISER] == []
 
     def test_record_opponent_ship_sunk(self):
-        player = Player("Test Player")
+        player: Player = Player("Test Player")
 
-        player.record_opponent_ship_sunk(ShipType.DESTROYER)
+        player.record_opponent_ship_sunk(ship_type=ShipType.DESTROYER)
 
         assert ShipType.DESTROYER in player.opponent_ships_sunk
         assert ShipType.CARRIER not in player.opponent_ships_sunk
 
     def test_get_available_shots(self):
-        player = Player("Test Player")
+        player: Player = Player("Test Player")
 
         # No ships placed
         assert player.get_available_shots() == 0
 
         # Place some ships
         player.place_ship(
-            ShipType.CARRIER, Coordinate(0, 0), Direction.HORIZONTAL
+            ship_type=ShipType.CARRIER,
+            start=Coordinate(0, 0),
+            direction=Direction.HORIZONTAL,
         )  # 2 shots
         player.place_ship(
-            ShipType.DESTROYER, Coordinate(2, 0), Direction.HORIZONTAL
+            ship_type=ShipType.DESTROYER,
+            start=Coordinate(2, 0),
+            direction=Direction.HORIZONTAL,
         )  # 1 shot
 
         assert player.get_available_shots() == 3
 
         # Sink destroyer
-        destroyer: Ship
-        for ship in player.board.ships:
-            if ship.ship_type == ShipType.DESTROYER:
-                destroyer = ship
-                break
-
+        destroyer: Ship = player.board.ships[1]
+        assert destroyer.ship_type == ShipType.DESTROYER
         destroyer.incoming_shot(Coordinate(2, 0))
         destroyer.incoming_shot(Coordinate(2, 1))
 
         assert player.get_available_shots() == 2  # Only carrier shots remain
 
     def test_is_defeated(self):
-        player = Player("Test Player")
+        player: Player = Player("Test Player")
 
         # Place a ship
-        player.place_ship(ShipType.DESTROYER, Coordinate(0, 0), Direction.HORIZONTAL)
+        player.place_ship(
+            ship_type=ShipType.DESTROYER,
+            start=Coordinate(0, 0),
+            direction=Direction.HORIZONTAL,
+        )
 
         assert not player.is_defeated()
 
         # Sink the ship
-        destroyer = player.board.ships[0]
+        destroyer: Ship = player.board.ships[0]
+        assert destroyer.ship_type == ShipType.DESTROYER
         destroyer.incoming_shot(Coordinate(0, 0))
         destroyer.incoming_shot(Coordinate(0, 1))
 
         assert player.is_defeated()
 
     def test_get_fleet_status(self):
-        player = Player("Test Player")
+        player: Player = Player("Test Player")
 
         # Place ships
-        player.place_ship(ShipType.DESTROYER, Coordinate(0, 0), Direction.HORIZONTAL)
-        player.place_ship(ShipType.CRUISER, Coordinate(2, 0), Direction.HORIZONTAL)
+        player.place_ship(
+            ship_type=ShipType.DESTROYER,
+            start=Coordinate(0, 0),
+            direction=Direction.HORIZONTAL,
+        )
+        player.place_ship(
+            ship_type=ShipType.CRUISER,
+            start=Coordinate(2, 0),
+            direction=Direction.HORIZONTAL,
+        )
 
-        status = player.get_fleet_status()
+        # FIXME: create a dataclass or enum to encapsulate the FleetStatus
+        # e.g. dict[ShipType,ShipState] where ShipState is AFLOAT or SUNK
+        status: dict[ShipType, bool] = player.get_fleet_status()
 
         assert ShipType.DESTROYER in status
         assert ShipType.CRUISER in status
@@ -227,68 +244,72 @@ class TestPlayer:
         assert status[ShipType.CRUISER] is False  # Not sunk
 
         # Sink destroyer
-        destroyer: Ship | None = None
-        for ship in player.board.ships:
-            if ship.ship_type == ShipType.DESTROYER:
-                destroyer = ship
-                break
+        destroyer: Ship = player.board.ships[0]
+        assert destroyer.ship_type == ShipType.DESTROYER
+        destroyer.incoming_shot(Coordinate(0, 0))
+        destroyer.incoming_shot(Coordinate(0, 1))
 
-        if destroyer:
-            destroyer.incoming_shot(Coordinate(0, 0))
-            destroyer.incoming_shot(Coordinate(0, 1))
-
-        status = player.get_fleet_status()
+        status: dict[ShipType, bool] = player.get_fleet_status()
         assert status[ShipType.DESTROYER] is True  # Sunk
         assert status[ShipType.CRUISER] is False  # Still afloat
 
+    # FIXME: this test and the model needs fixing as we shouldn't be able to record 3 hits against a ship that is only 2 spaces long
     def test_get_hits_on_ship_type(self):
-        player = Player("Test Player")
+        player: Player = Player("Test Player")
 
         # Record some hits
-        player.record_hits_made({ShipType.DESTROYER: 2}, 1)
-        player.record_hits_made({ShipType.DESTROYER: 1}, 3)
+        player.record_hits_made(ship_hits={ShipType.DESTROYER: 2}, round_number=1)
+        player.record_hits_made(ship_hits={ShipType.DESTROYER: 1}, round_number=3)
 
-        hits = player.get_hits_on_ship_type(ShipType.DESTROYER)
+        hits: list[int] = player.get_hits_on_ship_type(ShipType.DESTROYER)
         assert hits == [1, 1, 3]  # Two hits in round 1, one in round 3
 
         hits = player.get_hits_on_ship_type(ShipType.CARRIER)
         assert hits == []  # No hits recorded
 
     def test_get_shots_fired_in_round(self):
-        player = Player("Test Player")
+        player: Player = Player("Test Player")
 
         # Place ship and fire shots
-        player.place_ship(ShipType.CARRIER, Coordinate(0, 0), Direction.HORIZONTAL)
-        player.fire_shots([Coordinate(5, 5), Coordinate(6, 6)], 1)
-        player.fire_shots([Coordinate(7, 7)], 2)
+        player.place_ship(
+            ship_type=ShipType.CARRIER,
+            start=Coordinate(0, 0),
+            direction=Direction.HORIZONTAL,
+        )
+        player.fire_shots(targets=[Coordinate(5, 5), Coordinate(6, 6)], round_number=1)
+        player.fire_shots(targets=[Coordinate(7, 7)], round_number=2)
 
-        round1_shots = player.get_shots_fired_in_round(1)
+        round1_shots: list[Coordinate] = player.get_shots_fired_in_round(round_number=1)
         assert len(round1_shots) == 2
         assert Coordinate(5, 5) in round1_shots
         assert Coordinate(6, 6) in round1_shots
 
-        round2_shots = player.get_shots_fired_in_round(2)
+        round2_shots: list[Coordinate] = player.get_shots_fired_in_round(round_number=2)
         assert len(round2_shots) == 1
         assert Coordinate(7, 7) in round2_shots
 
     def test_get_shots_received_in_round(self):
-        player = Player("Test Player")
+        player: Player = Player("Test Player")
 
         # Receive shots in different rounds
-        player.receive_shots([Coordinate(0, 0), Coordinate(1, 1)], 1)
-        player.receive_shots([Coordinate(2, 2)], 2)
+        player.receive_shots(shots=[Coordinate(0, 0), Coordinate(1, 1)], round_number=1)
+        player.receive_shots(shots=[Coordinate(2, 2)], round_number=2)
 
-        round1_shots = player.get_shots_received_in_round(1)
+        round1_shots: list[Coordinate] = player.get_shots_received_in_round(
+            round_number=1
+        )
         assert len(round1_shots) == 2
         assert Coordinate(0, 0) in round1_shots
         assert Coordinate(1, 1) in round1_shots
 
-        round2_shots = player.get_shots_received_in_round(2)
+        round2_shots: list[Coordinate] = player.get_shots_received_in_round(
+            round_number=2
+        )
         assert len(round2_shots) == 1
         assert Coordinate(2, 2) in round2_shots
 
     def test_has_all_ships_placed(self):
-        player = Player("Test Player")
+        player: Player = Player("Test Player")
 
         assert not player.has_all_ships_placed()
 
@@ -301,12 +322,12 @@ class TestPlayer:
 
         assert player.has_all_ships_placed()
 
-    def test_setup_fleet(self):
-        player = Player("Test Player")
+    def test_create_fleet(self):
+        player: Player = Player("Test Player")
 
         # setup_fleet just initializes tracking structures
         # Ships still need to be placed manually
-        player.setup_fleet()
+        player.create_fleet()
 
         # Should not change the board state
         assert len(player.board.ships) == 0

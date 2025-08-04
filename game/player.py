@@ -17,7 +17,7 @@ class Player:
         for ship_type in ShipType:
             self.hits_made[ship_type] = []
 
-    def setup_fleet(self) -> None:
+    def create_fleet(self) -> None:
         """Initialize the player's fleet with all required ships"""
         for ship_type in ShipType:
             ship = Ship(ship_type)

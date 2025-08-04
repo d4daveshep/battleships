@@ -5,10 +5,10 @@ from game.player import Player
 
 class TestPlayer:
     def test_player_creation(self):
-        player = Player("Test Player")
+        player:Player = Player("Test Player")
         assert player.name == "Test Player"
         assert not player.is_computer
-        assert len(player.board.ships) == 0
+        assert len(player.board.ships) == 0 # No ships placed
         assert len(player.hits_made) == 5  # All ship types initialized
         assert len(player.opponent_ships_sunk) == 0
 

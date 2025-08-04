@@ -195,14 +195,15 @@ class TestPlayer:
         assert status[ShipType.CRUISER] is False  # Not sunk
 
         # Sink destroyer
-        destroyer = None
+        destroyer: Ship | None = None
         for ship in player.board.ships:
             if ship.ship_type == ShipType.DESTROYER:
                 destroyer = ship
                 break
 
-        destroyer.incoming_shot(Coordinate(0, 0))
-        destroyer.incoming_shot(Coordinate(0, 1))
+        if destroyer:
+            destroyer.incoming_shot(Coordinate(0, 0))
+            destroyer.incoming_shot(Coordinate(0, 1))
 
         status = player.get_fleet_status()
         assert status[ShipType.DESTROYER] is True  # Sunk

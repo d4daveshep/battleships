@@ -103,7 +103,7 @@ class GameBoard:
 
     def get_available_shots(self) -> int:
         """Calculate total available shots based on unsunk ships"""
-        return sum(ship.shots_available for ship in self.ships)
+        return sum(ship.guns_available for ship in self.ships)
 
     def get_sunk_ships(self) -> List[Ship]:
         """Get all ships that have been sunk"""
@@ -123,4 +123,3 @@ class GameBoard:
         for ship in self.ships:
             positions[ship.ship_type] = ship.positions.copy()
         return positions
-

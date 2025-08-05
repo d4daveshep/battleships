@@ -1,12 +1,11 @@
-from typing import Dict, List, Set, Optional, Tuple
 from .models import Ship, Coordinate, Direction, ShipType
 
 
 class GameBoard:
     def __init__(self):
-        self.ships: List[Ship] = []
-        self.shots_received: Dict[Coordinate, int] = {}  # coord -> round number
-        self.shots_fired: Dict[Coordinate, int] = {}  # coord -> round number
+        self.ships: list[Ship] = []
+        self.shots_received: dict[Coordinate, int] = {}  # coord -> round number
+        self.shots_fired: dict[Coordinate, int] = {}  # coord -> round number
 
     def place_ship(self, ship: Ship, start: Coordinate, direction: Direction) -> bool:
         """Place a ship on the board if placement is valid"""
@@ -23,7 +22,7 @@ class GameBoard:
         except ValueError:
             return False
 
-    def _is_valid_placement(self, positions: List[Coordinate]) -> bool:
+    def _is_valid_placement(self, positions: list[Coordinate]) -> bool:
         """Validate ship placement according to game rules"""
         # Check if positions are within board bounds (already checked in place_ship)
         for pos in positions:
@@ -44,14 +43,14 @@ class GameBoard:
 
         return True
 
-    def _get_all_occupied_positions(self) -> Set[Coordinate]:
+    def _get_all_occupied_positions(self) -> set[Coordinate]:
         """Get all positions currently occupied by ships"""
         occupied = set()
         for ship in self.ships:
             occupied.update(ship.positions)
         return occupied
 
-    def _get_all_forbidden_positions(self) -> Set[Coordinate]:
+    def _get_all_forbidden_positions(self) -> set[Coordinate]:
         """Get all positions that are forbidden due to spacing rules"""
         forbidden = set()
         occupied = self._get_all_occupied_positions()
@@ -73,7 +72,7 @@ class GameBoard:
         # Remove already occupied positions from forbidden set
         return forbidden - occupied
 
-    def receive_shot(self, coordinate: Coordinate, round_number: int) -> Optional[Ship]:
+    def receive_shot(self, coordinate: Coordinate, round_number: int) -> Ship | None:
         """Process a shot received at the given coordinate"""
         if coordinate in self.shots_received:
             raise ValueError(f"Position {coordinate.to_string()} already shot at")
@@ -94,7 +93,7 @@ class GameBoard:
 
         self.shots_fired[coordinate] = round_number
 
-    def get_ship_at_position(self, coordinate: Coordinate) -> Optional[Ship]:
+    def get_ship_at_position(self, coordinate: Coordinate) -> Ship | None:
         """Get the ship at the given position, if any"""
         for ship in self.ships:
             if coordinate in ship.positions:
@@ -105,11 +104,11 @@ class GameBoard:
         """Calculate total available shots based on unsunk ships"""
         return sum(ship.guns_available for ship in self.ships)
 
-    def get_sunk_ships(self) -> List[Ship]:
+    def get_sunk_ships(self) -> list[Ship]:
         """Get all ships that have been sunk"""
         return [ship for ship in self.ships if ship.is_sunk]
 
-    def get_unsunk_ships(self) -> List[Ship]:
+    def get_unsunk_ships(self) -> list[Ship]:
         """Get all ships that are still afloat"""
         return [ship for ship in self.ships if not ship.is_sunk]
 
@@ -117,7 +116,7 @@ class GameBoard:
         """Check if all ships have been sunk"""
         return all(ship.is_sunk for ship in self.ships)
 
-    def get_ship_positions(self) -> Dict[ShipType, List[Coordinate]]:
+    def get_ship_positions(self) -> dict[ShipType, list[Coordinate]]:
         """Get positions of all ships by type"""
         positions = {}
         for ship in self.ships:

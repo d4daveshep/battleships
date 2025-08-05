@@ -1,13 +1,14 @@
 from typing import Dict, List, Optional, Set
 from .models import Ship, Coordinate, ShipType
 from .board import GameBoard
+from game import board
 
 
 class Player:
     def __init__(self, name: str, is_computer: bool = False):
-        self.name = name
-        self.is_computer = is_computer
-        self.board = GameBoard()
+        self.name: str = name
+        self.is_computer: bool = is_computer
+        self.board: GameBoard = GameBoard()
         self.hits_made: Dict[
             ShipType, List[int]
         ] = {}  # ship_type -> list of round numbers
@@ -120,4 +121,3 @@ class Player:
 
         computer_logic = ComputerPlayer(self, seed)
         return computer_logic.auto_place_ships()
-

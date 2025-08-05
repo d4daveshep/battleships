@@ -18,10 +18,10 @@ class ShipType(Enum):
     SUBMARINE = ("Submarine", 3, 1)
     DESTROYER = ("Destroyer", 2, 1)
 
-    def __init__(self, ship_name: str, length: int, shots: int):
+    def __init__(self, ship_name: str, length: int, guns: int):
         self.ship_name = ship_name
         self.length = length
-        self.shots = shots
+        self.guns = guns
 
 
 @dataclass
@@ -68,12 +68,16 @@ class Ship:
         return len(self.hits) >= self.ship_type.length
 
     @property
+    def is_afloat(self) -> bool:
+        return not self.is_sunk
+
+    @property
     def length(self) -> int:
         return self.ship_type.length
 
     @property
-    def shots_available(self) -> int:
-        return 0 if self.is_sunk else self.ship_type.shots
+    def guns_available(self) -> int:
+        return self.ship_type.guns if self.is_afloat else 0
 
     def is_at(self, coordinate: Coordinate) -> bool:
         return coordinate in self.positions
@@ -111,4 +115,3 @@ class Ship:
 
         self.positions = positions
         return positions
-

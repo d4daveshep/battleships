@@ -29,6 +29,7 @@
 
 ## GameController
 
+- GameController creates and controls (updates) all the game model objects and controls the state of these model objects
 - GameController is a singleton
 - GameController can validate the ShotsAimed by each Player before they are fired. Validation includes:
   - Checking the number of ShotsAimed is less or equal to the Players shots available.

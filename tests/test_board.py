@@ -5,7 +5,7 @@ from game.board import GameBoard
 
 class TestGameBoard:
     def test_board_creation(self):
-        board = GameBoard()
+        board: GameBoard = GameBoard()
         assert len(board.ships) == 0
         assert len(board.shots_received) == 0
         assert len(board.shots_fired) == 0
@@ -256,4 +256,3 @@ class TestGameBoard:
         # Place with proper spacing
         result = board.place_ship(ship2, Coordinate(5, 5), Direction.HORIZONTAL)
         assert result is True
-

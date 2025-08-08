@@ -359,4 +359,4 @@ class TestRoundResult:
         assert len(round_result.player1_shots) == 1
         assert len(round_result.player2_shots) == 1
         assert ShipType.DESTROYER in round_result.player1_hits
-        assert len(round_result.ships_sunk_this_round) == 1
+ me       assert len(round_result.ships_sunk_this_round) == 1

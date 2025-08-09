@@ -1,6 +1,12 @@
 import pytest
 from game.models import Coordinate, ShipType, Direction, Ship
-from game.player import Player
+from game.player import Player, PlayerNum
+
+
+class TestPlayerNum:
+    def test_player_num_enums(self):
+        assert PlayerNum.PLAYER_1 == 1
+        assert PlayerNum.PLAYER_2 == 2
 
 
 class TestPlayer:
@@ -12,7 +18,10 @@ class TestPlayer:
     #     assert len(player.board.ships) == 0  # No ships placed
     #     assert len(player.hits_made) == 5  # All ship types initialized
     #     assert len(player.opponent_ships_sunk) == 0
-    #
+    def test_player_creation_fails_without_name(self):
+        with pytest.raises(TypeError):
+            Player()
+
     # def test_computer_player_creation(self):
     #     player: Player = Player("Computer", is_computer=True)
     #     assert player.name == "Computer"

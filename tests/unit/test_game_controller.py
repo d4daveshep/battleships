@@ -1,7 +1,7 @@
-from os import name
 import pytest
-from game.player import Player
+from game.player import Player, PlayerNum
 from game.game_controller import Game, GameController
+from game.ship import ShipLocation
 
 
 @pytest.fixture
@@ -12,6 +12,16 @@ def player_alice() -> Player:
 @pytest.fixture
 def player_bob() -> Player:
     return Player(name="Bob")
+
+
+@pytest.fixture()
+def two_player_game(player_alice, player_bob) -> Game:
+    return Game(player_1=player_alice, player_2=player_bob)
+
+
+@pytest.fixture()
+def ship_layout_1() -> list[ShipLocation]:
+    return []
 
 
 class TestGame:
@@ -30,3 +40,26 @@ class TestGameController:
         assert game
         assert game.player_1.name == "Alice"
         assert game.player_2.name == "Bob"
+
+    def test_place_ships(
+        self, two_player_game: Game, ship_layout_1: list[ShipLocation]
+    ):
+        assert GameController.place_ships(
+            game=two_player_game, player_num=PlayerNum.PLAYER_1, ships=ship_layout_1
+        )
+
+    def test_place_ships_invalid_layout(self, two_player_game: Game):
+        with pytest.raises(ValueError):
+            GameController.place_ships(
+                game=two_player_game,
+                player_num=PlayerNum.PLAYER_1,
+                ships=ship_layout_invalid,
+            )
+
+    def test_place_ships_incomplete_layout(self, two_player_game: Game):
+        with pytest.raises(ValueError):
+            GameController.place_ships(
+                game=two_player_game,
+                player_num=PlayerNum.PLAYER_1,
+                ships=ship_layout_incomplete,
+            )

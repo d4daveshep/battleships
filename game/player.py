@@ -1,7 +1,13 @@
+from enum import IntEnum
 from typing import Dict, List, Optional, Set
 from .models import Ship, Coordinate, ShipType
 from .board import GameBoard
 from game import board
+
+
+class PlayerNum(IntEnum):
+    PLAYER_1 = 1
+    PLAYER_2 = 2
 
 
 class Player:

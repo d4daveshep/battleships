@@ -1,5 +1,6 @@
 from game import player
-from game.player import Player
+from game.player import Player, PlayerNum
+from game.ship import ShipLocation
 
 
 class Game:
@@ -14,3 +15,9 @@ class GameController:
         player_1: Player = Player(name=player_1_name)
         player_2: Player = Player(name=player_2_name)
         return Game(player_1=player_1, player_2=player_2)
+
+    @staticmethod
+    def place_ships(
+        game: Game, player_num: PlayerNum, ships: list[ShipLocation]
+    ) -> bool:
+        return False

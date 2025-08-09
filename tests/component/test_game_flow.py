@@ -1,7 +1,14 @@
+from game.player import Player
+from game.game_controller import Game, GameController
+
+
 def test_ft_game_play():
     """Functional test: Test the game play"""
 
     # Alice and Bob decide to start a game
+    alice: Player = Player(name="Alice")
+    bob: Player = Player(name="Bob")
+    game: Game = GameController.create_game(player1=alice, player2=bob)
     # Alice and Bob place thier ships on their game boards
     # When they are both done placing ships the game is ready to start
     # Alice and Bob both have 5 shots available to fire

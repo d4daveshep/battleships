@@ -1,4 +1,5 @@
 from enum import IntEnum
+from game.board import GameBoard
 
 
 class PlayerNum(IntEnum):
@@ -11,7 +12,7 @@ class Player:
     def __init__(self, name: str):
         self.name: str = name
         # self.is_computer: bool = is_computer
-        # self.board: GameBoard = GameBoard()
+        self.board: GameBoard = GameBoard()
         # self.hits_made: Dict[
         #     ShipType, List[int]
         # ] = {}  # ship_type -> list of round numbers

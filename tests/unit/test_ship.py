@@ -1,7 +1,7 @@
 # Unit tests for Ship classes
 import pytest
 
-from game.ship import Coordinate, Direction, ShipType, ShipLocation
+from game.ship import Coordinate, Direction, ShipType, ShipLocation, Ship
 
 
 class TestCoordinate:
@@ -107,3 +107,121 @@ class TestShipLocation:
         assert ship_location.ship_type == ShipType.CARRIER
         assert ship_location.start_point == Coordinate(0, 0)
         assert ship_location.direction == Direction.HORIZONTAL
+
+
+class TestShip:
+    def test_ship_creation(self):
+        ship: Ship = Ship(ShipType.CARRIER)
+        assert ship.ship_type == ShipType.CARRIER
+        assert ship.length == 5
+        assert ship.guns_available == 2
+        assert ship.is_afloat
+        assert not ship.is_sunk
+        assert len(ship.coordinates) == 0
+        assert len(ship.hits_taken) == 0
+
+    def test_place_ship_horizontal(self):
+        ship: Ship = Ship(ShipType.DESTROYER)  # Length 2
+        start: Coordinate = Coordinate(0, 0)
+        coordinates: set[Coordinate] = ship.place_ship(start, Direction.HORIZONTAL)
+
+        expected: set[Coordinate] = {Coordinate(0, 0), Coordinate(0, 1)}
+        assert coordinates == expected
+        assert ship.coordinates == expected
+
+    def test_place_ship_vertical(self):
+        ship: Ship = Ship(ShipType.DESTROYER)  # Length 2
+        start: Coordinate = Coordinate(0, 0)
+        coordinates: set[Coordinate] = ship.place_ship(start, Direction.VERTICAL)
+
+        expected: set[Coordinate] = {Coordinate(0, 0), Coordinate(1, 0)}
+        assert coordinates == expected
+        assert ship.coordinates == expected
+
+    def test_place_ship_diagonal_ne(self):
+        ship: Ship = Ship(ShipType.DESTROYER)  # Length 2
+        start: Coordinate = Coordinate(1, 0)
+        coordinates: set[Coordinate] = ship.place_ship(start, Direction.DIAGONAL_NE)
+
+        expected: set[Coordinate] = {Coordinate(1, 0), Coordinate(0, 1)}
+        assert coordinates == expected
+        assert ship.coordinates == expected
+
+    def test_place_ship_diagonal_se(self):
+        ship: Ship = Ship(ShipType.DESTROYER)  # Length 2
+        start: Coordinate = Coordinate(0, 0)
+        coordinates: set[Coordinate] = ship.place_ship(start, Direction.DIAGONAL_SE)
+
+        expected: set[Coordinate] = {Coordinate(0, 0), Coordinate(1, 1)}
+        assert coordinates == expected
+        assert ship.coordinates == expected
+
+    def test_place_ship_out_of_bounds(self):
+        ship: Ship = Ship(ShipType.CARRIER)  # Length 5
+
+        # Horizontal out of bounds
+        with pytest.raises(ValueError):
+            ship.place_ship(Coordinate(0, 6), Direction.HORIZONTAL)
+
+        # Vertical out of bounds
+        with pytest.raises(ValueError):
+            ship.place_ship(Coordinate(6, 0), Direction.VERTICAL)
+
+        # Diagonal out of bounds
+        with pytest.raises(ValueError):
+            ship.place_ship(Coordinate(0, 6), Direction.DIAGONAL_SE)
+
+    def test_ship_is_at_coordinate(self):
+        ship: Ship = Ship(ShipType.DESTROYER)
+        ship.place_ship(Coordinate(0, 0), Direction.HORIZONTAL)
+
+        assert ship.is_at(Coordinate(0, 0))
+        assert ship.is_at(Coordinate(0, 1))
+        assert not ship.is_at(Coordinate(1, 0))
+        assert not ship.is_at(Coordinate(1, 1))
+
+    def test_ship_hit(self):
+        ship: Ship = Ship(ShipType.DESTROYER)
+        ship.place_ship(Coordinate(0, 0), Direction.HORIZONTAL)
+
+        # Hit valid position
+        assert ship.incoming_shot(Coordinate(0, 0))
+        assert Coordinate(0, 0) in ship.hits_taken
+        assert not ship.is_sunk
+
+        # Hit invalid position
+        assert not ship.incoming_shot(Coordinate(1, 1))
+        assert Coordinate(1, 1) not in ship.hits_taken
+
+        # Hit second position to sink ship
+        assert ship.incoming_shot(Coordinate(0, 1))
+        assert ship.is_sunk
+        assert ship.guns_available == 0
+
+    def test_ship_sinking(self):
+        ship: Ship = Ship(ShipType.CRUISER)  # Length 3
+        ship.place_ship(Coordinate(0, 0), Direction.HORIZONTAL)
+
+        # Hit all positions
+        ship.incoming_shot(Coordinate(0, 0))
+        assert ship.is_afloat
+
+        ship.incoming_shot(Coordinate(0, 1))
+        assert ship.is_afloat
+
+        ship.incoming_shot(Coordinate(0, 2))
+        assert ship.is_sunk
+        assert ship.guns_available == 0
+
+    def test_shots_available(self):
+        carrier = Ship(ShipType.CARRIER)
+        assert carrier.guns_available == 2
+
+        destroyer = Ship(ShipType.DESTROYER)
+        assert destroyer.guns_available == 1
+
+        # After sinking
+        destroyer.place_ship(Coordinate(0, 0), Direction.HORIZONTAL)
+        destroyer.incoming_shot(Coordinate(0, 0))
+        destroyer.incoming_shot(Coordinate(0, 1))
+        assert destroyer.guns_available == 0

@@ -1,15 +1,15 @@
-# import pytest
-# from game.models import Coordinate, Ship, ShipType, Direction
-# from game.board import GameBoard
-#
-#
-# class TestGameBoard:
-#     def test_board_creation(self):
-#         board: GameBoard = GameBoard()
-#         assert len(board.ships) == 0
-#         assert len(board.shots_received) == 0
-#         assert len(board.shots_fired) == 0
-#
+import pytest
+from game.board import GameBoard
+
+
+class TestGameBoard:
+    def test_board_creation(self):
+        board: GameBoard = GameBoard()
+        assert len(board.ships) == 0
+        assert len(board.shots_received) == 0
+        assert len(board.shots_fired) == 0
+
+
 #     def test_place_ship_valid(self):
 #         board = GameBoard()
 #         ship = Ship(ShipType.DESTROYER)

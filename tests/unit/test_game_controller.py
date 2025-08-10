@@ -1,7 +1,7 @@
 import pytest
 from game.player import Player, PlayerNum
 from game.game_controller import Game, GameController
-from game.ship import ShipLocation
+from game.ship import ShipLocation, ShipType, Coordinate, Direction
 
 
 @pytest.fixture
@@ -21,6 +21,43 @@ def two_player_game(player_alice, player_bob) -> Game:
 
 @pytest.fixture()
 def ship_layout_1() -> list[ShipLocation]:
+    ship_layout: list[ShipLocation] = [
+        ShipLocation(
+            ship_type=ShipType.CARRIER,
+            start_point=Coordinate(0, 0),
+            direction=Direction.HORIZONTAL,
+        ),
+        ShipLocation(
+            ship_type=ShipType.BATTLESHIP,
+            start_point=Coordinate(2, 0),
+            direction=Direction.HORIZONTAL,
+        ),
+        ShipLocation(
+            ship_type=ShipType.CRUISER,
+            start_point=Coordinate(4, 0),
+            direction=Direction.HORIZONTAL,
+        ),
+        ShipLocation(
+            ship_type=ShipType.SUBMARINE,
+            start_point=Coordinate(6, 0),
+            direction=Direction.HORIZONTAL,
+        ),
+        ShipLocation(
+            ship_type=ShipType.DESTROYER,
+            start_point=Coordinate(8, 0),
+            direction=Direction.HORIZONTAL,
+        ),
+    ]
+    return ship_layout
+
+
+@pytest.fixture
+def ship_layout_invalid() -> list[ShipLocation]:
+    return []
+
+
+@pytest.fixture
+def ship_layout_incomplete() -> list[ShipLocation]:
     return []
 
 
@@ -47,8 +84,14 @@ class TestGameController:
         assert GameController.place_ships(
             game=two_player_game, player_num=PlayerNum.PLAYER_1, ships=ship_layout_1
         )
+        player_1: Player = two_player_game.player_1
+        assert player_1.board
+        assert len(player_1.board.ships) == len(list(ShipType))
+        assert player_1.board.ship_placement_is_valid
 
-    def test_place_ships_invalid_layout(self, two_player_game: Game):
+    def test_place_ships_invalid_layout(
+        self, two_player_game: Game, ship_layout_invalid: list[ShipLocation]
+    ):
         with pytest.raises(ValueError):
             GameController.place_ships(
                 game=two_player_game,
@@ -56,7 +99,9 @@ class TestGameController:
                 ships=ship_layout_invalid,
             )
 
-    def test_place_ships_incomplete_layout(self, two_player_game: Game):
+    def test_place_ships_incomplete_layout(
+        self, two_player_game: Game, ship_layout_incomplete: list[ShipLocation]
+    ):
         with pytest.raises(ValueError):
             GameController.place_ships(
                 game=two_player_game,

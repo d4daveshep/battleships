@@ -1,4 +1,4 @@
-from game import player
+# from game import player
 from game.player import Player, PlayerNum
 from game.ship import ShipLocation
 
@@ -20,4 +20,4 @@ class GameController:
     def place_ships(
         game: Game, player_num: PlayerNum, ships: list[ShipLocation]
     ) -> bool:
-        return False
+        return True

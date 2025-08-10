@@ -14,6 +14,8 @@
 
 ## Game
 
+All game state lives in the Game object (and sub-objects)
+
 - Games have several Rounds
 - Games have two Players
 - Games have a GameState
@@ -28,6 +30,8 @@
 - GameStates can be SETUP | PLAYING | FINISHED | ABANDONED
 
 ## GameController
+
+GameController is stateless and operates on Game objects
 
 - GameController creates and controls (updates) all the game model objects and controls the state of these model objects
 - GameController is a singleton

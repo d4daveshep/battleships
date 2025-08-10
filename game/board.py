@@ -1,4 +1,4 @@
-from game.ship import Ship, Coordinate
+from game.ship import Ship, Coordinate, Direction
 
 
 class GameBoard:
@@ -7,71 +7,71 @@ class GameBoard:
         self.shots_received: dict[Coordinate, int] = {}  # coord -> round number
         self.shots_fired: dict[Coordinate, int] = {}  # coord -> round number
 
-    # def place_ship(self, ship: Ship, start: Coordinate, direction: Direction) -> bool:
-    #     """Place a ship on the board if placement is valid"""
-    #     try:
-    #         positions = ship.place_ship(start, direction)
-    #
-    #         if self._is_valid_placement(positions):
-    #             self.ships.append(ship)
-    #             return True
-    #         else:
-    #             ship.positions = []  # Reset positions if placement failed
-    #             return False
-    #
-    #     except ValueError:
-    #         return False
-    #
-    # def _is_valid_placement(self, positions: list[Coordinate]) -> bool:
-    #     """Validate ship placement according to game rules"""
-    #     # Check if positions are within board bounds (already checked in place_ship)
-    #     for pos in positions:
-    #         if not (0 <= pos.row <= 9 and 0 <= pos.col <= 9):
-    #             return False
-    #
-    #     # Check for overlaps with existing ships
-    #     occupied_positions = self._get_all_occupied_positions()
-    #     for pos in positions:
-    #         if pos in occupied_positions:
-    #             return False
-    #
-    #     # Check spacing rule: no ship can be adjacent to another
-    #     forbidden_positions = self._get_all_forbidden_positions()
-    #     for pos in positions:
-    #         if pos in forbidden_positions:
-    #             return False
-    #
-    #     return True
-    #
-    # def _get_all_occupied_positions(self) -> set[Coordinate]:
-    #     """Get all positions currently occupied by ships"""
-    #     occupied = set()
-    #     for ship in self.ships:
-    #         occupied.update(ship.positions)
-    #     return occupied
-    #
-    # def _get_all_forbidden_positions(self) -> set[Coordinate]:
-    #     """Get all positions that are forbidden due to spacing rules"""
-    #     forbidden = set()
-    #     occupied = self._get_all_occupied_positions()
-    #
-    #     for pos in occupied:
-    #         # Add all adjacent positions (8 directions)
-    #         for row_offset in [-1, 0, 1]:
-    #             for col_offset in [-1, 0, 1]:
-    #                 if row_offset == 0 and col_offset == 0:
-    #                     continue  # Skip the position itself
-    #
-    #                 adjacent_row = pos.row + row_offset
-    #                 adjacent_col = pos.col + col_offset
-    #
-    #                 # Only add if within board bounds
-    #                 if 0 <= adjacent_row <= 9 and 0 <= adjacent_col <= 9:
-    #                     forbidden.add(Coordinate(adjacent_row, adjacent_col))
-    #
-    #     # Remove already occupied positions from forbidden set
-    #     return forbidden - occupied
-    #
+    # Place a ship on the board if placement is valid
+    def place_ship(self, ship: Ship, start: Coordinate, direction: Direction) -> bool:
+        try:
+            coordinates: set[Coordinate] = ship.place_ship(start, direction)
+
+            if self._is_valid_placement(coordinates):
+                self.ships.append(ship)
+                return True
+            else:
+                ship.coordinates = set()  # Reset positions if placement failed
+                return False
+
+        except ValueError:
+            return False
+
+    # Validate ship placement according to game rules
+    def _is_valid_placement(self, coordinates: set[Coordinate]) -> bool:
+        # Check if positions are within board bounds (already checked in place_ship)
+        for coord in coordinates:
+            if not (0 <= coord.row <= 9 and 0 <= coord.col <= 9):
+                return False
+
+        # Check for overlaps with existing ships
+        occupied_coordinates: set[Coordinate] = self._get_all_occupied_positions()
+        for coord in coordinates:
+            if coordinates in occupied_coordinates:
+                return False
+
+        # Check spacing rule: no ship can be adjacent to another
+        forbidden_coordinates = self._get_all_forbidden_positions()
+        for coord in coordinates:
+            if coord in forbidden_coordinates:
+                return False
+
+        return True
+
+    # Get all positions currently occupied by ships"""
+    def _get_all_occupied_positions(self) -> set[Coordinate]:
+        occupied: set[Coordinate] = set()
+        for ship in self.ships:
+            occupied.update(ship.coordinates)
+        return occupied
+
+    # Get all positions that are forbidden due to spacing rules"""
+    def _get_all_forbidden_positions(self) -> set[Coordinate]:
+        forbidden: set[Coordinate] = set()
+        occupied: set[Coordinate] = self._get_all_occupied_positions()
+
+        for coord in occupied:
+            # Add all adjacent positions (8 directions)
+            for row_offset in [-1, 0, 1]:
+                for col_offset in [-1, 0, 1]:
+                    if row_offset == 0 and col_offset == 0:
+                        continue  # Skip the position itself
+
+                    adjacent_row = coord.row + row_offset
+                    adjacent_col = coord.col + col_offset
+
+                    # Only add if within board bounds
+                    if 0 <= adjacent_row <= 9 and 0 <= adjacent_col <= 9:
+                        forbidden.add(Coordinate(adjacent_row, adjacent_col))
+
+        # Remove already occupied positions from forbidden set
+        return forbidden - occupied
+
     # def receive_shot(self, coordinate: Coordinate, round_number: int) -> Ship | None:
     #     """Process a shot received at the given coordinate"""
     #     if coordinate in self.shots_received:

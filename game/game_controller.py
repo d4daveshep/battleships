@@ -8,6 +8,14 @@ class Game:
         self.player_1 = player_1
         self.player_2 = player_2
 
+    def get_player_by_num(self, player_num: PlayerNum) -> Player:
+        if player_num == PlayerNum.PLAYER_1:
+            return self.player_1
+        elif player_num == PlayerNum.PLAYER_2:
+            return self.player_2
+        else:
+            raise ValueError(f"Invalid player_num: {player_num}")
+
 
 class GameController:
     @staticmethod
@@ -20,4 +28,11 @@ class GameController:
     def place_ships(
         game: Game, player_num: PlayerNum, ships: list[ShipLocation]
     ) -> bool:
+        player: Player = game.get_player_by_num(player_num)
+        for ship_location in ships:
+            player.place_ship(
+                ship_type=ship_location.ship_type,
+                start=ship_location.start_point,
+                direction=ship_location.direction,
+            )
         return True

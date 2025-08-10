@@ -68,6 +68,16 @@ class TestGame:
         assert game.player_1 == player_alice
         assert game.player_2 == player_bob
 
+    def test_get_player_by_player_num(self, two_player_game: Game):
+        assert (
+            two_player_game.get_player_by_num(PlayerNum.PLAYER_1)
+            == two_player_game.player_1
+        )
+        assert (
+            two_player_game.get_player_by_num(PlayerNum.PLAYER_2)
+            == two_player_game.player_2
+        )
+
 
 class TestGameController:
     def test_create_game_with_two_players(self):
@@ -87,7 +97,7 @@ class TestGameController:
         player_1: Player = two_player_game.player_1
         assert player_1.board
         assert len(player_1.board.ships) == len(list(ShipType))
-        assert player_1.board.ship_placement_is_valid
+        assert player_1.all_ships_are_placed
 
     def test_place_ships_invalid_layout(
         self, two_player_game: Game, ship_layout_invalid: list[ShipLocation]

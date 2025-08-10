@@ -1,4 +1,7 @@
 from enum import IntEnum
+
+from pytest import Dir
+from game.ship import ShipType, Coordinate, Direction, Ship
 from game.board import GameBoard
 
 
@@ -29,12 +32,14 @@ class Player:
     #         ship = Ship(ship_type)
     #         # Note: Ships need to be placed using place_ship method
     #         # This just creates the ship objects
-    #
-    # def place_ship(self, ship_type: ShipType, start: Coordinate, direction) -> bool:
-    #     """Place a ship on the player's board"""
-    #     ship = Ship(ship_type)
-    #     return self.board.place_ship(ship, start, direction)
-    #
+
+    # Place a ship on the player's board
+    def place_ship(
+        self, ship_type: ShipType, start: Coordinate, direction: Direction
+    ) -> bool:
+        ship = Ship(ship_type)
+        return self.board.place_ship(ship, start, direction)
+
     # def fire_shots(
     #     self, targets: List[Coordinate], round_number: int
     # ) -> List[Coordinate]:
@@ -110,13 +115,14 @@ class Player:
     #         for coord, round_num in self.board.shots_received.items()
     #         if round_num == round_number
     #     ]
-    #
-    # def has_all_ships_placed(self) -> bool:
-    #     """Check if player has placed all required ships"""
-    #     placed_types = {ship.ship_type for ship in self.board.ships}
-    #     required_types = set(ShipType)
-    #     return placed_types == required_types
-    #
+
+    # Check if player has placed all required ships
+    @property
+    def all_ships_are_placed(self) -> bool:
+        placed_types = {ship.ship_type for ship in self.board.ships}
+        required_types = set(ShipType)
+        return placed_types == required_types
+
     # def auto_place_ships(self, seed: Optional[int] = None) -> bool:
     #     """Auto-place ships for computer player using random placement"""
     #     if not self.is_computer:

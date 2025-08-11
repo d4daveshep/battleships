@@ -1,7 +1,7 @@
 import pytest
 from dataclasses import replace
 from game.player import Player, PlayerNum
-from game.game_controller import Game, GameController
+from game.game_controller import Game, GameController, GamePhase, GameNotReadyError
 from game.ship import ShipLocation, ShipType, Coordinate
 
 
@@ -46,12 +46,34 @@ def ship_layout_too_many(ship_layout_1) -> list[ShipLocation]:
     return ship_layout_1
 
 
+@pytest.fixture()
+def two_player_game_with_ship_layout(
+    two_player_game: Game, ship_layout_1: list[ShipLocation]
+) -> Game:
+    GameController.place_ships(two_player_game, PlayerNum.PLAYER_1, ship_layout_1)
+    GameController.place_ships(two_player_game, PlayerNum.PLAYER_2, ship_layout_1)
+    return two_player_game
+
+
+class TestGamePhase:
+    def test_game_phases(self):
+        game_phases: set[GamePhase] = set(GamePhase)
+        assert game_phases == {
+            GamePhase.SETUP,
+            GamePhase.PLAYING,
+            GamePhase.FINISHED,
+            GamePhase.ABANDONED,
+        }
+
+
 class TestGame:
     def test_create_game_object(self, player_alice: Player, player_bob: Player):
         game: Game = Game(player_1=player_alice, player_2=player_bob)
         assert game
         assert game.player_1 == player_alice
         assert game.player_2 == player_bob
+        assert game.phase == GamePhase.SETUP
+        assert game.current_round == 0
 
     def test_get_player_by_player_num(self, two_player_game: Game):
         assert (
@@ -87,6 +109,8 @@ class TestGameController:
         assert game
         assert game.player_1.name == "Alice"
         assert game.player_2.name == "Bob"
+        assert game.current_round == 0
+        assert game.phase == GamePhase.SETUP
 
     def test_place_ships(
         self, two_player_game: Game, ship_layout_1: list[ShipLocation]
@@ -128,3 +152,21 @@ class TestGameController:
                 player_num=PlayerNum.PLAYER_1,
                 ships=ship_layout_too_many,
             )
+
+    def test_start_game(self, two_player_game_with_ship_layout: Game):
+        game: Game = two_player_game_with_ship_layout
+        assert game.is_ready_to_start
+
+        GameController.start_game(game=game)
+        assert game.current_round == 1
+        assert game.phase == GamePhase.PLAYING
+
+    def test_cant_start_game_if_not_ready(self, two_player_game: Game):
+        game: Game = two_player_game
+        assert not game.is_ready_to_start
+
+        with pytest.raises(GameNotReadyError):
+            GameController.start_game(two_player_game)
+
+        assert game.current_round == 0
+        assert game.phase == GamePhase.SETUP

@@ -9,8 +9,7 @@ from .models import Coordinate, ShipType
 from .player import Player
 
 
-class GamePhase(Enum):
-    SETUP = "setup"
+class GamePhase(Enum): SETUP = "setup"
     PLAYING = "playing"
     FINISHED = "finished"
     ABANDONED = "abandoned"

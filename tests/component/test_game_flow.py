@@ -17,9 +17,7 @@ def test_game_play(ship_layout_1: list[ShipLocation]):
     )
 
     # When they are both done placing ships the game is ready to start
-    assert game.is_ready_to_start
     GameController.start_game(game=game)
-    assert game.current_round == 1
 
     # Alice and Bob both have 6 shots available to fire
     assert game.player_1.available_shots == 6

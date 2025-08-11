@@ -1,12 +1,34 @@
 # from game import player
+from enum import Enum
 from game.player import Player, PlayerNum
 from game.ship import ShipLocation, ShipType
 
 
+class GamePhase(Enum):
+    SETUP = "setup"
+    PLAYING = "playing"
+    FINISHED = "finished"
+    ABANDONED = "abandoned"
+
+
+class GameNotReadyError(Exception):
+    pass
+
+
 class Game:
     def __init__(self, player_1: Player, player_2: Player):
-        self.player_1 = player_1
-        self.player_2 = player_2
+        self.player_1: Player = player_1
+        self.player_2: Player = player_2
+        self._phase: GamePhase = GamePhase.SETUP
+        self._current_round: int = 0
+
+    @property
+    def phase(self) -> GamePhase:
+        return self._phase
+
+    @property
+    def current_round(self) -> int:
+        return self._current_round
 
     def get_player_by_num(self, player_num: PlayerNum) -> Player:
         if player_num == PlayerNum.PLAYER_1:
@@ -43,3 +65,10 @@ class GameController:
             ):
                 raise ValueError(f"Invalid ship location: {ship_location}")
         return True
+
+    @staticmethod
+    def start_game(game: Game) -> None:
+        if not game.is_ready_to_start:
+            raise GameNotReadyError
+        game._current_round = 1
+        game._phase = GamePhase.PLAYING

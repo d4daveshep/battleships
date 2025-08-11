@@ -39,3 +39,7 @@ class GameController:
             ):
                 raise ValueError(f"Invalid ship location: {ship_location}")
         return True
+
+    @staticmethod
+    def game_is_ready_to_start(game: Game) -> bool:
+        return game.player_1.all_ships_are_placed and game.player_2.all_ships_are_placed

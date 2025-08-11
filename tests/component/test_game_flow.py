@@ -12,8 +12,13 @@ def test_game_play(ship_layout_1: list[ShipLocation]):
     GameController.place_ships(
         game=game, player_num=PlayerNum.PLAYER_1, ships=ship_layout_1
     )
+    GameController.place_ships(
+        game=game, player_num=PlayerNum.PLAYER_2, ships=ship_layout_1
+    )
+
     # When they are both done placing ships the game is ready to start
-    assert GameController.game_is_ready_to_start
+    assert GameController.game_is_ready_to_start(game)
+
     # Alice and Bob both have 5 shots available to fire
     # They both aim (place) their shots and fire them at each others ships
     # This completes the round and the game reports the results of the round

@@ -179,35 +179,35 @@ class TestPlayer:
     #
     #     assert ShipType.DESTROYER in player.opponent_ships_sunk
     #     assert ShipType.CARRIER not in player.opponent_ships_sunk
-    #
-    # def test_get_available_shots(self):
-    #     player: Player = Player("Test Player")
-    #
-    #     # No ships placed
-    #     assert player.get_available_shots() == 0
-    #
-    #     # Place some ships
-    #     player.place_ship(
-    #         ship_type=ShipType.CARRIER,
-    #         start=Coordinate(0, 0),
-    #         direction=Direction.HORIZONTAL,
-    #     )  # 2 shots
-    #     player.place_ship(
-    #         ship_type=ShipType.DESTROYER,
-    #         start=Coordinate(2, 0),
-    #         direction=Direction.HORIZONTAL,
-    #     )  # 1 shot
-    #
-    #     assert player.get_available_shots() == 3
-    #
-    #     # Sink destroyer
-    #     destroyer: Ship = player.board.ships[1]
-    #     assert destroyer.ship_type == ShipType.DESTROYER
-    #     destroyer.incoming_shot(Coordinate(2, 0))
-    #     destroyer.incoming_shot(Coordinate(2, 1))
-    #
-    #     assert player.get_available_shots() == 2  # Only carrier shots remain
-    #
+
+    def test_available_shots(self):
+        player: Player = Player("Test Player")
+
+        # No ships placed
+        assert player.available_shots == 0
+
+        # Place some ships
+        player.place_ship(
+            ship_type=ShipType.CARRIER,
+            start=Coordinate(0, 0),
+            direction=Direction.HORIZONTAL,
+        )  # 2 shots
+        player.place_ship(
+            ship_type=ShipType.DESTROYER,
+            start=Coordinate(2, 0),
+            direction=Direction.HORIZONTAL,
+        )  # 1 shot
+
+        assert player.available_shots == 3
+
+        # Sink destroyer
+        destroyer: Ship = player.board.ships[1]
+        assert destroyer.ship_type == ShipType.DESTROYER
+        destroyer.incoming_shot(Coordinate(2, 0))
+        destroyer.incoming_shot(Coordinate(2, 1))
+
+        assert player.available_shots == 2  # Only carrier shots remain
+
     # def test_is_defeated(self):
     #     player: Player = Player("Test Player")
     #

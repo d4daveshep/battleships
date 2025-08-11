@@ -100,10 +100,12 @@ class GameBoard:
     #             return ship
     #     return None
     #
-    # def get_available_shots(self) -> int:
-    #     """Calculate total available shots based on unsunk ships"""
-    #     return sum(ship.guns_available for ship in self.ships)
-    #
+
+    # Calculate total available shots based on unsunk ships
+    @property
+    def available_shots(self) -> int:
+        return sum(ship.guns_available for ship in self.ships)
+
     # def get_sunk_ships(self) -> list[Ship]:
     #     """Get all ships that have been sunk"""
     #     return [ship for ship in self.ships if ship.is_sunk]

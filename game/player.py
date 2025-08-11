@@ -80,11 +80,12 @@ class Player:
     # def record_opponent_ship_sunk(self, ship_type: ShipType) -> None:
     #     """Record that an opponent's ship has been sunk"""
     #     self.opponent_ships_sunk.add(ship_type)
-    #
-    # def get_available_shots(self) -> int:
-    #     """Get number of shots available this round"""
-    #     return self.board.get_available_shots()
-    #
+
+    # Get number of shots available this round
+    @property
+    def available_shots(self) -> int:
+        return self.board.available_shots
+
     # def is_defeated(self) -> bool:
     #     """Check if player has lost (all ships sunk)"""
     #     return self.board.is_all_ships_sunk()

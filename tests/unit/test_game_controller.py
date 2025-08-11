@@ -1,4 +1,5 @@
 import pytest
+from dataclasses import replace
 from game.player import Player, PlayerNum
 from game.game_controller import Game, GameController
 from game.ship import ShipLocation, ShipType, Coordinate, Direction
@@ -52,7 +53,7 @@ def ship_layout_1() -> list[ShipLocation]:
     return ship_layout
 
 
-# Define an invalid ship layout (modifing an invalid one)
+# Define an invalid ship layout (modifying an valid one)
 @pytest.fixture
 def ship_layout_invalid(ship_layout_1) -> list[ShipLocation]:
     invalid_location: ShipLocation = ship_layout_1[4]
@@ -61,9 +62,21 @@ def ship_layout_invalid(ship_layout_1) -> list[ShipLocation]:
     return ship_layout_1
 
 
+# Define and incomplete layout of ships (modifying a valid layout)
 @pytest.fixture
-def ship_layout_incomplete() -> list[ShipLocation]:
-    return []
+def ship_layout_incomplete(ship_layout_1) -> list[ShipLocation]:
+    del ship_layout_1[-1]  # Remove last ship
+    return ship_layout_1
+
+
+# Define a layout with too many ships (modifying a valid layout)
+@pytest.fixture
+def ship_layout_too_many(ship_layout_1) -> list[ShipLocation]:
+    extra_location: ShipLocation = replace(
+        ship_layout_1[4], start_point=Coordinate(8, 4)
+    )
+    ship_layout_1.append(extra_location)
+    return ship_layout_1
 
 
 class TestGame:
@@ -122,4 +135,14 @@ class TestGameController:
                 game=two_player_game,
                 player_num=PlayerNum.PLAYER_1,
                 ships=ship_layout_incomplete,
+            )
+
+    def test_place_too_many_ships(
+        self, two_player_game: Game, ship_layout_too_many: list[ShipLocation]
+    ):
+        with pytest.raises(ValueError):
+            GameController.place_ships(
+                game=two_player_game,
+                player_num=PlayerNum.PLAYER_1,
+                ships=ship_layout_too_many,
             )

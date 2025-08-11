@@ -1,6 +1,6 @@
 # from game import player
 from game.player import Player, PlayerNum
-from game.ship import ShipLocation
+from game.ship import ShipLocation, ShipType
 
 
 class Game:
@@ -29,6 +29,8 @@ class GameController:
         game: Game, player_num: PlayerNum, ships: list[ShipLocation]
     ) -> bool:
         player: Player = game.get_player_by_num(player_num)
+        if len(ships) != len(list(ShipType)):
+            raise ValueError(f"Wrong number of ships being placed: {len(ships)}")
         for ship_location in ships:
             if not player.place_ship(
                 ship_type=ship_location.ship_type,

@@ -2,7 +2,7 @@ import pytest
 from dataclasses import replace
 from game.player import Player, PlayerNum
 from game.game_controller import Game, GameController
-from game.ship import ShipLocation, ShipType, Coordinate, Direction
+from game.ship import ShipLocation, ShipType, Coordinate
 
 
 @pytest.fixture
@@ -63,6 +63,21 @@ class TestGame:
             == two_player_game.player_2
         )
 
+    def test_game_is_ready_to_start(
+        self, two_player_game: Game, ship_layout_1: list[ShipLocation]
+    ):
+        # Test game can't start without ships placed
+        assert not two_player_game.is_ready_to_start
+
+        # Test game can't start with only one player's ships
+        GameController.place_ships(two_player_game, PlayerNum.PLAYER_1, ship_layout_1)
+        assert not two_player_game.is_ready_to_start
+
+        # Test game can start after second player adds ships
+        GameController.place_ships(two_player_game, PlayerNum.PLAYER_2, ship_layout_1)
+        assert two_player_game.is_ready_to_start
+        pass
+
 
 class TestGameController:
     def test_create_game_with_two_players(self):
@@ -113,17 +128,3 @@ class TestGameController:
                 player_num=PlayerNum.PLAYER_1,
                 ships=ship_layout_too_many,
             )
-
-    def test_game_is_ready_to_start(
-        self, two_player_game: Game, ship_layout_1: list[ShipLocation]
-    ):
-        # Test game can't start without ships placed
-        assert not GameController.game_is_ready_to_start(two_player_game)
-
-        # Test game can't start with only one player's ships
-        GameController.place_ships(two_player_game, PlayerNum.PLAYER_1, ship_layout_1)
-        assert not GameController.game_is_ready_to_start(two_player_game)
-
-        # Test game can start after second player adds ships
-        GameController.place_ships(two_player_game, PlayerNum.PLAYER_2, ship_layout_1)
-        assert GameController.game_is_ready_to_start(two_player_game)

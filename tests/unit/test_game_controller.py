@@ -19,6 +19,7 @@ def two_player_game(player_alice, player_bob) -> Game:
     return Game(player_1=player_alice, player_2=player_bob)
 
 
+# Define a valid ship layout
 @pytest.fixture()
 def ship_layout_1() -> list[ShipLocation]:
     ship_layout: list[ShipLocation] = [
@@ -51,9 +52,13 @@ def ship_layout_1() -> list[ShipLocation]:
     return ship_layout
 
 
+# Define an invalid ship layout (modifing an invalid one)
 @pytest.fixture
-def ship_layout_invalid() -> list[ShipLocation]:
-    return []
+def ship_layout_invalid(ship_layout_1) -> list[ShipLocation]:
+    invalid_location: ShipLocation = ship_layout_1[4]
+    invalid_location.start_point = Coordinate(7, 0)  # Too close to another ship
+    ship_layout_1[4] = invalid_location
+    return ship_layout_1
 
 
 @pytest.fixture

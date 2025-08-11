@@ -30,9 +30,10 @@ class GameController:
     ) -> bool:
         player: Player = game.get_player_by_num(player_num)
         for ship_location in ships:
-            player.place_ship(
+            if not player.place_ship(
                 ship_type=ship_location.ship_type,
                 start=ship_location.start_point,
                 direction=ship_location.direction,
-            )
+            ):
+                raise ValueError(f"Invalid ship location: {ship_location}")
         return True

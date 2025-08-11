@@ -57,6 +57,15 @@ class TestPlayer:
         assert not ship_is_placed
         assert len(player.board.ships) == 1
 
+        # Try to place adjacent ship
+        ship_is_placed: bool = player.place_ship(
+            ship_type=ShipType.CRUISER,
+            start=Coordinate(1, 0),
+            direction=Direction.HORIZONTAL,
+        )
+        assert not ship_is_placed
+        assert len(player.board.ships) == 1
+
     # def test_fire_shots(self):
     #     player: Player = Player("Test Player")
     #

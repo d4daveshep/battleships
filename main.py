@@ -1,5 +1,5 @@
-from fastapi import FastAPI, Request, Form
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import FastAPI, Form, Request
+from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 app: FastAPI = FastAPI()
@@ -14,15 +14,15 @@ async def login_page(request: Request) -> HTMLResponse:
 @app.post("/", response_model=None)
 async def login_submit(
     request: Request, player_name: str = Form(), game_mode: str = Form()
-) -> HTMLResponse | RedirectResponse:
-    hx_request: str | None = request.headers.get("HX-Request")
-    if hx_request:
-        return templates.TemplateResponse("game.html", {
+) -> HTMLResponse:
+    return templates.TemplateResponse(
+        "game.html",
+        {
             "request": request,
             "player_name": player_name,
-            "game_mode": "Single Player" if game_mode == "computer" else "Two Player"
-        })
-    return RedirectResponse(url="/game", status_code=302)
+            "game_mode": "Single Player" if game_mode == "computer" else "Two Player",
+        },
+    )
 
 
 @app.get("/game", response_class=HTMLResponse)

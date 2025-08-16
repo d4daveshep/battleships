@@ -28,20 +28,20 @@ def on_login_page(page: Page):
 
 
 @given("the login page is fully loaded")
-def login_page_loaded(page: Page):
+def login_page_is_loaded(page: Page):
     assert page.locator('input[name="player_name"]').is_visible()
     assert page.locator('input[name="game_mode"]').first.is_visible()
     assert page.locator('button[type="submit"]').is_visible()
 
 
 @given("the player name field is empty")
-def player_name_field_empty(page: Page):
+def player_name_field_is_empty(page: Page):
     player_name_input: Locator = page.locator('input[name="player_name"]')
     assert player_name_input.input_value() == ""
 
 
 @given("no game mode is selected")
-def no_game_mode_selected(page: Page):
+def no_game_mode_is_selected(page: Page):
     computer_mode: Locator = page.locator('input[value="computer"]')
     human_mode: Locator = page.locator('input[value="human"]')
     assert not computer_mode.is_checked()
@@ -67,17 +67,16 @@ def click_start_game(page: Page):
 
 
 @then("I should be redirected to the game interface")
-def redirected_to_game(page: Page):
+def on_game_page(page: Page):
     page.wait_for_url("**/game")
     assert "game" in page.url
 
 
 @then("the game should be configured for single player mode")
-def game_single_player_mode(page: Page):
+def player_mode_is_single_player(page: Page):
     assert page.locator('[data-testid="game-mode"]').text_content() == "Single Player"
 
 
 @then(parsers.parse('my player name should be set to "{expected_name}"'))
-def player_name_set(page: Page, expected_name: str):
+def player_name_is_set(page: Page, expected_name: str):
     assert page.locator('[data-testid="player-name"]').text_content() == expected_name
-

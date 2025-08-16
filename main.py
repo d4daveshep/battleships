@@ -24,14 +24,15 @@ async def login_submit(
                 "game_mode": "Two Player",
             },
         )
-    return templates.TemplateResponse(
-        "game.html",
-        {
-            "request": request,
-            "player_name": player_name,
-            "game_mode": "Single Player",
-        },
-    )
+    else:
+        return templates.TemplateResponse(
+            "game.html",
+            {
+                "request": request,
+                "player_name": player_name,
+                "game_mode": "Single Player",
+            },
+        )
 
 
 @app.get("/game", response_class=HTMLResponse)

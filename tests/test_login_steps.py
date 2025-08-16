@@ -62,7 +62,7 @@ def on_game_page(page: Page):
 
 
 @then("I should be redirected to the multiplayer lobby")
-def on_multiplayer_lobby(page: Page):
+def on_multiplayer_lobby_page(page: Page):
     page.wait_for_url("**/lobby")
     assert "lobby" in page.url
 

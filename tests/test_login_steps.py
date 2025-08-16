@@ -29,20 +29,20 @@ def on_login_page(page: Page):
 
 @given("the login page is fully loaded")
 def login_page_is_loaded(page: Page):
-    assert page.locator('input[name="player_name"]').is_visible()
+    assert page.locator('input[type="text"][name="player_name"]').is_visible()
     assert page.locator('button[value="computer"]').is_visible()
     assert page.locator('button[value="human"]').is_visible()
 
 
 @given("the player name field is empty")
 def player_name_field_is_empty(page: Page):
-    player_name_input: Locator = page.locator('input[name="player_name"]')
+    player_name_input: Locator = page.locator('input[type="text"][name="player_name"]')
     assert player_name_input.input_value() == ""
 
 
 @when(parsers.parse('I enter "{player_name}" as my player name'))
 def enter_player_name(page: Page, player_name: str):
-    page.locator('input[name="player_name"]').fill(player_name)
+    page.locator('input[type="text"][name="player_name"]').fill(player_name)
 
 
 @when('I click the "Play against Computer" button')

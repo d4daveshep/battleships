@@ -9,13 +9,24 @@
 <body>
     <main>
         <h1>Battleships Login</h1>
+        <div>
+            <label for="player_name">Player Name:</label>
+            <input type="text" id="player_name" name="player_name" value="" oninput="syncPlayerName(this.value)">
+        </div>
         <form hx-post="/" hx-target="body" hx-swap="innerHTML" hx-push-url="/game">
-            <div>
-                <label for="player_name">Player Name:</label>
-                <input type="text" id="player_name" name="player_name" value="">
-            </div>
+            <input type="hidden" name="player_name" id="player_name_computer" value="">
             <button type="submit" name="game_mode" value="computer">Play against Computer</button>
         </form>
+        <form hx-post="/" hx-target="body" hx-swap="innerHTML" hx-push-url="/lobby">
+            <input type="hidden" name="player_name" id="player_name_human" value="">
+            <button type="submit" name="game_mode" value="human">Play against Another Player</button>
+        </form>
+        <script>
+            function syncPlayerName(value) {
+                document.getElementById('player_name_computer').value = value;
+                document.getElementById('player_name_human').value = value;
+            }
+        </script>
     </main>
 </body>
 </html>

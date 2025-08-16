@@ -30,8 +30,7 @@ def on_login_page(page: Page):
 @given("the login page is fully loaded")
 def login_page_is_loaded(page: Page):
     assert page.locator('input[name="player_name"]').is_visible()
-    assert page.locator('input[name="game_mode"]').first.is_visible()
-    assert page.locator('button[type="submit"]').is_visible()
+    assert page.locator('button[value="computer"]').is_visible()
 
 
 @given("the player name field is empty")
@@ -40,30 +39,14 @@ def player_name_field_is_empty(page: Page):
     assert player_name_input.input_value() == ""
 
 
-@given("no game mode is selected")
-def no_game_mode_is_selected(page: Page):
-    computer_mode: Locator = page.locator('input[value="computer"]')
-    human_mode: Locator = page.locator('input[value="human"]')
-    assert not computer_mode.is_checked()
-    assert not human_mode.is_checked()
-
-
 @when(parsers.parse('I enter "{player_name}" as my player name'))
 def enter_player_name(page: Page, player_name: str):
     page.locator('input[name="player_name"]').fill(player_name)
 
 
-@when(parsers.parse('I select "{game_mode}" as the game mode'))
-def select_game_mode(page: Page, game_mode: str):
-    if "Computer" in game_mode:
-        page.locator('input[value="computer"]').check()
-    else:
-        page.locator('input[value="human"]').check()
-
-
-@when('I click the "Start Game" button')
-def click_start_game(page: Page):
-    page.locator('button[type="submit"]').click()
+@when('I click the "Play against Computer" button')
+def click_play_against_computer(page: Page):
+    page.locator('button[value="computer"]').click()
 
 
 @then("I should be redirected to the game interface")

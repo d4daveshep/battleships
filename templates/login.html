@@ -9,23 +9,12 @@
 <body>
     <main>
         <h1>Battleships Login</h1>
-        <form hx-post="/" hx-push-url="/game">
+        <form hx-post="/" hx-target="body" hx-swap="innerHTML" hx-push-url="/game">
             <div>
                 <label for="player_name">Player Name:</label>
                 <input type="text" id="player_name" name="player_name" value="">
             </div>
-            <fieldset>
-                <legend>Game Mode:</legend>
-                <div>
-                    <input type="radio" id="computer" name="game_mode" value="computer">
-                    <label for="computer">Play against Computer</label>
-                </div>
-                <div>
-                    <input type="radio" id="human" name="game_mode" value="human">
-                    <label for="human">Play against Another Player</label>
-                </div>
-            </fieldset>
-            <button type="submit">Start Game</button>
+            <button type="submit" name="game_mode" value="computer">Play against Computer</button>
         </form>
     </main>
 </body>

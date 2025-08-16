@@ -9,10 +9,8 @@ Feature: Player Login and Game Mode Selection
 
   Scenario: Successful login with computer opponent selection
     Given the player name field is empty
-    And no game mode is selected
     When I enter "Alice" as my player name
-    And I select "Play against Computer" as the game mode
-    And I click the "Start Game" button
+    And I click the "Play against Computer" button
     Then I should be redirected to the game interface
     And the game should be configured for single player mode
     And my player name should be set to "Alice"

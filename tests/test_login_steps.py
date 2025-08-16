@@ -30,7 +30,7 @@ def on_login_page(page: Page):
 @given("the login page is fully loaded")
 def login_page_loaded(page: Page):
     assert page.locator('input[name="player_name"]').is_visible()
-    assert page.locator('input[name="game_mode"]').is_visible()
+    assert page.locator('input[name="game_mode"]').first.is_visible()
     assert page.locator('button[type="submit"]').is_visible()
 
 

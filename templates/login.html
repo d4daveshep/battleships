@@ -1,15 +1,31 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Battleships Login</title>
 </head>
 <body>
-    <h1>Battleships Login</h1>
-    <form method="post">
-        <input type="text" name="player_name" value="">
-        <input type="radio" name="game_mode" value="computer"> Play against Computer
-        <input type="radio" name="game_mode" value="human"> Play against Another Player
-        <button type="submit">Start Game</button>
-    </form>
+    <main>
+        <h1>Battleships Login</h1>
+        <form method="post">
+            <div>
+                <label for="player_name">Player Name:</label>
+                <input type="text" id="player_name" name="player_name" value="">
+            </div>
+            <fieldset>
+                <legend>Game Mode:</legend>
+                <div>
+                    <input type="radio" id="computer" name="game_mode" value="computer">
+                    <label for="computer">Play against Computer</label>
+                </div>
+                <div>
+                    <input type="radio" id="human" name="game_mode" value="human">
+                    <label for="human">Play against Another Player</label>
+                </div>
+            </fieldset>
+            <button type="submit">Start Game</button>
+        </form>
+    </main>
 </body>
 </html>

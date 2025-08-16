@@ -17,7 +17,11 @@ async def login_submit(
 ) -> HTMLResponse | RedirectResponse:
     hx_request: str | None = request.headers.get("HX-Request")
     if hx_request:
-        return templates.TemplateResponse("game.html", {"request": request})
+        return templates.TemplateResponse("game.html", {
+            "request": request,
+            "player_name": player_name,
+            "game_mode": "Single Player" if game_mode == "computer" else "Two Player"
+        })
     return RedirectResponse(url="/game", status_code=302)
 
 

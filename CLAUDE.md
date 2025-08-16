@@ -45,7 +45,7 @@ uv run uvicorn <app_module>:<app_instance> --reload    # Start development serve
 
 ## Project Structure
 
-- `features/` - BDD feature files (Gherkin syntax)
+- `tests/features/` - BDD feature files (Gherkin syntax)
   - `login.feature` - Player login and game mode selection scenarios
 - `pyproject.toml` - Project configuration and dependencies
 - `uv.lock` - Locked dependency versions
@@ -66,4 +66,3 @@ This appears to be a web-based battleship game with:
 - Multi-player capability architecture
 
 The codebase currently contains feature specifications but minimal implementation, suggesting active BDD/TDD development in progress.
-

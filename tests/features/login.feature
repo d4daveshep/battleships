@@ -15,16 +15,14 @@ Feature: Player Login and Game Mode Selection
     And the game should be configured for single player mode
     And my player name should be set to "Alice"
 
-  # Scenario: Successful login with human opponent selection
-  #   Given the player name field is empty
-  #   And no game mode is selected
-  #   When I enter "Bob" as my player name
-  #   And I select "Play against Another Player" as the game mode
-  #   And I click the "Start Game" button
-  #   Then I should be redirected to the multiplayer lobby or game interface
-  #   And the game should be configured for two player mode
-  #   And my player name should be set to "Bob"
-  #
+  Scenario: Successful login with human opponent selection
+    Given the player name field is empty
+    When I enter "Bob" as my player name
+    And I click the "Play against Another Player" button
+    Then I should be redirected to the multiplayer lobby
+    And the game should be configured for two player mode
+    And my player name should be set to "Bob"
+
   # Scenario: Login attempt with empty player name
   #   Given the player name field is empty
   #   And I select "Play against Computer" as the game mode

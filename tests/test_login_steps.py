@@ -31,6 +31,7 @@ def on_login_page(page: Page):
 def login_page_is_loaded(page: Page):
     assert page.locator('input[name="player_name"]').is_visible()
     assert page.locator('button[value="computer"]').is_visible()
+    assert page.locator('button[value="human"]').is_visible()
 
 
 @given("the player name field is empty")
@@ -49,15 +50,31 @@ def click_play_against_computer(page: Page):
     page.locator('button[value="computer"]').click()
 
 
+@when('I click the "Play against Another Player" button')
+def click_play_against_human(page: Page):
+    page.locator('button[value="human"]').click()
+
+
 @then("I should be redirected to the game interface")
 def on_game_page(page: Page):
     page.wait_for_url("**/game")
     assert "game" in page.url
 
 
+@then("I should be redirected to the multiplayer lobby")
+def on_multiplayer_lobby(page: Page):
+    page.wait_for_url("**/lobby")
+    assert "lobby" in page.url
+
+
 @then("the game should be configured for single player mode")
 def player_mode_is_single_player(page: Page):
     assert page.locator('[data-testid="game-mode"]').text_content() == "Single Player"
+
+
+@then("the game should be configured for two player mode")
+def player_mode_is_two_player(page: Page):
+    assert page.locator('[data-testid="game-mode"]').text_content() == "Two Player"
 
 
 @then(parsers.parse('my player name should be set to "{expected_name}"'))

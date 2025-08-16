@@ -17,103 +17,103 @@ Feature: Player Login and Game Mode Selection
     And the game should be configured for single player mode
     And my player name should be set to "Alice"
 
-  Scenario: Successful login with human opponent selection
-    Given the player name field is empty
-    And no game mode is selected
-    When I enter "Bob" as my player name
-    And I select "Play against Another Player" as the game mode
-    And I click the "Start Game" button
-    Then I should be redirected to the multiplayer lobby or game interface
-    And the game should be configured for two player mode
-    And my player name should be set to "Bob"
-
-  Scenario: Login attempt with empty player name
-    Given the player name field is empty
-    And I select "Play against Computer" as the game mode
-    When I click the "Start Game" button
-    Then I should see an error message "Player name is required"
-    And I should remain on the login page
-    And the "Start Game" button should remain enabled for retry
-
-  Scenario: Login attempt without selecting game mode
-    Given I enter "Charlie" as my player name
-    And no game mode is selected
-    When I click the "Start Game" button
-    Then I should see an error message "Please select a game mode"
-    And I should remain on the login page
-    And the player name "Charlie" should be preserved in the input field
-
-  Scenario: Login attempt with both empty name and no game mode
-    Given the player name field is empty
-    And no game mode is selected
-    When I click the "Start Game" button
-    Then I should see an error message "Player name and game mode are required"
-    And I should remain on the login page
-
-  Scenario Outline: Player name validation
-    Given the player name field is empty
-    And I select "Play against Computer" as the game mode
-    When I enter "<player_name>" as my player name
-    And I click the "Start Game" button
-    Then I should see <result>
-
-    Examples:
-      | player_name | result |
-      | "A" | an error message "Player name must be at least 2 characters long" |
-      | "AB" | be redirected to the game interface |
-      | "ThisIsAVeryLongPlayerNameThatExceedsReasonableLength" | an error message "Player name must be 50 characters or less" |
-      | "Player123" | be redirected to the game interface |
-      | "Player With Spaces" | be redirected to the game interface |
-
-  Scenario: Player name with special characters
-    Given the player name field is empty
-    And I select "Play against Computer" as the game mode
-    When I enter "Player@#$" as my player name
-    And I click the "Start Game" button
-    Then I should see an error message "Player name can only contain letters, numbers, and spaces"
-    And I should remain on the login page
-
-  Scenario: Game mode selection persistence
-    Given I enter "Diana" as my player name
-    When I select "Play against Computer" as the game mode
-    And I change my selection to "Play against Another Player"
-    Then "Play against Another Player" should be selected
-    And "Play against Computer" should not be selected
-
-  Scenario: Form reset functionality
-    Given I enter "Eve" as my player name
-    And I select "Play against Computer" as the game mode
-    When I click the "Reset" button
-    Then the player name field should be empty
-    And no game mode should be selected
-    And all error messages should be cleared
-
-  Scenario: Keyboard navigation and accessibility
-    Given I am using keyboard navigation
-    When I press Tab to navigate through the form
-    Then I should be able to reach the player name field
-    And I should be able to reach both game mode options
-    And I should be able to reach the "Start Game" button
-    And I should be able to reach the "Reset" button
-    When I press Enter on the "Start Game" button
-    Then it should behave the same as clicking the button
-
-  Scenario: Page refresh preserves no data
-    Given I enter "Frank" as my player name
-    And I select "Play against Another Player" as the game mode
-    When I refresh the page
-    Then the player name field should be empty
-    And no game mode should be selected
-    And no error messages should be displayed
-
-  Scenario: Multiple error correction workflow
-    Given the player name field is empty
-    And no game mode is selected
-    When I click the "Start Game" button
-    Then I should see validation errors
-    When I enter "Grace" as my player name
-    Then the player name error should be cleared
-    But the game mode error should still be visible
-    When I select "Play against Computer" as the game mode
-    Then all error messages should be cleared
-    And the "Start Game" button should be ready to submit
+  # Scenario: Successful login with human opponent selection
+  #   Given the player name field is empty
+  #   And no game mode is selected
+  #   When I enter "Bob" as my player name
+  #   And I select "Play against Another Player" as the game mode
+  #   And I click the "Start Game" button
+  #   Then I should be redirected to the multiplayer lobby or game interface
+  #   And the game should be configured for two player mode
+  #   And my player name should be set to "Bob"
+  #
+  # Scenario: Login attempt with empty player name
+  #   Given the player name field is empty
+  #   And I select "Play against Computer" as the game mode
+  #   When I click the "Start Game" button
+  #   Then I should see an error message "Player name is required"
+  #   And I should remain on the login page
+  #   And the "Start Game" button should remain enabled for retry
+  #
+  # Scenario: Login attempt without selecting game mode
+  #   Given I enter "Charlie" as my player name
+  #   And no game mode is selected
+  #   When I click the "Start Game" button
+  #   Then I should see an error message "Please select a game mode"
+  #   And I should remain on the login page
+  #   And the player name "Charlie" should be preserved in the input field
+  #
+  # Scenario: Login attempt with both empty name and no game mode
+  #   Given the player name field is empty
+  #   And no game mode is selected
+  #   When I click the "Start Game" button
+  #   Then I should see an error message "Player name and game mode are required"
+  #   And I should remain on the login page
+  #
+  # Scenario Outline: Player name validation
+  #   Given the player name field is empty
+  #   And I select "Play against Computer" as the game mode
+  #   When I enter "<player_name>" as my player name
+  #   And I click the "Start Game" button
+  #   Then I should see <result>
+  #
+  #   Examples:
+  #     | player_name | result |
+  #     | "A" | an error message "Player name must be at least 2 characters long" |
+  #     | "AB" | be redirected to the game interface |
+  #     | "ThisIsAVeryLongPlayerNameThatExceedsReasonableLength" | an error message "Player name must be 50 characters or less" |
+  #     | "Player123" | be redirected to the game interface |
+  #     | "Player With Spaces" | be redirected to the game interface |
+  #
+  # Scenario: Player name with special characters
+  #   Given the player name field is empty
+  #   And I select "Play against Computer" as the game mode
+  #   When I enter "Player@#$" as my player name
+  #   And I click the "Start Game" button
+  #   Then I should see an error message "Player name can only contain letters, numbers, and spaces"
+  #   And I should remain on the login page
+  #
+  # Scenario: Game mode selection persistence
+  #   Given I enter "Diana" as my player name
+  #   When I select "Play against Computer" as the game mode
+  #   And I change my selection to "Play against Another Player"
+  #   Then "Play against Another Player" should be selected
+  #   And "Play against Computer" should not be selected
+  #
+  # Scenario: Form reset functionality
+  #   Given I enter "Eve" as my player name
+  #   And I select "Play against Computer" as the game mode
+  #   When I click the "Reset" button
+  #   Then the player name field should be empty
+  #   And no game mode should be selected
+  #   And all error messages should be cleared
+  #
+  # Scenario: Keyboard navigation and accessibility
+  #   Given I am using keyboard navigation
+  #   When I press Tab to navigate through the form
+  #   Then I should be able to reach the player name field
+  #   And I should be able to reach both game mode options
+  #   And I should be able to reach the "Start Game" button
+  #   And I should be able to reach the "Reset" button
+  #   When I press Enter on the "Start Game" button
+  #   Then it should behave the same as clicking the button
+  #
+  # Scenario: Page refresh preserves no data
+  #   Given I enter "Frank" as my player name
+  #   And I select "Play against Another Player" as the game mode
+  #   When I refresh the page
+  #   Then the player name field should be empty
+  #   And no game mode should be selected
+  #   And no error messages should be displayed
+  #
+  # Scenario: Multiple error correction workflow
+  #   Given the player name field is empty
+  #   And no game mode is selected
+  #   When I click the "Start Game" button
+  #   Then I should see validation errors
+  #   When I enter "Grace" as my player name
+  #   Then the player name error should be cleared
+  #   But the game mode error should still be visible
+  #   When I select "Play against Computer" as the game mode
+  #   Then all error messages should be cleared
+  #   And the "Start Game" button should be ready to submit

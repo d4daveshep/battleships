@@ -1,0 +1,12 @@
+<div id="player-name-section" class="{{ css_class }}">
+    <label for="player_name">Player Name:</label>
+    <input type="text" id="player_name" name="player_name" value="{{ player_name }}"
+           hx-post="/player-name" 
+           hx-target="#player-name-section" 
+           hx-swap="outerHTML"
+           hx-trigger="input changed delay:500ms"
+           hx-select="#player-name-section">
+    {% if error_message %}
+    <div class="error-message">{{ error_message }}</div>
+    {% endif %}
+</div>

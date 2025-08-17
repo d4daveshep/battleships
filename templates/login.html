@@ -5,17 +5,9 @@
 {% block content %}
 <h1>Battleships Login</h1>
 {% include "components/error_message.html" %}
-<div>
-    <label for="player_name">Player Name:</label>
-    <input type="text" id="player_name" name="player_name" value="" 
-           hx-on:input="document.getElementById('player_name_computer').value = this.value; document.getElementById('player_name_human').value = this.value;">
-</div>
-<form method="post">
-    <input type="hidden" name="player_name" id="player_name_computer" value="">
+<form method="post" id="game-form">
+    {% include "components/player_name_input.html" %}
     <button type="submit" name="game_mode" value="computer">Play against Computer</button>
-</form>
-<form method="post">
-    <input type="hidden" name="player_name" id="player_name_human" value="">
     <button type="submit" name="game_mode" value="human">Play against Another Player</button>
 </form>
 {% endblock %}

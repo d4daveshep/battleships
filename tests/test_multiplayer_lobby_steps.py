@@ -1,25 +1,9 @@
-import pytest
 from pytest_bdd import scenarios, given, when, then, parsers
-from playwright.sync_api import sync_playwright, Page, Browser, Locator
+from playwright.sync_api import Page, Locator
+from conftest import login_and_select_multiplayer
 
 
 scenarios("features/multiplayer_lobby.feature")
-
-
-@pytest.fixture(scope="function")
-def browser():
-    with sync_playwright() as p:
-        browser: Browser = p.chromium.launch()
-        yield browser
-        browser.close()
-
-
-@pytest.fixture(scope="function")
-def page(browser: Browser):
-    page: Page = browser.new_page()
-    page.set_default_timeout(3000)  # 3 seconds
-    yield page
-    page.close()
 
 
 @given("the multiplayer lobby system is available")
@@ -31,12 +15,8 @@ def multiplayer_lobby_system_available(page: Page) -> None:
 
 @given("I have successfully logged in with multiplayer mode selected")
 def logged_in_with_multiplayer_mode(page: Page) -> None:
-    # Navigate to login and select multiplayer mode
-    page.goto("http://localhost:8000/")
-    page.locator('input[type="text"][name="player_name"]').fill("TestPlayer")
-    page.locator('button[value="human"]').click()
-    # Should be redirected to lobby page
-    page.wait_for_url("**/lobby*")
+    # Use shared login helper function
+    login_and_select_multiplayer(page)
 
 
 @given("there are other players in the lobby:")

@@ -1,24 +1,9 @@
-import pytest
 from pytest_bdd import scenarios, given, when, then, parsers
-from playwright.sync_api import sync_playwright, Page, Browser, Locator
+from playwright.sync_api import Page, Locator
+from conftest import BASE_URL
 
 
 scenarios("features/login.feature")
-
-
-@pytest.fixture(scope="function")
-def browser():
-    with sync_playwright() as p:
-        browser: Browser = p.chromium.launch()
-        yield browser
-        browser.close()
-
-
-@pytest.fixture(scope="function")
-def page(browser: Browser):
-    page: Page = browser.new_page()
-    yield page
-    page.close()
 
 
 def on_login_page(page: Page) -> None:
@@ -28,7 +13,7 @@ def on_login_page(page: Page) -> None:
 
 @given("I am on the login page")
 def goto_login_page(page: Page) -> None:
-    page.goto("http://localhost:8000/")
+    page.goto(BASE_URL)
     on_login_page(page)
 
 

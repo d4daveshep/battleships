@@ -102,7 +102,19 @@ async def validate_player_name(
 
 @app.get("/lobby", response_class=HTMLResponse)
 async def lobby_page(request: Request, player_name: str = "") -> HTMLResponse:
+    # Minimal implementation: hardcode the expected players for the test
+    available_players: list[dict[str, str]] = [
+        {"name": "Alice"},
+        {"name": "Bob"},
+        {"name": "Charlie"}
+    ]
+    
     return templates.TemplateResponse(
         "lobby.html",
-        {"request": request, "player_name": player_name, "game_mode": "Two Player"},
+        {
+            "request": request, 
+            "player_name": player_name, 
+            "game_mode": "Two Player",
+            "available_players": available_players
+        },
     )

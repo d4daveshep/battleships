@@ -21,12 +21,13 @@ Feature: Multiplayer Game Lobby
       | Charlie     | Available |
     When I enter the multiplayer lobby as "Diana"
     Then I should see the lobby interface
+    And I should see my name
+    And I should see my own status as "Available"
     And I should see a list of available players:
       | Alice   |
       | Bob     |
       | Charlie |
     And I should see a "Select Opponent" button for each available player
-    And I should see my own status as "Available"
 
   # Scenario: Successfully selecting an opponent from the lobby
   #   Given I am in the multiplayer lobby as "Diana"

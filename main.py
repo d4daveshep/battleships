@@ -18,7 +18,7 @@ def validate_player_name_input(
     player_name: str, strip_quotes: bool = False
 ) -> PlayerNameValidation:
     """Centralized player name validation logic"""
-    clean_name = player_name.strip()
+    clean_name: str = player_name.strip()
     if strip_quotes:
         clean_name = clean_name.strip("\"'")
 
@@ -51,7 +51,7 @@ async def login_page(request: Request) -> HTMLResponse:
 async def login_submit(
     request: Request, player_name: str = Form(), game_mode: str = Form()
 ) -> HTMLResponse | RedirectResponse:
-    validation = validate_player_name_input(player_name, strip_quotes=True)
+    validation: PlayerNameValidation = validate_player_name_input(player_name, strip_quotes=True)
 
     if not validation.is_valid:
         return templates.TemplateResponse(
@@ -87,7 +87,7 @@ async def validate_player_name(
     request: Request, player_name: str = Form()
 ) -> HTMLResponse:
     """Validate player name and return partial HTML with validation result"""
-    validation = validate_player_name_input(player_name, strip_quotes=False)
+    validation: PlayerNameValidation = validate_player_name_input(player_name, strip_quotes=False)
 
     return templates.TemplateResponse(
         "components/player_name_input.html",

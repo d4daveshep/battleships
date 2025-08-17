@@ -42,6 +42,18 @@ def see_lobby_interface(page: Page) -> None:
     assert page.locator('[data-testid="lobby-container"]').is_visible()
 
 
+@then("I should see my name")
+def see_my_name(page: Page) -> None:
+    # Verify the current player's name is displayed in the lobby
+    # Should show the player name that was used during login
+    my_name_element: Locator = page.locator('[data-testid="my-player-name"]')
+    assert my_name_element.is_visible()
+    # The text should contain some player name (not empty)
+    assert my_name_element.text_content()
+    # Should contain "Welcome" text to confirm it's the right element
+    assert "Welcome" in my_name_element.text_content()
+
+
 @then("I should see a list of available players:")
 def see_available_players_list(page: Page) -> None:
     # Verify the player list shows expected players

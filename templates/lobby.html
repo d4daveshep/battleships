@@ -1,9 +1,32 @@
 {% extends "base.html" %}
 
-{% block title %}Battleships Two Player Lobby{% endblock %}
+{% block title %}Multiplayer Lobby{% endblock %}
 
 {% block content %}
-<h1>Battleships Two Player Lobby</h1>
-<div data-testid="game-mode">{{ game_mode }}</div>
-<div data-testid="player-name">{{ player_name }}</div>
+<div data-testid="lobby-container">
+    <h1>Multiplayer Lobby</h1>
+    
+    <div data-testid="my-player-name">
+        <h3>Welcome, {{ player_name }}!</h3>
+    </div>
+    
+    <div data-testid="own-player-status">
+        Your Status: Available
+    </div>
+
+    <div data-testid="available-players-list">
+        <h3>Available Players:</h3>
+        {% for player in available_players %}
+        <div data-testid="player-{{ player.name }}">
+            {{ player.name }}
+            <button data-testid="select-opponent-{{ player.name }}">Select Opponent</button>
+        </div>
+        {% endfor %}
+    </div>
+    
+    
+    <!-- Keep existing elements for backward compatibility -->
+    <div data-testid="game-mode" style="display: none;">{{ game_mode }}</div>
+    <div data-testid="player-name" style="display: none;">{{ player_name }}</div>
+</div>
 {% endblock %}

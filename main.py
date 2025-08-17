@@ -34,6 +34,12 @@ def validate_player_name_input(
             error_message="Player name must be between 2 and 20 characters",
             css_class="error",
         )
+    elif not clean_name.replace(" ", "").isalnum():
+        return PlayerNameValidation(
+            is_valid=False,
+            error_message="Player name can only contain letter, numbers and spaces",
+            css_class="error",
+        )
     else:
         return PlayerNameValidation(is_valid=True, error_message="", css_class="valid")
 

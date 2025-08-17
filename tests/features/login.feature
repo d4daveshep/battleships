@@ -45,9 +45,3 @@ Feature: Player Login and Game Mode Selection
       | Player@#$ | I should see an error message "Player name can only contain letter, numbers and spaces" |
 
 
-  # Scenario: Page refresh preserves no data
-  #   Given I enter "Frank" as my player name
-  #   And I click the "Play against Computer" button
-  #   When I refresh the page
-  #   Then the player name field should be empty
-  #   And no error messages should be displayed

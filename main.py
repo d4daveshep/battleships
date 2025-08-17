@@ -1,4 +1,6 @@
-from fastapi import FastAPI, Form, Request, Response
+from typing import NamedTuple
+
+from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
@@ -6,102 +8,100 @@ app: FastAPI = FastAPI()
 templates: Jinja2Templates = Jinja2Templates(directory="templates")
 
 
+class PlayerNameValidation(NamedTuple):
+    is_valid: bool
+    error_message: str
+    css_class: str
+
+
+def validate_player_name_input(
+    player_name: str, strip_quotes: bool = False
+) -> PlayerNameValidation:
+    """Centralized player name validation logic"""
+    # Clean the input
+    clean_name = player_name.strip()
+    if strip_quotes:
+        clean_name = clean_name.strip("\"'")
+
+    # Validate
+    if not clean_name:
+        return PlayerNameValidation(
+            is_valid=False, error_message="Player name is required", css_class="error"
+        )
+    elif not (2 <= len(clean_name) <= 20):
+        return PlayerNameValidation(
+            is_valid=False,
+            error_message="Player name must be between 2 and 20 characters",
+            css_class="error",
+        )
+    else:
+        return PlayerNameValidation(is_valid=True, error_message="", css_class="valid")
+
+
 @app.get("/", response_class=HTMLResponse)
 async def login_page(request: Request) -> HTMLResponse:
-    return templates.TemplateResponse("login.html", {
-        "request": request,
-        "player_name": "",
-        "error_message": "",
-        "css_class": ""
-    })
+    return templates.TemplateResponse(
+        "login.html",
+        {"request": request, "player_name": "", "error_message": "", "css_class": ""},
+    )
 
 
 @app.post("/", response_model=None)
 async def login_submit(
     request: Request, player_name: str = Form(), game_mode: str = Form()
 ) -> HTMLResponse | RedirectResponse:
-    # Strip quotes and whitespace for validation
-    clean_name = player_name.strip().strip('"\'')
-    
-    if not clean_name:
+    validation = validate_player_name_input(player_name, strip_quotes=True)
+
+    if not validation.is_valid:
         return templates.TemplateResponse(
             "login.html",
             {
                 "request": request,
-                "error_message": "Player name is required",
-                "player_name": "",
-                "css_class": ""
+                "error_message": validation.error_message,
+                "player_name": "" if validation.error_message else player_name,
+                "css_class": validation.css_class,
             },
         )
-    elif len(clean_name) < 2:
-        return templates.TemplateResponse(
-            "login.html",
-            {
-                "request": request,
-                "error_message": "Player name must be at least 2 characters long",
-                "player_name": player_name,
-                "css_class": "error"
-            },
-        )
-    elif len(clean_name) > 20:
-        return templates.TemplateResponse(
-            "login.html",
-            {
-                "request": request,
-                "error_message": "Player name must be 20 characters or less",
-                "player_name": player_name,
-                "css_class": "error"
-            },
-        )
-    
+
     if game_mode == "human":
-        return RedirectResponse(url=f"/lobby?player_name={player_name.strip()}", status_code=302)
+        return RedirectResponse(
+            url=f"/lobby?player_name={player_name.strip()}", status_code=302
+        )
     else:
-        return RedirectResponse(url=f"/game?player_name={player_name.strip()}", status_code=302)
+        return RedirectResponse(
+            url=f"/game?player_name={player_name.strip()}", status_code=302
+        )
 
 
 @app.get("/game", response_class=HTMLResponse)
 async def game_page(request: Request, player_name: str = "") -> HTMLResponse:
-    return templates.TemplateResponse("game.html", {
-        "request": request,
-        "player_name": player_name,
-        "game_mode": "Single Player"
-    })
+    return templates.TemplateResponse(
+        "game.html",
+        {"request": request, "player_name": player_name, "game_mode": "Single Player"},
+    )
 
 
 @app.post("/player-name")
-async def validate_player_name(request: Request, player_name: str = Form()) -> HTMLResponse:
+async def validate_player_name(
+    request: Request, player_name: str = Form()
+) -> HTMLResponse:
     """Validate player name and return partial HTML with validation result"""
-    error_message = ""
-    css_class = ""
-    
-    # Strip quotes and whitespace for validation
-    clean_name = player_name.strip().strip('"\'')
-    
-    if not clean_name:
-        error_message = "Player name is required"
-        css_class = "error"
-    elif len(clean_name) < 2:
-        error_message = "Player name must be at least 2 characters long"
-        css_class = "error"
-    elif len(clean_name) > 20:
-        error_message = "Player name must be 20 characters or less"
-        css_class = "error"
-    else:
-        css_class = "valid"
-    
-    return templates.TemplateResponse("components/player_name_input.html", {
-        "request": request,
-        "player_name": player_name,
-        "error_message": error_message,
-        "css_class": css_class
-    })
+    validation = validate_player_name_input(player_name, strip_quotes=False)
+
+    return templates.TemplateResponse(
+        "components/player_name_input.html",
+        {
+            "request": request,
+            "player_name": player_name,
+            "error_message": validation.error_message,
+            "css_class": validation.css_class,
+        },
+    )
 
 
 @app.get("/lobby", response_class=HTMLResponse)
 async def lobby_page(request: Request, player_name: str = "") -> HTMLResponse:
-    return templates.TemplateResponse("lobby.html", {
-        "request": request,
-        "player_name": player_name,
-        "game_mode": "Two Player"
-    })
+    return templates.TemplateResponse(
+        "lobby.html",
+        {"request": request, "player_name": player_name, "game_mode": "Two Player"},
+    )

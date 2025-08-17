@@ -21,10 +21,15 @@ def page(browser: Browser):
     page.close()
 
 
-@given("I am on the login page")
 def on_login_page(page: Page):
-    page.goto("http://localhost:8000/")
     assert page.locator("h1").text_content() == "Battleships Login"
+    assert page.url.endswith("/") or "login" in page.url
+
+
+@given("I am on the login page")
+def goto_login_page(page: Page):
+    page.goto("http://localhost:8000/")
+    on_login_page(page)
 
 
 @given("the login page is fully loaded")
@@ -90,20 +95,4 @@ def error_message_displayed(page: Page, error_message: str):
 
 @then("I should remain on the login page")
 def remain_on_login_page(page: Page):
-    assert page.locator("h1").text_content() == "Battleships Login"
-    assert page.url.endswith("/") or "login" in page.url
-
-
-@then(parsers.parse('see an error message "{error_message}"'))
-def see_error_message_with_text(page: Page, error_message: str):
-    assert page.locator('[data-testid="error-message"]').text_content() == error_message
-
-
-@then(parsers.parse('an error message "{error_message}"'))
-def show_error_message_with_text(page: Page, error_message: str):
-    assert page.locator('[data-testid="error-message"]').text_content() == error_message
-
-
-@then(parsers.parse('I should an error message "{error_message}"'))
-def should_show_error_message_with_text(page: Page, error_message: str):
-    assert page.locator('[data-testid="error-message"]').text_content() == error_message
+    on_login_page(page)

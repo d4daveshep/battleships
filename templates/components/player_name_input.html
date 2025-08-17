@@ -7,6 +7,6 @@
            hx-trigger="input changed delay:500ms"
            hx-select="#player-name-section">
     {% if error_message %}
-    <div class="error-message">{{ error_message }}</div>
+    <div class="error-message" data-testid="error-message">{{ error_message }}</div>
     {% endif %}
 </div>

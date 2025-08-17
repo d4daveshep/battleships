@@ -33,15 +33,15 @@ Feature: Player Login and Game Mode Selection
     Given the player name field is empty
     When I enter "<player_name>" as my player name
     And I click the "Play against Computer" button
-    Then I should <result>
+    Then <result>
 
     Examples:
       | player_name | result |
-      | "A" | see an error message "Player name must be at least 2 characters long" |
-      | "AB" | be redirected to the game interface |
-      | "ThisIsAVeryLongPlayerName" | an error message "Player name must be 20 characters or less" |
-      | "Player123" | be redirected to the game interface |
-      | "Player With Spaces" | be redirected to the game interface |
+      | A | I should see an error message "Player name must be between 2 and 20 characters" |
+      | AB | I should be redirected to the game interface |
+      | ThisIsAVeryLongPlayerName | I should see an error message "Player name must be between 2 and 20 characters" |
+      | Player123 | I should be redirected to the game interface |
+      | Player With Spaces | I should be redirected to the game interface |
 
   # Scenario: Player name with special characters
   #   Given the player name field is empty

@@ -23,44 +23,26 @@ Feature: Player Login and Game Mode Selection
     And the game should be configured for two player mode
     And my player name should be set to "Bob"
 
-  # Scenario: Login attempt with empty player name
-  #   Given the player name field is empty
-  #   And I select "Play against Computer" as the game mode
-  #   When I click the "Start Game" button
-  #   Then I should see an error message "Player name is required"
-  #   And I should remain on the login page
-  #   And the "Start Game" button should remain enabled for retry
-  #
-  # Scenario: Login attempt without selecting game mode
-  #   Given I enter "Charlie" as my player name
-  #   And no game mode is selected
-  #   When I click the "Start Game" button
-  #   Then I should see an error message "Please select a game mode"
-  #   And I should remain on the login page
-  #   And the player name "Charlie" should be preserved in the input field
-  #
-  # Scenario: Login attempt with both empty name and no game mode
-  #   Given the player name field is empty
-  #   And no game mode is selected
-  #   When I click the "Start Game" button
-  #   Then I should see an error message "Player name and game mode are required"
-  #   And I should remain on the login page
-  #
-  # Scenario Outline: Player name validation
-  #   Given the player name field is empty
-  #   And I select "Play against Computer" as the game mode
-  #   When I enter "<player_name>" as my player name
-  #   And I click the "Start Game" button
-  #   Then I should see <result>
-  #
-  #   Examples:
-  #     | player_name | result |
-  #     | "A" | an error message "Player name must be at least 2 characters long" |
-  #     | "AB" | be redirected to the game interface |
-  #     | "ThisIsAVeryLongPlayerNameThatExceedsReasonableLength" | an error message "Player name must be 50 characters or less" |
-  #     | "Player123" | be redirected to the game interface |
-  #     | "Player With Spaces" | be redirected to the game interface |
-  #
+  Scenario: Login attempt with empty player name
+    Given the player name field is empty
+    And I click the "Play against Computer" button
+    Then I should see an error message "Player name is required"
+    And I should remain on the login page
+
+  Scenario Outline: Player name validation
+    Given the player name field is empty
+    When I enter "<player_name>" as my player name
+    And I click the "Play against Computer" button
+    Then I should <result>
+
+    Examples:
+      | player_name | result |
+      | "A" | see an error message "Player name must be at least 2 characters long" |
+      | "AB" | be redirected to the game interface |
+      | "ThisIsAVeryLongPlayerName" | an error message "Player name must be 20 characters or less" |
+      | "Player123" | be redirected to the game interface |
+      | "Player With Spaces" | be redirected to the game interface |
+
   # Scenario: Player name with special characters
   #   Given the player name field is empty
   #   And I select "Play against Computer" as the game mode

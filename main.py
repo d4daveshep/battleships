@@ -20,12 +20,37 @@ async def login_page(request: Request) -> HTMLResponse:
 async def login_submit(
     request: Request, player_name: str = Form(), game_mode: str = Form()
 ) -> HTMLResponse | RedirectResponse:
-    if not player_name.strip():
+    # Strip quotes and whitespace for validation
+    clean_name = player_name.strip().strip('"\'')
+    
+    if not clean_name:
         return templates.TemplateResponse(
             "login.html",
             {
                 "request": request,
                 "error_message": "Player name is required",
+                "player_name": "",
+                "css_class": ""
+            },
+        )
+    elif len(clean_name) < 2:
+        return templates.TemplateResponse(
+            "login.html",
+            {
+                "request": request,
+                "error_message": "Player name must be at least 2 characters long",
+                "player_name": player_name,
+                "css_class": "error"
+            },
+        )
+    elif len(clean_name) > 20:
+        return templates.TemplateResponse(
+            "login.html",
+            {
+                "request": request,
+                "error_message": "Player name must be 20 characters or less",
+                "player_name": player_name,
+                "css_class": "error"
             },
         )
     
@@ -50,11 +75,17 @@ async def validate_player_name(request: Request, player_name: str = Form()) -> H
     error_message = ""
     css_class = ""
     
-    if not player_name.strip():
+    # Strip quotes and whitespace for validation
+    clean_name = player_name.strip().strip('"\'')
+    
+    if not clean_name:
         error_message = "Player name is required"
         css_class = "error"
-    elif len(player_name.strip()) < 2:
-        error_message = "Player name must be at least 2 characters"
+    elif len(clean_name) < 2:
+        error_message = "Player name must be at least 2 characters long"
+        css_class = "error"
+    elif len(clean_name) > 20:
+        error_message = "Player name must be 20 characters or less"
         css_class = "error"
     else:
         css_class = "valid"

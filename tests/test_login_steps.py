@@ -92,3 +92,18 @@ def error_message_displayed(page: Page, error_message: str):
 def remain_on_login_page(page: Page):
     assert page.locator("h1").text_content() == "Battleships Login"
     assert page.url.endswith("/") or "login" in page.url
+
+
+@then(parsers.parse('see an error message "{error_message}"'))
+def see_error_message_with_text(page: Page, error_message: str):
+    assert page.locator('[data-testid="error-message"]').text_content() == error_message
+
+
+@then(parsers.parse('an error message "{error_message}"'))
+def show_error_message_with_text(page: Page, error_message: str):
+    assert page.locator('[data-testid="error-message"]').text_content() == error_message
+
+
+@then(parsers.parse('I should an error message "{error_message}"'))
+def should_show_error_message_with_text(page: Page, error_message: str):
+    assert page.locator('[data-testid="error-message"]').text_content() == error_message

@@ -18,30 +18,25 @@ def validate_player_name_input(
     player_name: str, strip_quotes: bool = False
 ) -> PlayerNameValidation:
     """Centralized player name validation logic"""
-    # Clean the input
     clean_name = player_name.strip()
     if strip_quotes:
         clean_name = clean_name.strip("\"'")
 
-    # Validate
     if not clean_name:
-        return PlayerNameValidation(
-            is_valid=False, error_message="Player name is required", css_class="error"
-        )
-    elif not (2 <= len(clean_name) <= 20):
-        return PlayerNameValidation(
-            is_valid=False,
-            error_message="Player name must be between 2 and 20 characters",
-            css_class="error",
-        )
-    elif not clean_name.replace(" ", "").isalnum():
-        return PlayerNameValidation(
-            is_valid=False,
-            error_message="Player name can only contain letter, numbers and spaces",
-            css_class="error",
-        )
-    else:
-        return PlayerNameValidation(is_valid=True, error_message="", css_class="valid")
+        return _validation_error("Player name is required")
+    
+    if not (2 <= len(clean_name) <= 20):
+        return _validation_error("Player name must be between 2 and 20 characters")
+    
+    if not clean_name.replace(" ", "").isalnum():
+        return _validation_error("Player name can only contain letter, numbers and spaces")
+    
+    return PlayerNameValidation(is_valid=True, error_message="", css_class="valid")
+
+
+def _validation_error(message: str) -> PlayerNameValidation:
+    """Helper function to create validation error responses"""
+    return PlayerNameValidation(is_valid=False, error_message=message, css_class="error")
 
 
 @app.get("/", response_class=HTMLResponse)

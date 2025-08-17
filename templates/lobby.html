@@ -1,16 +1,9 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Battleships Two Player Lobby</title>
-    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-</head>
-<body>
-    <main>
-        <h1>Battleships Two Player Lobby</h1>
-        <div data-testid="game-mode">{{ game_mode }}</div>
-        <div data-testid="player-name">{{ player_name }}</div>
-    </main>
-</body>
-</html>
+{% extends "base.html" %}
+
+{% block title %}Battleships Two Player Lobby{% endblock %}
+
+{% block content %}
+<h1>Battleships Two Player Lobby</h1>
+<div data-testid="game-mode">{{ game_mode }}</div>
+<div data-testid="player-name">{{ player_name }}</div>
+{% endblock %}

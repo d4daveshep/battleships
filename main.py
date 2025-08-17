@@ -30,16 +30,16 @@ async def login_submit(
         )
     
     if game_mode == "human":
-        return RedirectResponse(url="/lobby", status_code=302)
+        return RedirectResponse(url=f"/lobby?player_name={player_name.strip()}", status_code=302)
     else:
-        return RedirectResponse(url="/game", status_code=302)
+        return RedirectResponse(url=f"/game?player_name={player_name.strip()}", status_code=302)
 
 
 @app.get("/game", response_class=HTMLResponse)
-async def game_page(request: Request) -> HTMLResponse:
+async def game_page(request: Request, player_name: str = "") -> HTMLResponse:
     return templates.TemplateResponse("game.html", {
         "request": request,
-        "player_name": "Alice",
+        "player_name": player_name,
         "game_mode": "Single Player"
     })
 
@@ -68,9 +68,9 @@ async def validate_player_name(request: Request, player_name: str = Form()) -> H
 
 
 @app.get("/lobby", response_class=HTMLResponse)
-async def lobby_page(request: Request) -> HTMLResponse:
+async def lobby_page(request: Request, player_name: str = "") -> HTMLResponse:
     return templates.TemplateResponse("lobby.html", {
         "request": request,
-        "player_name": "Bob", 
+        "player_name": player_name,
         "game_mode": "Two Player"
     })

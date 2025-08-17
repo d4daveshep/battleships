@@ -45,6 +45,7 @@ def enter_player_name(page: Page, player_name: str):
     page.locator('input[type="text"][name="player_name"]').fill(player_name)
 
 
+@given('I click the "Play against Computer" button')
 @when('I click the "Play against Computer" button')
 def click_play_against_computer(page: Page):
     page.locator('button[value="computer"]').click()
@@ -57,13 +58,13 @@ def click_play_against_human(page: Page):
 
 @then("I should be redirected to the game interface")
 def on_game_page(page: Page):
-    page.wait_for_url("**/game")
+    page.wait_for_url("**/game*")
     assert "game" in page.url
 
 
 @then("I should be redirected to the multiplayer lobby")
 def on_multiplayer_lobby_page(page: Page):
-    page.wait_for_url("**/lobby")
+    page.wait_for_url("**/lobby*")
     assert "lobby" in page.url
 
 
@@ -80,3 +81,14 @@ def player_mode_is_two_player(page: Page):
 @then(parsers.parse('my player name should be set to "{expected_name}"'))
 def player_name_is_set(page: Page, expected_name: str):
     assert page.locator('[data-testid="player-name"]').text_content() == expected_name
+
+
+@then(parsers.parse('I should see an error message "{error_message}"'))
+def error_message_displayed(page: Page, error_message: str):
+    assert page.locator('[data-testid="error-message"]').text_content() == error_message
+
+
+@then("I should remain on the login page")
+def remain_on_login_page(page: Page):
+    assert page.locator("h1").text_content() == "Battleships Login"
+    assert page.url.endswith("/") or "login" in page.url

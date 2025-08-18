@@ -11,8 +11,8 @@ This is a variation of the Battleships game. I want to use it to learn and pract
 - **Python**: 3.13+ (managed via uv package manager)
 - **Backend**: FastAPI with Uvicorn server
 - **Template Engine**: Jinja2 for HTML templating
-- Frontend: HTML/CSS/HTMX. No javascript.
-- **Testing**: pytest with BDD support (pytest-bdd likely), pytest-asyncio, pytest-cov
+- **Frontend**: Follow HATEOAS principles. Use only HTML, CSS, and HTMX. No javascript.
+- **Testing**: pytest with BDD support (via pytest-bdd ), pytest-asyncio, pytest-cov
 - **Browser Testing**: Playwright for end-to-end testing
 - **Package Management**: UV (modern Python package manager)
 
@@ -46,7 +46,6 @@ uv run uvicorn <app_module>:<app_instance> --reload    # Start development serve
 ## Project Structure
 
 - `tests/features/` - BDD feature files (Gherkin syntax)
-  - `login.feature` - Player login and game mode selection scenarios
 - `pyproject.toml` - Project configuration and dependencies
 - `uv.lock` - Locked dependency versions
 

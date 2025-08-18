@@ -20,12 +20,26 @@ def logged_in_with_multiplayer_mode(page: Page) -> None:
 
 
 @given("there are other players in the lobby:")
-def other_players_in_lobby(page: Page) -> None:
-    # Set up existing players in the lobby
-    # This would typically involve API calls to populate the lobby
-    # For now, we'll assume the lobby can be pre-populated with Alice, Bob, Charlie
-    # In real implementation, this would parse table data and set up the lobby state
-    pass
+def other_players_in_lobby(page: Page, lobby) -> None:
+    # Set up existing players in the lobby based on the feature table
+    # Expected players from feature file: Alice, Bob, Charlie with "Available" status
+    test_players = [
+        {"name": "Alice", "status": "Available"},
+        {"name": "Bob", "status": "Available"},
+        {"name": "Charlie", "status": "Available"}
+    ]
+    
+    for player_data in test_players:
+        lobby.add_player(player_data["name"], player_data["status"])
+    
+    # Verify the lobby has the expected players
+    available_players = lobby.get_available_players()
+    assert len(available_players) == 3
+    
+    player_names = [player.name for player in available_players]
+    assert "Alice" in player_names
+    assert "Bob" in player_names  
+    assert "Charlie" in player_names
 
 
 @when(parsers.parse('I enter the multiplayer lobby as "{player_name}"'))

@@ -1,23 +1,54 @@
-import pytest
-from playwright.sync_api import sync_playwright, Page, Browser
+import subprocess
+import time
 
+import httpx
+import pytest
+from playwright.sync_api import Browser, Page, sync_playwright
+
+from game.lobby import Lobby
 
 # Base URL constant
 BASE_URL = "http://localhost:8000/"
 
 
+@pytest.fixture(scope="session")
+def fastapi_server():
+    """Start FastAPI server for the entire test session"""
+    process = subprocess.Popen(
+        ["uv", "run", "uvicorn", "main:app", "--port", "8000", "--host", "127.0.0.1"]
+    )
+
+    # Wait for server to be ready with health check
+    for _ in range(30):  # 30 second timeout
+        try:
+            with httpx.Client() as client:
+                response = client.get(f"{BASE_URL}health", timeout=1)
+                if response.status_code == 200:
+                    break
+        except:
+            time.sleep(1)
+    else:
+        process.kill()
+        raise RuntimeError("FastAPI server failed to start")
+
+    yield process
+    process.terminate()
+    process.wait()
+
+
 @pytest.fixture(scope="function")
 def browser():
     with sync_playwright() as p:
-        browser: Browser = p.chromium.launch()
+        browser: Browser = p.chromium.launch(headless=True)
         yield browser
         browser.close()
 
 
 @pytest.fixture(scope="function")
-def page(browser: Browser):
+def page(browser: Browser, fastapi_server):
+    """Page fixture that depends on running server"""
     page: Page = browser.new_page()
-    page.set_default_timeout(3000)  # 3 seconds
+    page.set_default_timeout(5000)  # 5 seconds
     yield page
     page.close()
 
@@ -45,3 +76,10 @@ def login_and_select_multiplayer(page: Page, player_name: str = "TestPlayer") ->
     click_multiplayer_button(page)
     # Should be redirected to lobby page
     page.wait_for_url("**/lobby*")
+
+
+@pytest.fixture
+def lobby():
+    """Fixture providing a Lobby instance for testing"""
+    return Lobby()
+

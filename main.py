@@ -100,6 +100,12 @@ async def validate_player_name(
     )
 
 
+@app.get("/health")
+async def health_check() -> dict[str, str]:
+    """Health check endpoint for test infrastructure"""
+    return {"status": "healthy"}
+
+
 @app.get("/lobby", response_class=HTMLResponse)
 async def lobby_page(request: Request, player_name: str = "") -> HTMLResponse:
     # Minimal implementation: hardcode the expected players for the test

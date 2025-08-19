@@ -1,5 +1,7 @@
 from pytest_bdd import scenarios, given, when, then, parsers
 from playwright.sync_api import Page, Locator
+from game.lobby import Lobby
+from game.player import PlayerStatus
 from tests.conftest import login_and_select_multiplayer
 
 
@@ -20,13 +22,13 @@ def logged_in_with_multiplayer_mode(page: Page) -> None:
 
 
 @given("there are other players in the lobby:")
-def other_players_in_lobby(page: Page, lobby) -> None:
+def other_players_in_lobby(page: Page, lobby:Lobby) -> None:
     # Set up existing players in the lobby based on the feature table
     # Expected players from feature file: Alice, Bob, Charlie with "Available" status
     test_players = [
-        {"name": "Alice", "status": "Available"},
-        {"name": "Bob", "status": "Available"},
-        {"name": "Charlie", "status": "Available"},
+        {"name": "Alice", "status": PlayerStatus.AVAILABLE},
+        {"name": "Bob", "status": PlayerStatus.AVAILABLE},
+        {"name": "Charlie", "status": PlayerStatus.AVAILABLE},
     ]
 
     for player_data in test_players:

@@ -1,15 +1,15 @@
-class Player:
-    def __init__(self, name: str, status: str):
-        self.name = name
-        self.status = status
+from game.player import Player, PlayerStatus
 
 
 class Lobby:
     def __init__(self):
         self.players: dict[str, Player] = {}
-    
+
     def add_player(self, name: str, status: str) -> None:
         self.players[name] = Player(name, status)
-    
+
     def get_available_players(self) -> list[Player]:
-        return [player for player in self.players.values() if player.status == "Available"]
+        return [
+            player for player in self.players.values() if player.status == "Available"
+        ]
+

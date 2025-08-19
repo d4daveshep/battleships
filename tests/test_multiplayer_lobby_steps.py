@@ -1,6 +1,6 @@
 from pytest_bdd import scenarios, given, when, then, parsers
 from playwright.sync_api import Page, Locator
-from conftest import login_and_select_multiplayer
+from tests.conftest import login_and_select_multiplayer
 
 
 scenarios("features/multiplayer_lobby.feature")
@@ -26,19 +26,19 @@ def other_players_in_lobby(page: Page, lobby) -> None:
     test_players = [
         {"name": "Alice", "status": "Available"},
         {"name": "Bob", "status": "Available"},
-        {"name": "Charlie", "status": "Available"}
+        {"name": "Charlie", "status": "Available"},
     ]
-    
+
     for player_data in test_players:
         lobby.add_player(player_data["name"], player_data["status"])
-    
+
     # Verify the lobby has the expected players
     available_players = lobby.get_available_players()
     assert len(available_players) == 3
-    
+
     player_names = [player.name for player in available_players]
     assert "Alice" in player_names
-    assert "Bob" in player_names  
+    assert "Bob" in player_names
     assert "Charlie" in player_names
 
 
@@ -73,10 +73,10 @@ def see_available_players_list(page: Page) -> None:
     # Verify the player list shows expected players
     # In real implementation, this would parse the table data from the feature file
     # For now, we'll check for the expected players: Alice, Bob, Charlie
-    
+
     player_list: Locator = page.locator('[data-testid="available-players-list"]')
     assert player_list.is_visible()
-    
+
     # Check for specific expected players (Alice, Bob, Charlie from feature)
     expected_players: list[str] = ["Alice", "Bob", "Charlie"]
     for player_name in expected_players:
@@ -85,12 +85,12 @@ def see_available_players_list(page: Page) -> None:
         assert player_name in player_item.text_content()
 
 
-@then("I should see a \"Select Opponent\" button for each available player")
+@then('I should see a "Select Opponent" button for each available player')
 def see_select_opponent_buttons(page: Page) -> None:
     # Verify each available player has a select button
     select_buttons: Locator = page.locator('[data-testid^="select-opponent-"]')
     assert select_buttons.count() > 0
-    
+
     # Each button should be visible and enabled
     for i in range(select_buttons.count()):
         button: Locator = select_buttons.nth(i)

@@ -23,8 +23,9 @@ lobby_service: LobbyService = LobbyService(game_lobby)
 @app.get("/", response_class=HTMLResponse)
 async def login_page(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(
+        request,
         "login.html",
-        {"request": request, "player_name": "", "error_message": "", "css_class": ""},
+        {"player_name": "", "error_message": "", "css_class": ""},
     )
 
 
@@ -38,9 +39,9 @@ async def login_submit(
 
     if not validation.is_valid:
         return templates.TemplateResponse(
+            request,
             "login.html",
             {
-                "request": request,
                 "error_message": validation.error_message,
                 "player_name": "" if validation.error_message else player_name,
                 "css_class": validation.css_class,
@@ -60,8 +61,9 @@ async def login_submit(
 @app.get("/game", response_class=HTMLResponse)
 async def game_page(request: Request, player_name: str = "") -> HTMLResponse:
     return templates.TemplateResponse(
+        request,
         "game.html",
-        {"request": request, "player_name": player_name, "game_mode": "Single Player"},
+        {"player_name": player_name, "game_mode": "Single Player"},
     )
 
 
@@ -75,9 +77,9 @@ async def validate_player_name(
     )
 
     return templates.TemplateResponse(
+        request,
         "components/player_name_input.html",
         {
-            "request": request,
             "player_name": player_name,
             "error_message": validation.error_message,
             "css_class": validation.css_class,
@@ -97,9 +99,9 @@ async def lobby_page(request: Request, player_name: str = "") -> HTMLResponse:
     lobby_data = lobby_service.get_lobby_data_for_player(player_name)
 
     return templates.TemplateResponse(
+        request,
         "lobby.html",
         {
-            "request": request,
             "player_name": player_name,
             "game_mode": "Two Player",
             **lobby_data,

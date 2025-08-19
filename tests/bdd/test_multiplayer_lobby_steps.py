@@ -3,7 +3,7 @@ from playwright.sync_api import Page, Locator
 from tests.conftest import login_and_select_multiplayer
 
 
-scenarios("features/multiplayer_lobby.feature")
+scenarios("../../features/multiplayer_lobby.feature")
 
 
 @given("the multiplayer lobby system is available")

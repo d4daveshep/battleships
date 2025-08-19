@@ -3,7 +3,7 @@ from playwright.sync_api import Page, Locator
 from tests.conftest import BASE_URL
 
 
-scenarios("features/login.feature")
+scenarios("../../features/login.feature")
 
 
 def on_login_page(page: Page) -> None:

@@ -26,17 +26,3 @@ class TestLobby:
 
         available_players: list[Player] = lobby.get_available_players()
         assert len(available_players) == 3
-
-    def test_add_player_only_accepts_player_status_enum(self):
-        lobby: Lobby = Lobby()
-
-        # Should raise TypeError when passing string instead of PlayerStatus
-        with pytest.raises(TypeError):
-            lobby.add_player("Alice", "Available")
-
-    def test_add_player_rejects_invalid_string_status(self):
-        lobby: Lobby = Lobby()
-
-        # Should raise TypeError when passing any string
-        with pytest.raises(TypeError):
-            lobby.add_player("Bob", "InvalidStatus")

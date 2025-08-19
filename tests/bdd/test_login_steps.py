@@ -1,6 +1,6 @@
 from pytest_bdd import scenarios, given, when, then, parsers
 from playwright.sync_api import Page, Locator
-from tests.conftest import BASE_URL
+from tests.bdd.conftest import BASE_URL
 
 
 scenarios("../../features/login.feature")

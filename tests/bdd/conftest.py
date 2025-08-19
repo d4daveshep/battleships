@@ -1,5 +1,4 @@
 import subprocess
-from game.lobby import Lobby
 import time
 
 import httpx
@@ -78,7 +77,3 @@ def login_and_select_multiplayer(page: Page, player_name: str = "TestPlayer") ->
     page.wait_for_url("**/lobby*")
 
 
-@pytest.fixture
-def lobby():
-    """Fixture providing a Lobby instance for testing"""
-    return Lobby()

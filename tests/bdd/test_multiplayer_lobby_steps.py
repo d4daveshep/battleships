@@ -1,6 +1,6 @@
 from pytest_bdd import scenarios, given, when, then, parsers
 from playwright.sync_api import Page, Locator
-from tests.conftest import login_and_select_multiplayer
+from tests.bdd.conftest import login_and_select_multiplayer
 
 
 scenarios("../../features/multiplayer_lobby.feature")

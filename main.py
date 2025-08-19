@@ -108,12 +108,9 @@ async def health_check() -> dict[str, str]:
 
 @app.get("/lobby", response_class=HTMLResponse)
 async def lobby_page(request: Request, player_name: str = "") -> HTMLResponse:
-    # Minimal implementation: hardcode the expected players for the test
-    available_players: list[dict[str, str]] = [
-        {"name": "Alice"},
-        {"name": "Bob"},
-        {"name": "Charlie"}
-    ]
+    # TODO: Implement proper lobby state management with Lobby class
+    # For now, return empty lobby to drive TDD implementation
+    available_players: list[dict[str, str]] = []
     
     return templates.TemplateResponse(
         "lobby.html",

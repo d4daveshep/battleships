@@ -40,16 +40,16 @@ Feature: Multiplayer Game Lobby
   #   And Alice should receive a game invitation from "Diana"
   #   And my status should change to "Requesting Game"
   #   And I should not be able to select other players while waiting
-  #
-  # Scenario: Joining an empty lobby
-  #   Given there are no other players in the lobby
-  #   When I enter the multiplayer lobby as "Eve"
-  #   Then I should see the lobby interface
-  #   And I should see a message "No other players available"
-  #   And I should see a message "Waiting for other players to join..."
-  #   And I should not see any selectable players
-  #   And my status should be "Available"
-  #
+
+  Scenario: Joining an empty lobby
+    Given there are no other players in the lobby
+    When I enter the multiplayer lobby as "Eve"
+    Then I should see the lobby interface
+    And I should see a message "No other players available"
+    And I should see a message "Waiting for other players to join..."
+    And I should not see any selectable players
+    And my status should be "Available"
+
   # Scenario: Another player joins while I'm waiting in empty lobby
   #   Given I am waiting in an empty lobby as "Frank"
   #   And I see the message "Waiting for other players to join..."

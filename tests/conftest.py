@@ -1,4 +1,5 @@
 import subprocess
+from game.lobby import Lobby
 import time
 
 import httpx
@@ -80,9 +81,4 @@ def login_and_select_multiplayer(page: Page, player_name: str = "TestPlayer") ->
 @pytest.fixture
 def lobby():
     """Fixture providing a Lobby instance for testing"""
-    import sys
-    from pathlib import Path
-    sys.path.insert(0, str(Path(__file__).parent.parent))
-    from game.lobby import Lobby
     return Lobby()
-

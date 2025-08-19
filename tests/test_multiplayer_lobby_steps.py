@@ -1,7 +1,5 @@
 from pytest_bdd import scenarios, given, when, then, parsers
 from playwright.sync_api import Page, Locator
-from game.lobby import Lobby
-from game.player import PlayerStatus
 from tests.conftest import login_and_select_multiplayer
 
 
@@ -22,33 +20,18 @@ def logged_in_with_multiplayer_mode(page: Page) -> None:
 
 
 @given("there are other players in the lobby:")
-def other_players_in_lobby(page: Page, lobby:Lobby) -> None:
-    # Set up existing players in the lobby based on the feature table
-    # Expected players from feature file: Alice, Bob, Charlie with "Available" status
-    test_players = [
-        {"name": "Alice", "status": PlayerStatus.AVAILABLE},
-        {"name": "Bob", "status": PlayerStatus.AVAILABLE},
-        {"name": "Charlie", "status": PlayerStatus.AVAILABLE},
-    ]
-
-    for player_data in test_players:
-        lobby.add_player(player_data["name"], player_data["status"])
-
-    # Verify the lobby has the expected players
-    available_players = lobby.get_available_players()
-    assert len(available_players) == 3
-
-    player_names = [player.name for player in available_players]
-    assert "Alice" in player_names
-    assert "Bob" in player_names
-    assert "Charlie" in player_names
+def other_players_in_lobby(page: Page) -> None:
+    # This step would normally set up pre-existing players in the lobby
+    # Since we removed hardcoded players, this will drive proper implementation
+    # of dynamic lobby state management with a Lobby class
+    # For now, this test will fail and drive the implementation
+    pass
 
 
 @when(parsers.parse('I enter the multiplayer lobby as "{player_name}"'))
 def enter_multiplayer_lobby(page: Page, player_name: str) -> None:
-    # This step assumes we're already in the lobby from the background step
-    # But we may need to set our player name context
-    page.evaluate(f"window.currentPlayerName = '{player_name}'")
+    # Navigate to the lobby page - this will test the actual /lobby endpoint
+    page.goto(f"http://localhost:8000/lobby?player_name={player_name}")
 
 
 @then("I should see the lobby interface")
@@ -107,3 +90,36 @@ def see_own_status(page: Page, status: str) -> None:
     own_status: Locator = page.locator('[data-testid="own-player-status"]')
     assert own_status.is_visible()
     assert status in own_status.text_content()
+
+
+@given("there are no other players in the lobby")
+def no_other_players_in_lobby(page: Page) -> None:
+    # This step sets up the condition where the lobby is empty
+    # Since we removed hardcoded players, the lobby should already be empty
+    # This will test the UI behavior when no players are available
+    pass
+
+
+@then('I should see a message "No other players available"')
+def see_no_players_message(page: Page) -> None:
+    # Verify that the empty lobby shows appropriate message
+    no_players_message: Locator = page.locator('[data-testid="no-players-message"]')
+    assert no_players_message.is_visible()
+    assert "No other players available" in no_players_message.text_content()
+
+
+@then('I should see a message "Waiting for other players to join..."')
+def see_waiting_message(page: Page) -> None:
+    # Verify that the lobby shows waiting message for empty state
+    waiting_message: Locator = page.locator('[data-testid="waiting-message"]')
+    assert waiting_message.is_visible()
+    assert "Waiting for other players to join..." in waiting_message.text_content()
+
+
+@then("I should not see any selectable players")
+def no_selectable_players(page: Page) -> None:
+    # Verify that no player selection buttons or player items are visible
+    select_buttons: Locator = page.locator('[data-testid^="select-opponent-"]')
+    
+    # No select opponent buttons should be visible in empty lobby
+    assert select_buttons.count() == 0

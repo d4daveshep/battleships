@@ -123,3 +123,11 @@ def no_selectable_players(page: Page) -> None:
     
     # No select opponent buttons should be visible in empty lobby
     assert select_buttons.count() == 0
+
+
+@then(parsers.parse('my status should be "{status}"'))
+def my_status_should_be(page: Page, status: str) -> None:
+    # Verify own player status - same as see_own_status but different wording
+    own_status: Locator = page.locator('[data-testid="own-player-status"]')
+    assert own_status.is_visible()
+    assert status in own_status.text_content()

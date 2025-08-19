@@ -16,12 +16,21 @@
 
     <div data-testid="available-players-list">
         <h3>Available Players:</h3>
-        {% for player in available_players %}
-        <div data-testid="player-{{ player.name }}">
-            {{ player.name }}
-            <button data-testid="select-opponent-{{ player.name }}">Select Opponent</button>
-        </div>
-        {% endfor %}
+        {% if available_players %}
+            {% for player in available_players %}
+            <div data-testid="player-{{ player.name }}">
+                {{ player.name }}
+                <button data-testid="select-opponent-{{ player.name }}">Select Opponent</button>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div data-testid="no-players-message">
+                No other players available
+            </div>
+            <div data-testid="waiting-message">
+                Waiting for other players to join...
+            </div>
+        {% endif %}
     </div>
     
     

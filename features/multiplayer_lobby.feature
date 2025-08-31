@@ -50,15 +50,15 @@ Feature: Multiplayer Game Lobby
     And I should not see any selectable players
     And my status should be "Available"
 
-  # Scenario: Another player joins while I'm waiting in empty lobby
-  #   Given I am waiting in an empty lobby as "Frank"
-  #   And I see the message "Waiting for other players to join..."
-  #   When another player "Grace" joins the lobby
-  #   Then I should see "Grace" in the available players list
-  #   And I should see a "Select Opponent" button next to "Grace"
-  #   And the "Waiting for other players" message should be hidden
-  #   And I should be able to select "Grace" as my opponent
-  #
+  Scenario: Another player joins while I'm waiting in empty lobby
+    Given I am waiting in an empty lobby as "Frank"
+    And I see the message "Waiting for other players to join..."
+    When another player "Grace" joins the lobby
+    Then I should see "Grace" in the available players list
+    And I should see a "Select Opponent" button next to "Grace"
+    And the "Waiting for other players" message should be hidden
+    And I should be able to select "Grace" as my opponent
+
   # Scenario: Multiple players joining the lobby simultaneously
   #   Given I am in the lobby as "Henry"
   #   And there is one other player "Iris" in the lobby

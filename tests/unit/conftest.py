@@ -17,6 +17,7 @@ def populated_lobby(empty_lobby: Lobby) -> Lobby:
     # Lobby pre-populated with Alice and Bob as available players
     empty_lobby.add_player("Alice", PlayerStatus.AVAILABLE)
     empty_lobby.add_player("Bob", PlayerStatus.AVAILABLE)
+    empty_lobby.add_player("Charlie", PlayerStatus.AVAILABLE)
     return empty_lobby
 
 
@@ -48,3 +49,4 @@ def diana_expected_players() -> List[Dict[str, str]]:
 def auth_service() -> AuthService:
     # AuthService instance for player name validation
     return AuthService()
+

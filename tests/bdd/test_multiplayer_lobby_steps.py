@@ -10,7 +10,7 @@ scenarios("../../features/multiplayer_lobby.feature")
 def multiplayer_lobby_system_available(page: Page) -> None:
     # Verify the multiplayer lobby system is accessible
     # This step ensures the backend supports multiplayer functionality
-    pass  # Will implement when backend is ready
+    assert False, "this needs implementing"
 
 
 @given("I have successfully logged in with multiplayer mode selected")
@@ -25,13 +25,14 @@ def other_players_in_lobby(page: Page) -> None:
     # For now we'll simulate having players Alice, Bob, Charlie available
     # This will drive proper implementation of lobby state management
     expected_players = [
-        {'name': 'Alice', 'status': 'Available'},
-        {'name': 'Bob', 'status': 'Available'},
-        {'name': 'Charlie', 'status': 'Available'}
+        {"name": "Alice", "status": "Available"},
+        {"name": "Bob", "status": "Available"},
+        {"name": "Charlie", "status": "Available"},
     ]
-    setattr(page, 'expected_lobby_players', expected_players)
+    setattr(page, "expected_lobby_players", expected_players)
     # For now, this test will fail and drive the implementation
-    pass
+
+    assert False, "this needs implementing"
 
 
 @when(parsers.parse('I enter the multiplayer lobby as "{player_name}"'))
@@ -39,7 +40,7 @@ def enter_multiplayer_lobby(page: Page, player_name: str) -> None:
     # Navigate to the lobby page - this will test the actual /lobby endpoint
     page.goto(f"http://localhost:8000/lobby?player_name={player_name}")
     # Store current player name for later verification
-    setattr(page, 'current_player_name', player_name)
+    setattr(page, "current_player_name", player_name)
 
 
 @then("I should see the lobby interface")
@@ -57,7 +58,7 @@ def see_my_name(page: Page) -> None:
     my_name_element: Locator = page.locator('[data-testid="my-player-name"]')
     assert my_name_element.is_visible()
     # The text should contain the actual player name
-    current_player = getattr(page, 'current_player_name', 'TestPlayer')
+    current_player = getattr(page, "current_player_name", "TestPlayer")
     name_text = my_name_element.text_content()
     assert name_text is not None
     assert current_player in name_text
@@ -70,7 +71,7 @@ def see_available_players_list(page: Page) -> None:
     assert player_list.is_visible()
 
     # Check for expected players from the feature scenario
-    expected_players: list[str] = ['Alice', 'Bob', 'Charlie']
+    expected_players: list[str] = ["Alice", "Bob", "Charlie"]
 
     # Check for each expected player
     for player_name in expected_players:
@@ -112,7 +113,7 @@ def no_other_players_in_lobby(page: Page) -> None:
     # This step sets up the condition where the lobby is empty
     # Since we removed hardcoded players, the lobby should already be empty
     # This will test the UI behavior when no players are available
-    pass
+    assert False, "this needs implementing"
 
 
 @then('I should see a message "No other players available"')
@@ -139,7 +140,7 @@ def see_waiting_message(page: Page) -> None:
 def no_selectable_players(page: Page) -> None:
     # Verify that no player selection buttons or player items are visible
     select_buttons: Locator = page.locator('[data-testid^="select-opponent-"]')
-    
+
     # No select opponent buttons should be visible in empty lobby
     assert select_buttons.count() == 0
 
@@ -156,13 +157,14 @@ def my_status_should_be(page: Page, status: str) -> None:
 
 # New step definitions for the "another player joins while waiting" scenario
 
+
 @given(parsers.parse('I am waiting in an empty lobby as "{player_name}"'))
 def waiting_in_empty_lobby(page: Page, player_name: str) -> None:
     # Set up the condition where player is already in an empty lobby
     # This combines entering the lobby and verifying it's empty
     page.goto(f"http://localhost:8000/lobby?player_name={player_name}")
-    setattr(page, 'current_player_name', player_name)
-    
+    setattr(page, "current_player_name", player_name)
+
     # Verify we're in an empty lobby state
     waiting_message: Locator = page.locator('[data-testid="waiting-message"]')
     assert waiting_message.is_visible()
@@ -183,18 +185,18 @@ def another_player_joins_lobby(page: Page, player_name: str) -> None:
     # Simulate another player joining the lobby by making an HTTP request
     # In a real application, this would involve WebSocket updates or polling
     # For BDD testing, simulate the player joining by visiting the lobby page
-    
+
     # Store the expected new player for verification
-    setattr(page, 'expected_new_player', player_name)
-    
+    setattr(page, "expected_new_player", player_name)
+
     # Simulate the new player joining by making a request to the lobby
     # This will add the player to the lobby state via the normal flow
     import httpx
-    
+
     # Make a request as the new player to register them in the lobby
     with httpx.Client() as client:
         response = client.get(f"http://localhost:8000/lobby?player_name={player_name}")
-    
+
     # Refresh the current page to see the updated lobby state
     page.reload()
 
@@ -212,7 +214,9 @@ def see_new_player_in_list(page: Page, player_name: str) -> None:
 @then(parsers.parse('I should see a "Select Opponent" button next to "{player_name}"'))
 def see_select_button_for_player(page: Page, player_name: str) -> None:
     # Verify there's a select opponent button for the specific player
-    select_button: Locator = page.locator(f'[data-testid="select-opponent-{player_name}"]')
+    select_button: Locator = page.locator(
+        f'[data-testid="select-opponent-{player_name}"]'
+    )
     assert select_button.is_visible()
     assert select_button.is_enabled()
     button_text = select_button.text_content()
@@ -230,10 +234,13 @@ def waiting_message_hidden(page: Page) -> None:
 @then(parsers.parse('I should be able to select "{player_name}" as my opponent'))
 def can_select_player_as_opponent(page: Page, player_name: str) -> None:
     # Verify the select button is functional for the new player
-    select_button: Locator = page.locator(f'[data-testid="select-opponent-{player_name}"]')
+    select_button: Locator = page.locator(
+        f'[data-testid="select-opponent-{player_name}"]'
+    )
     assert select_button.is_visible()
     assert select_button.is_enabled()
-    
+
     # Verify clicking the button would work (but don't actually click in this test)
     # The button should not be disabled and should be interactive
     assert not select_button.is_disabled()
+

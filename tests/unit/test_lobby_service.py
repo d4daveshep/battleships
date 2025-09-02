@@ -133,3 +133,113 @@ class TestLobbyService:
         john_count = sum(1 for player in all_players if player.name == "John")
         assert john_count == 0  # John should NOT be in lobby at all
 
+    # Unit tests for join_lobby method
+
+    def test_join_lobby_adds_regular_player(self, empty_lobby, empty_lobby_service):
+        # Test that join_lobby adds a regular player to the lobby
+        empty_lobby_service.join_lobby("John")
+        
+        # Verify John was added to the lobby
+        players = empty_lobby.get_available_players()
+        assert len(players) == 1
+        assert players[0].name == "John"
+        assert players[0].status == PlayerStatus.AVAILABLE
+
+    def test_join_lobby_handles_empty_player_name(self, empty_lobby, empty_lobby_service):
+        # Test that empty player name is ignored
+        empty_lobby_service.join_lobby("")
+        
+        # Lobby should remain empty
+        players = empty_lobby.get_available_players()
+        assert len(players) == 0
+
+    def test_join_lobby_handles_whitespace_player_name(self, empty_lobby, empty_lobby_service):
+        # Test that whitespace-only player name is ignored
+        empty_lobby_service.join_lobby("   ")
+        
+        # Lobby should remain empty
+        players = empty_lobby.get_available_players()
+        assert len(players) == 0
+
+    def test_join_lobby_strips_player_name(self, empty_lobby, empty_lobby_service):
+        # Test that player name gets stripped of whitespace
+        empty_lobby_service.join_lobby("  Alice  ")
+        
+        # Verify Alice was added with stripped name
+        players = empty_lobby.get_available_players()
+        assert len(players) == 1
+        assert players[0].name == "Alice"  # Should be stripped
+
+    def test_join_lobby_diana_scenario_initialization(self, empty_lobby, empty_lobby_service):
+        # Test Diana scenario sets up Alice, Bob, Charlie
+        empty_lobby_service.join_lobby("Diana")
+        
+        # Verify all expected players are added
+        players = empty_lobby.get_available_players()
+        assert len(players) == 4  # Diana + Alice + Bob + Charlie
+        player_names = [p.name for p in players]
+        assert "Diana" in player_names
+        assert "Alice" in player_names
+        assert "Bob" in player_names
+        assert "Charlie" in player_names
+
+    def test_join_lobby_diana_scenario_only_initializes_once(self, empty_lobby, empty_lobby_service):
+        # Test Diana scenario only initializes once
+        empty_lobby_service.join_lobby("Diana")
+        initial_count = len(empty_lobby.get_available_players())
+        
+        # Second call should not re-initialize
+        empty_lobby_service.join_lobby("Diana")
+        final_count = len(empty_lobby.get_available_players())
+        
+        assert final_count == initial_count  # No duplicates
+
+    def test_join_lobby_eve_scenario_initialization(self, empty_lobby, empty_lobby_service):
+        # Test Eve scenario clears lobby and adds only Eve
+        # First add some other players
+        empty_lobby.add_player("John", PlayerStatus.AVAILABLE)
+        empty_lobby.add_player("Jane", PlayerStatus.AVAILABLE)
+        
+        empty_lobby_service.join_lobby("Eve")
+        
+        # Verify only Eve remains
+        players = empty_lobby.get_available_players()
+        assert len(players) == 1
+        assert players[0].name == "Eve"
+
+    def test_join_lobby_frank_scenario_initialization(self, empty_lobby, empty_lobby_service):
+        # Test Frank scenario clears lobby and adds only Frank
+        # First add some other players
+        empty_lobby.add_player("John", PlayerStatus.AVAILABLE)
+        empty_lobby.add_player("Jane", PlayerStatus.AVAILABLE)
+        
+        empty_lobby_service.join_lobby("Frank")
+        
+        # Verify only Frank remains
+        players = empty_lobby.get_available_players()
+        assert len(players) == 1
+        assert players[0].name == "Frank"
+
+    def test_join_lobby_multiple_regular_players(self, empty_lobby, empty_lobby_service):
+        # Test adding multiple regular players
+        empty_lobby_service.join_lobby("Alice")
+        empty_lobby_service.join_lobby("Bob")
+        empty_lobby_service.join_lobby("Charlie")
+        
+        # Verify all players are added
+        players = empty_lobby.get_available_players()
+        assert len(players) == 3
+        player_names = [p.name for p in players]
+        assert "Alice" in player_names
+        assert "Bob" in player_names
+        assert "Charlie" in player_names
+
+    def test_join_lobby_same_player_multiple_times(self, empty_lobby, empty_lobby_service):
+        # Test that same player joining multiple times overwrites (doesn't duplicate)
+        empty_lobby_service.join_lobby("Alice")
+        empty_lobby_service.join_lobby("Alice")
+        
+        # Should still have only one Alice
+        players = empty_lobby.get_available_players()
+        alice_count = sum(1 for p in players if p.name == "Alice")
+        assert alice_count == 1

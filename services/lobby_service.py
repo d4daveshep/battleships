@@ -9,6 +9,7 @@ class LobbyService:
 
     def join_lobby(self, player_name: str) -> None:
         """Add a player to the lobby - this is the write operation"""
+
         current_player = player_name.strip()
         
         # Handle empty/whitespace names

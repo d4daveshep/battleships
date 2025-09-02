@@ -11,6 +11,8 @@ class Lobby:
     def remove_player(self, name: str) -> None:
         if name in self.players:
             del self.players[name]
+        else:
+            raise ValueError(f"Player '{name}' not found in lobby")
 
     def clear_all_except(self, player_name: str) -> None:
         # Keep only the specified player in the lobby

@@ -30,17 +30,18 @@ Feature: Multiplayer Game Lobby
       | Charlie |
     And I should see a "Select Opponent" button for each available player
 
-  # Scenario: Successfully selecting an opponent from the lobby
-  #   Given I am in the multiplayer lobby as "Diana"
-  #   And there are other players in the lobby:
-  #     | Player Name | Status    |
-  #     | Alice       | Available |
-  #     | Bob         | Available |
-  #   When I click "Select Opponent" next to "Alice"
-  #   Then I should see a confirmation message "Game request sent to Alice"
-  #   And Alice should receive a game invitation from "Diana"
-  #   And my status should change to "Requesting Game"
-  #   And I should not be able to select other players while waiting
+  Scenario: Successfully selecting an opponent from the lobby
+    Given I've logged in as "Diana" and selected human opponent
+    And there are other players in the lobby:
+      | Player Name | Status    |
+      | Alice       | Available |
+      | Bob         | Available |
+      | Charlie     | Available |
+    When I click "Select Opponent" next to "Alice"
+    Then I should see a confirmation message "Game request sent to Alice"
+    And Alice should receive a game invitation from "Diana"
+    And my status should change to "Requesting Game"
+    And I should not be able to select other players while waiting for my request to be completed
 
   Scenario: Joining an empty lobby
     Given there are no other players in the lobby

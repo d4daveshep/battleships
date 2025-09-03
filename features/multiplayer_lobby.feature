@@ -19,7 +19,7 @@ Feature: Multiplayer Game Lobby
       | Alice       | Available |
       | Bob         | Available |
       | Charlie     | Available |
-    When I enter the multiplayer lobby as "Diana"
+    When I login as "Diana" and select human opponent
     Then I should see the lobby interface
     And I should see my name
     And I should see my own status as "Available"
@@ -43,7 +43,7 @@ Feature: Multiplayer Game Lobby
 
   Scenario: Joining an empty lobby
     Given there are no other players in the lobby
-    When I enter the multiplayer lobby as "Eve"
+    When I login as "Eve" and select human opponent
     Then I should see the lobby interface
     And I should see a message "No other players available"
     And I should see a message "Waiting for other players to join..."
@@ -51,9 +51,10 @@ Feature: Multiplayer Game Lobby
     And my status should be "Available"
 
   Scenario: Another player joins while I'm waiting in empty lobby
-    Given I am waiting in an empty lobby as "Frank"
+    Given I've logged in as "Frank" and selected human opponent
+    And I'm waiting in an empty lobby
     And I see the message "Waiting for other players to join..."
-    When another player "Grace" joins the lobby
+    When another player "Grace" logs in and selects human opponent
     Then I should see "Grace" in the available players list
     And I should see a "Select Opponent" button next to "Grace"
     And the "Waiting for other players" message should be hidden

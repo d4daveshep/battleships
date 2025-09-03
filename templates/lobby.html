@@ -20,6 +20,12 @@
         {{ confirmation_message }}
     </div>
     {% endif %}
+    
+    {% if error_message %}
+    <div data-testid="error-message" class="error-message">
+        {{ error_message }}
+    </div>
+    {% endif %}
 
     <div data-testid="available-players-list">
         <h3>Available Players:</h3>

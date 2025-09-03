@@ -59,6 +59,15 @@ class TestLobbyServiceIntegration:
 
     def test_lobby_service_diana_scenario_integration(self, client):
         # Test that Diana special scenario works end-to-end
+        # First, clear the lobby to ensure clean state
+        client.post("/test/reset-lobby")
+        
+        # Add Alice, Bob, and Charlie to the lobby
+        client.post("/", data={"player_name": "Alice", "game_mode": "human"})
+        client.post("/", data={"player_name": "Bob", "game_mode": "human"})
+        client.post("/", data={"player_name": "Charlie", "game_mode": "human"})
+        
+        # Now Diana should see them when accessing the lobby
         response = client.get("/lobby?player_name=Diana")
 
         assert response.status_code == status.HTTP_200_OK

@@ -104,32 +104,12 @@ async def reset_lobby_for_testing() -> dict[str, str]:
 
 @app.post("/select-opponent")
 async def select_opponent(
-    request: Request, 
-    player_name: str = Form(), 
-    opponent_name: str = Form()
+    request: Request, player_name: str = Form(), opponent_name: str = Form()
 ) -> HTMLResponse:
     """Handle opponent selection and return updated lobby view"""
-    
+
     # For minimal implementation, just return lobby with confirmation message
     # Get lobby data (opponent selection doesn't change available players yet)
-    lobby_data: list[str] = lobby_service.get_lobby_data_for_player(player_name)
-    
-    return templates.TemplateResponse(
-        request,
-        "lobby.html",
-        {
-            "player_name": player_name,
-            "game_mode": "Two Player", 
-            "available_players": lobby_data,
-            "confirmation_message": f"Game request sent to {opponent_name}",
-            "player_status": "Requesting Game",
-        },
-    )
-
-
-@app.get("/lobby", response_class=HTMLResponse)
-async def lobby_page(request: Request, player_name: str = "") -> HTMLResponse:
-    # Get lobby data using service layer (read operation)
     lobby_data: list[str] = lobby_service.get_lobby_data_for_player(player_name)
 
     return templates.TemplateResponse(
@@ -139,7 +119,34 @@ async def lobby_page(request: Request, player_name: str = "") -> HTMLResponse:
             "player_name": player_name,
             "game_mode": "Two Player",
             "available_players": lobby_data,
-            "confirmation_message": "",
-            "player_status": "Available",
+            "confirmation_message": f"Game request sent to {opponent_name}",
+            "player_status": "Requesting Game",
         },
     )
+
+
+@app.get("/lobby", response_class=HTMLResponse)
+async def lobby_page(request: Request, player_name: str = "") -> HTMLResponse:
+    # Default template context
+    template_context = {
+        "player_name": player_name,
+        "game_mode": "Two Player",
+        "available_players": [],
+        "confirmation_message": "",
+        "player_status": "Available",
+        "error_message": "",
+    }
+
+    # Handle empty/invalid player names
+    if not player_name.strip():
+        template_context["player_name"] = ""
+        template_context["error_message"] = "Please provide a valid player name to access the lobby"
+    else:
+        # Try to get lobby data for valid player names
+        try:
+            lobby_data: list[str] = lobby_service.get_lobby_data_for_player(player_name)
+            template_context["available_players"] = lobby_data
+        except ValueError as e:
+            template_context["error_message"] = str(e)
+
+    return templates.TemplateResponse(request, "lobby.html", template_context)

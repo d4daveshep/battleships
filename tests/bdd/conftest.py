@@ -10,11 +10,35 @@ from playwright.sync_api import Browser, Page, sync_playwright
 BASE_URL = "http://localhost:8000/"
 
 
+@pytest.fixture(autouse=True)
+def reset_lobby(fastapi_server):
+    """Reset global lobby state before each BDD scenario"""
+    # Reset lobby state via HTTP call to the running server
+    try:
+        with httpx.Client() as client:
+            response = client.post(f"{BASE_URL}test/reset-lobby", timeout=5)
+            if response.status_code == 200:
+                print(f"Lobby reset successful: {response.json()}")
+            else:
+                print(f"Lobby reset failed: {response.status_code}")
+    except Exception as e:
+        print(f"Failed to reset lobby: {e}")
+
+    yield
+
+    # Optional: cleanup after test too
+    try:
+        with httpx.Client() as client:
+            client.post(f"{BASE_URL}test/reset-lobby", timeout=5)
+    except:
+        pass  # Ignore cleanup failures
+
+
 @pytest.fixture(scope="session")
 def fastapi_server():
     """Start FastAPI server for the entire test session"""
     process = subprocess.Popen(
-        ["uv", "run", "uvicorn", "main:app", "--port", "8000", "--host", "127.0.0.1"]
+        ["uv", "run", "uvicorn", "main:app", "--port", "8000", "--host", "0.0.0.0"]
     )
 
     # Wait for server to be ready with health check
@@ -75,5 +99,3 @@ def login_and_select_multiplayer(page: Page, player_name: str = "TestPlayer") ->
     click_multiplayer_button(page)
     # Should be redirected to lobby page
     page.wait_for_url("**/lobby*")
-
-

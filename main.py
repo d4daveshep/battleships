@@ -95,6 +95,13 @@ async def health_check() -> dict[str, str]:
     return {"status": "healthy"}
 
 
+@app.post("/test/reset-lobby")
+async def reset_lobby_for_testing() -> dict[str, str]:
+    """Reset lobby state - for testing only"""
+    game_lobby.players.clear()
+    return {"status": "lobby cleared"}
+
+
 @app.get("/lobby", response_class=HTMLResponse)
 async def lobby_page(request: Request, player_name: str = "") -> HTMLResponse:
     # Get lobby data using service layer (read operation)

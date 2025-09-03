@@ -342,3 +342,95 @@ def cannot_select_other_players_while_waiting(page: Page) -> None:
 
     # Alternatively, check for a message indicating no selections are possible
     # This depends on how the UI handles the "requesting game" state
+
+
+# New BDD steps for "Lobby shows real-time updates" scenario
+
+@when(parsers.parse('"{target_player}" receives a game request from "{sender_player}"'))
+def target_player_receives_game_request(page: Page, target_player: str, sender_player: str) -> None:
+    # Simulate another player (sender) sending a game request to target_player
+    # This would typically involve:
+    # 1. Making an HTTP request from sender to select target as opponent
+    # 2. Triggering real-time updates via WebSocket/polling
+    
+    # For now, simulate this by making the request via HTTP client
+    # In a real implementation, this might involve WebSocket messaging
+    import httpx
+    
+    with httpx.Client() as client:
+        # Simulate sender selecting target as opponent
+        response = client.post(
+            "http://localhost:8000/select-opponent",
+            data={"player_name": sender_player, "opponent_name": target_player}
+        )
+    
+    # Store the interaction for verification
+    setattr(page, "game_request_sender", sender_player)
+    setattr(page, "game_request_target", target_player)
+    
+    # Wait a moment for potential real-time updates to propagate
+    page.wait_for_timeout(500)  # 500ms wait for updates
+
+
+@then(parsers.parse('I should see "{player_name}\'s" status change from "{old_status}" to "{new_status}"'))
+def see_player_status_change(page: Page, player_name: str, old_status: str, new_status: str) -> None:
+    # Check that the player's status has changed to the new status
+    # This tests real-time updates of player status in the lobby
+    
+    # Look for player status indicator (this might be in a data attribute or text)
+    player_status_element: Locator = page.locator(f'[data-testid="player-{player_name}-status"]')
+    
+    if player_status_element.count() > 0:
+        # If there's a specific status element, check it
+        status_text = player_status_element.inner_text()
+        assert new_status in status_text, f"Expected status '{new_status}' for {player_name}, got '{status_text}'"
+    else:
+        # Alternative: check if the player element has status information
+        player_element: Locator = page.locator(f'[data-testid="player-{player_name}"]')
+        assert player_element.is_visible(), f"Player {player_name} should be visible in lobby"
+        
+        # Check for status indicator in the player's section
+        # This might involve looking for CSS classes or text content
+        player_html = player_element.inner_html()
+        assert new_status.lower() in player_html.lower(), f"Player {player_name} should show status '{new_status}'"
+
+
+@then(parsers.parse('the "Select Opponent" button for "{player_name}" should be disabled'))
+def select_opponent_button_should_be_disabled(page: Page, player_name: str) -> None:
+    # Verify that the Select Opponent button for the specified player is disabled
+    # This tests that players with "Requesting Game" status can't be selected
+    
+    select_button: Locator = page.locator(f'[data-testid="select-opponent-{player_name}"]')
+    assert select_button.is_visible(), f"Select Opponent button for {player_name} should be visible"
+    assert select_button.is_disabled(), f"Select Opponent button for {player_name} should be disabled"
+
+
+@then(parsers.parse('I should see a visual indicator that "{player_name}" is no longer available'))
+def see_visual_indicator_player_unavailable(page: Page, player_name: str) -> None:
+    # Check for visual indicators that show the player is no longer available
+    # This could be CSS classes, icons, or other visual cues
+    
+    player_element: Locator = page.locator(f'[data-testid="player-{player_name}"]')
+    assert player_element.is_visible(), f"Player {player_name} should still be visible in lobby"
+    
+    # Check for visual indicators of unavailability
+    # This might involve CSS classes like "unavailable", "requesting", etc.
+    player_html = player_element.inner_html()
+    
+    # Look for common visual indicators
+    visual_indicators = [
+        "unavailable",
+        "requesting", 
+        "disabled",
+        "pending",
+        "status-requesting",
+        "player-busy"
+    ]
+    
+    found_indicator = any(indicator in player_html.lower() for indicator in visual_indicators)
+    
+    # Also check if the button is disabled (another visual cue)
+    select_button: Locator = page.locator(f'[data-testid="select-opponent-{player_name}"]')
+    button_disabled = select_button.is_disabled() if select_button.count() > 0 else False
+    
+    assert found_indicator or button_disabled, f"Player {player_name} should have visual indicator of unavailability"

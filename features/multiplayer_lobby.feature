@@ -62,6 +62,17 @@ Feature: Multiplayer Game Lobby
     And the "Waiting for other players" message should be hidden
     And I should be able to select "Grace" as my opponent
 
+  Scenario: Lobby shows real-time updates
+    Given I've logged in as "Tina" and selected human opponent
+    And there are other players in the lobby:
+      | Player Name | Status    |
+      | Rachel      | Available |
+      | Sam         | Available |
+    When "Rachel" receives a game request from "Sam"
+    Then I should see "Rachel's" status change from "Available" to "Requesting Game"
+    And the "Select Opponent" button for "Rachel" should be disabled
+    And I should see a visual indicator that "Rachel" is no longer available
+
   # Scenario: Multiple players joining the lobby simultaneously
   #   Given I am in the lobby as "Henry"
   #   And there is one other player "Iris" in the lobby
@@ -104,14 +115,6 @@ Feature: Multiplayer Game Lobby
   #   Then I should see the current list of available players
   #   And player statuses should be up to date
   #   And my own status should remain unchanged
-  #
-  # Scenario: Lobby shows real-time updates
-  #   Given I am in the lobby as "Tina"
-  #   And "Uma" is also in the lobby
-  #   When "Uma" receives a game request from another player
-  #   Then I should see "Uma's" status change from "Available" to "Requesting Game"
-  #   And the "Select Opponent" button for "Uma" should be disabled
-  #   And I should see a visual indicator that "Uma" is no longer available
   #
   # Scenario: Leaving the lobby
   #   Given I am in the lobby as "Victor"

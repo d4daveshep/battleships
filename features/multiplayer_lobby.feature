@@ -53,7 +53,7 @@ Feature: Multiplayer Game Lobby
 
   Scenario: Another player joins while I'm waiting in empty lobby
     Given I've logged in as "Frank" and selected human opponent
-    And I'm waiting in an empty lobby
+    And there are no other players in the lobby
     And I see the message "Waiting for other players to join..."
     When another player "Grace" logs in and selects human opponent
     Then I should see "Grace" in the available players list

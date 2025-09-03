@@ -189,13 +189,6 @@ def logged_in_and_selected_human_opponent(page: Page, player_name: str) -> None:
     setattr(page, "current_player_name", player_name)
 
 
-@given("I'm waiting in an empty lobby")
-def waiting_in_empty_lobby(page: Page) -> None:
-    # Verify we're in an empty lobby state
-    waiting_message: Locator = page.locator('[data-testid="waiting-message"]')
-    assert waiting_message.is_visible()
-
-
 @given('I see the message "Waiting for other players to join..."')
 def see_waiting_message_given(page: Page) -> None:
     # Verify the waiting message is displayed (given state)
@@ -211,7 +204,7 @@ def see_waiting_message_given(page: Page) -> None:
 )
 def another_player_logs_in_and_selects_human(page: Page, player_name: str) -> None:
     # Simulate another player going through the full login flow
-    # In a real application, this would involve WebSocket updates or polling
+    # TODO:In a real application, this would involve WebSocket updates or polling
     # For BDD testing, simulate the player joining via the normal login flow
 
     # Store the expected new player for verification

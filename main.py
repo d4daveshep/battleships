@@ -137,16 +137,12 @@ async def lobby_page(request: Request, player_name: str = "") -> HTMLResponse:
         "error_message": "",
     }
 
-    # Handle empty/invalid player names
-    if not player_name.strip():
+    # Try to get lobby data for valid player names
+    try:
+        lobby_data: list[str] = lobby_service.get_lobby_data_for_player(player_name)
+        template_context["available_players"] = lobby_data
+    except ValueError as e:
         template_context["player_name"] = ""
-        template_context["error_message"] = "Please provide a valid player name to access the lobby"
-    else:
-        # Try to get lobby data for valid player names
-        try:
-            lobby_data: list[str] = lobby_service.get_lobby_data_for_player(player_name)
-            template_context["available_players"] = lobby_data
-        except ValueError as e:
-            template_context["error_message"] = str(e)
+        template_context["error_message"] = str(e)
 
     return templates.TemplateResponse(request, "lobby.html", template_context)

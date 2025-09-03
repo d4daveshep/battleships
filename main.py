@@ -98,7 +98,7 @@ async def health_check() -> dict[str, str]:
 @app.get("/lobby", response_class=HTMLResponse)
 async def lobby_page(request: Request, player_name: str = "") -> HTMLResponse:
     # Get lobby data using service layer (read operation)
-    lobby_data = lobby_service.get_lobby_data_for_player(player_name)
+    lobby_data: list[str] = lobby_service.get_lobby_data_for_player(player_name)
 
     return templates.TemplateResponse(
         request,
@@ -106,6 +106,6 @@ async def lobby_page(request: Request, player_name: str = "") -> HTMLResponse:
         {
             "player_name": player_name,
             "game_mode": "Two Player",
-            **lobby_data,
+            "available_players": lobby_data,
         },
     )

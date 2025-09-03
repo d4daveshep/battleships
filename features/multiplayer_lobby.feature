@@ -11,7 +11,7 @@ Feature: Multiplayer Game Lobby
 
   Background:
     Given the multiplayer lobby system is available
-    And I have successfully logged in with multiplayer mode selected
+    # And I have successfully logged in with multiplayer mode selected
 
   Scenario: Joining lobby with existing available players
     Given there are other players in the lobby:
@@ -24,6 +24,7 @@ Feature: Multiplayer Game Lobby
     And I should see my name
     And I should see my own status as "Available"
     And I should see a list of available players:
+      | Player Name |
       | Alice   |
       | Bob     |
       | Charlie |

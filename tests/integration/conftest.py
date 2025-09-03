@@ -31,3 +31,4 @@ def invalid_login_data() -> dict[str, str]:
 def quoted_name_data() -> dict[str, str]:
     # Form data with quoted player name for quote stripping tests
     return {"player_name": '"Charlie"', "game_mode": "human"}
+

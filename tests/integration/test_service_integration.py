@@ -176,3 +176,8 @@ class TestEndToEndWorkflows:
         # User should be able to retry with valid input
         # (This would require maintaining form state, which the app does)
 
+
+class TestHealthEndpoint:
+    def test_health_endpoint(self, client):
+        response = client.get("/health")
+        assert response.status_code == status.HTTP_200_OK

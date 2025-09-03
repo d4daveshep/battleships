@@ -10,46 +10,44 @@ scenarios("../../features/multiplayer_lobby.feature")
 def multiplayer_lobby_system_available(page: Page) -> None:
     # Verify the multiplayer lobby system is accessible
     # This step ensures the backend supports multiplayer functionality
-    pass  # Background step - system should be available for testing
+    pass  # TODO: see if we can don better here
 
 
-@given("I have successfully logged in with multiplayer mode selected")
-def logged_in_with_multiplayer_mode(page: Page) -> None:
-    # Use shared login helper function
-    login_and_select_multiplayer(page)
+# @given("I have successfully logged in with multiplayer mode selected")
+# def logged_in_with_multiplayer_mode(page: Page) -> None:
+#     # Use shared login helper function
+#     login_and_select_multiplayer(page)
 
 
 @given("there are other players in the lobby:")
-def other_players_in_lobby(page: Page, step) -> None:
+def other_players_in_lobby(page: Page, datatable) -> None:
     # This step sets up pre-existing players in the lobby
     # Parse the table data from the step to set up lobby state
-    expected_players = []
-    for row in step.table:
-        player_name = row['Player Name']
-        status = row['Status']
-        expected_players.append({'name': player_name, 'status': status})
-    
+    expected_players: list[str] = []
+    for row in datatable[1:]:
+        player_name: str = row[0]
+        status: str = row[1]
+        if status == "Available":
+            login_and_select_human_opponent(page, player_name)
+            expected_players.append({"name": player_name, "status": status})
+
     setattr(page, "expected_lobby_players", expected_players)
-    
-    # TODO: Set up the lobby state with these players
-    # This will need to be implemented to work with the refactored LobbyService
-    pass
 
 
 @when(parsers.parse('I login as "{player_name}" and select human opponent'))
 def login_and_select_human_opponent(page: Page, player_name: str) -> None:
     # Navigate to login page, enter player name, and select human opponent
     page.goto("http://localhost:8000/")
-    
+
     # Fill in player name
     page.locator('input[name="player_name"]').fill(player_name)
-    
+
     # Click "Play against Another Player" button
     page.locator('button[value="human"]').click()
-    
+
     # Should be redirected to lobby page
     page.wait_for_url("**/lobby*")
-    
+
     # Store current player name for later verification
     setattr(page, "current_player_name", player_name)
 
@@ -76,14 +74,17 @@ def see_my_name(page: Page) -> None:
 
 
 @then("I should see a list of available players:")
-def see_available_players_list(page: Page) -> None:
+def see_available_players_list(page: Page, datatable) -> None:
     # Verify the player list shows expected players Alice, Bob, Charlie
     # This step should be updated to work with the refactored LobbyService
     player_list: Locator = page.locator('[data-testid="available-players-list"]')
     assert player_list.is_visible()
 
     # Check for expected players from the scenario
-    expected_players: list[str] = ["Alice", "Bob", "Charlie"]
+    expected_players: list[str] = []
+    for row in datatable[1:]:
+        player_name: str = row[0]
+        expected_players.append(player_name)
 
     # Check for each expected player
     for player_name in expected_players:
@@ -174,16 +175,16 @@ def my_status_should_be(page: Page, status: str) -> None:
 def logged_in_and_selected_human_opponent(page: Page, player_name: str) -> None:
     # Complete login flow and select human opponent
     page.goto("http://localhost:8000/")
-    
+
     # Fill in player name
     page.locator('input[name="player_name"]').fill(player_name)
-    
+
     # Click "Play against Another Player" button
     page.locator('button[value="human"]').click()
-    
+
     # Should be redirected to lobby page
     page.wait_for_url("**/lobby*")
-    
+
     # Store current player name for later verification
     setattr(page, "current_player_name", player_name)
 
@@ -205,28 +206,30 @@ def see_waiting_message_given(page: Page) -> None:
     assert "Waiting for other players to join..." in waiting_text
 
 
-@when(parsers.parse('another player "{player_name}" logs in and selects human opponent'))
+@when(
+    parsers.parse('another player "{player_name}" logs in and selects human opponent')
+)
 def another_player_logs_in_and_selects_human(page: Page, player_name: str) -> None:
     # Simulate another player going through the full login flow
     # In a real application, this would involve WebSocket updates or polling
     # For BDD testing, simulate the player joining via the normal login flow
-    
+
     # Store the expected new player for verification
     setattr(page, "expected_new_player", player_name)
-    
+
     # Simulate the new player logging in and selecting human opponent
     import httpx
-    
+
     with httpx.Client() as client:
         # First get the login page
         response = client.get("http://localhost:8000/")
-        
+
         # Then submit the login form with human opponent selection
-        response = client.post("http://localhost:8000/", data={
-            "player_name": player_name,
-            "game_mode": "human"
-        })
-    
+        response = client.post(
+            "http://localhost:8000/",
+            data={"player_name": player_name, "game_mode": "human"},
+        )
+
     # Refresh the current page to see the updated lobby state
     page.reload()
 
@@ -273,4 +276,3 @@ def can_select_player_as_opponent(page: Page, player_name: str) -> None:
     # Verify clicking the button would work (but don't actually click in this test)
     # The button should not be disabled and should be interactive
     assert not select_button.is_disabled()
-

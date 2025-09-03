@@ -18,9 +18,9 @@
         <h3>Available Players:</h3>
         {% if available_players %}
             {% for player in available_players %}
-            <div data-testid="player-{{ player.name }}">
-                {{ player.name }}
-                <button data-testid="select-opponent-{{ player.name }}">Select Opponent</button>
+            <div data-testid="player-{{ player }}">
+                {{ player }}
+                <button data-testid="select-opponent-{{ player }}">Select Opponent</button>
             </div>
             {% endfor %}
         {% else %}

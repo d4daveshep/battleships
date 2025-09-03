@@ -11,8 +11,15 @@
     </div>
     
     <div data-testid="own-player-status">
-        Your Status: Available
+        <!-- Your Status: {{ player_status or "Available" }} -->
+        Your Status: {{ player_status }}
     </div>
+    
+    {% if confirmation_message %}
+    <div data-testid="confirmation-message">
+        {{ confirmation_message }}
+    </div>
+    {% endif %}
 
     <div data-testid="available-players-list">
         <h3>Available Players:</h3>
@@ -20,7 +27,14 @@
             {% for player in available_players %}
             <div data-testid="player-{{ player }}">
                 {{ player }}
-                <button data-testid="select-opponent-{{ player }}">Select Opponent</button>
+                <form method="post" action="/select-opponent" style="display: inline;">
+                    <input type="hidden" name="player_name" value="{{ player_name }}">
+                    <input type="hidden" name="opponent_name" value="{{ player }}">
+                    <button type="submit" data-testid="select-opponent-{{ player }}"
+                            {% if player_status == "Requesting Game" %}disabled{% endif %}>
+                        Select Opponent
+                    </button>
+                </form>
             </div>
             {% endfor %}
         {% else %}

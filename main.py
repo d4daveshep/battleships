@@ -102,6 +102,31 @@ async def reset_lobby_for_testing() -> dict[str, str]:
     return {"status": "lobby cleared"}
 
 
+@app.post("/select-opponent")
+async def select_opponent(
+    request: Request, 
+    player_name: str = Form(), 
+    opponent_name: str = Form()
+) -> HTMLResponse:
+    """Handle opponent selection and return updated lobby view"""
+    
+    # For minimal implementation, just return lobby with confirmation message
+    # Get lobby data (opponent selection doesn't change available players yet)
+    lobby_data: list[str] = lobby_service.get_lobby_data_for_player(player_name)
+    
+    return templates.TemplateResponse(
+        request,
+        "lobby.html",
+        {
+            "player_name": player_name,
+            "game_mode": "Two Player", 
+            "available_players": lobby_data,
+            "confirmation_message": f"Game request sent to {opponent_name}",
+            "player_status": "Requesting Game",
+        },
+    )
+
+
 @app.get("/lobby", response_class=HTMLResponse)
 async def lobby_page(request: Request, player_name: str = "") -> HTMLResponse:
     # Get lobby data using service layer (read operation)
@@ -114,5 +139,7 @@ async def lobby_page(request: Request, player_name: str = "") -> HTMLResponse:
             "player_name": player_name,
             "game_mode": "Two Player",
             "available_players": lobby_data,
+            "confirmation_message": "",
+            "player_status": "Available",
         },
     )

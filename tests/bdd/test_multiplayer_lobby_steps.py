@@ -368,8 +368,8 @@ def target_player_receives_game_request(page: Page, target_player: str, sender_p
     setattr(page, "game_request_sender", sender_player)
     setattr(page, "game_request_target", target_player)
     
-    # Wait a moment for potential real-time updates to propagate
-    page.wait_for_timeout(500)  # 500ms wait for updates
+    # Wait for polling cycle to complete (polling every 1s + buffer)
+    page.wait_for_timeout(1500)  # 1.5s wait for updates
 
 
 @then(parsers.parse('I should see "{player_name}\'s" status change from "{old_status}" to "{new_status}"'))

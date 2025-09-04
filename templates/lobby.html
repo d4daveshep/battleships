@@ -28,7 +28,7 @@
 
     <div data-testid="available-players-list" 
          hx-get="/lobby/players/{{ player_name }}" 
-         hx-trigger="load, every 250ms" 
+         hx-trigger="load, every 1s" 
          hx-swap="innerHTML">
         <h3>Available Players:</h3>
         {% if available_players %}

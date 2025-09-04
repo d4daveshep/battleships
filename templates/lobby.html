@@ -26,7 +26,10 @@
     </div>
     {% endif %}
 
-    <div data-testid="available-players-list">
+    <div data-testid="available-players-list" 
+         hx-get="/lobby/players/{{ player_name }}" 
+         hx-trigger="load, every 250ms" 
+         hx-swap="innerHTML">
         <h3>Available Players:</h3>
         {% if available_players %}
             {% for player in available_players %}

@@ -3,6 +3,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from game.lobby import Lobby
+from game.player import Player, PlayerStatus
 from services.auth_service import AuthService, PlayerNameValidation
 from services.lobby_service import LobbyService
 
@@ -108,9 +109,16 @@ async def select_opponent(
 ) -> HTMLResponse:
     """Handle opponent selection and return updated lobby view"""
 
-    # For minimal implementation, just return lobby with confirmation message
-    # Get lobby data (opponent selection doesn't change available players yet)
-    lobby_data: list[str] = lobby_service.get_lobby_data_for_player(player_name)
+    # Update player statuses: sender becomes "Requesting Game", target becomes "Requesting Game"
+    try:
+        lobby_service.update_player_status(player_name, PlayerStatus.REQUESTING_GAME)
+        lobby_service.update_player_status(opponent_name, PlayerStatus.REQUESTING_GAME)
+    except ValueError:
+        # Handle case where player doesn't exist in lobby
+        pass
+
+    # Get updated lobby data after status changes
+    lobby_data: list[Player] = lobby_service.get_lobby_players_for_player(player_name)
 
     return templates.TemplateResponse(
         request,
@@ -139,7 +147,7 @@ async def lobby_page(request: Request, player_name: str = "") -> HTMLResponse:
 
     # Try to get lobby data for valid player names
     try:
-        lobby_data: list[str] = lobby_service.get_lobby_data_for_player(player_name)
+        lobby_data: list[Player] = lobby_service.get_lobby_players_for_player(player_name)
         template_context["available_players"] = lobby_data
     except ValueError as e:
         template_context["player_name"] = ""

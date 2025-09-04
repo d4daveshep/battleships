@@ -29,3 +29,13 @@ class Lobby:
             for player in self.players.values()
             if player.status == PlayerStatus.AVAILABLE
         ]
+
+    def update_player_status(self, name: str, status: PlayerStatus) -> None:
+        if name not in self.players:
+            raise ValueError(f"Player '{name}' not found in lobby")
+        self.players[name].status = status
+
+    def get_player_status(self, name: str) -> PlayerStatus:
+        if name not in self.players:
+            raise ValueError(f"Player '{name}' not found in lobby")
+        return self.players[name].status

@@ -150,3 +150,183 @@ class TestLobbyService:
         all_players = empty_lobby.get_available_players()
         john_count = sum(1 for player in all_players if player.name == "John")
         assert john_count == 0  # John should NOT be in lobby at all
+
+    # Unit tests for new status management methods
+
+    def test_update_player_status_existing_player(
+        self, empty_lobby_service: LobbyService
+    ):
+        # Add a player first
+        empty_lobby_service.join_lobby("Alice")
+
+        # Update Alice's status
+        empty_lobby_service.update_player_status("Alice", PlayerStatus.REQUESTING_GAME)
+
+        # Verify status was updated
+        alice_status: PlayerStatus = empty_lobby_service.get_player_status("Alice")
+        assert alice_status == PlayerStatus.REQUESTING_GAME
+
+    def test_update_player_status_nonexistent_player(
+        self, empty_lobby_service: LobbyService
+    ):
+        # Try to update status of player that doesn't exist
+        with pytest.raises(ValueError, match="Player 'NonExistent' not found in lobby"):
+            empty_lobby_service.update_player_status(
+                "NonExistent", PlayerStatus.REQUESTING_GAME
+            )
+
+    def test_update_player_status_all_statuses(self, empty_lobby_service: LobbyService):
+        # Add a player and test updating to all different statuses
+        empty_lobby_service.join_lobby("Bob")
+
+        # Test updating to REQUESTING_GAME
+        empty_lobby_service.update_player_status("Bob", PlayerStatus.REQUESTING_GAME)
+        assert (
+            empty_lobby_service.get_player_status("Bob") == PlayerStatus.REQUESTING_GAME
+        )
+
+        # Test updating to IN_GAME
+        empty_lobby_service.update_player_status("Bob", PlayerStatus.IN_GAME)
+        assert empty_lobby_service.get_player_status("Bob") == PlayerStatus.IN_GAME
+
+        # Test updating back to AVAILABLE
+        empty_lobby_service.update_player_status("Bob", PlayerStatus.AVAILABLE)
+        assert empty_lobby_service.get_player_status("Bob") == PlayerStatus.AVAILABLE
+
+    def test_get_player_status_existing_player(self, empty_lobby_service: LobbyService):
+        # Add players with different statuses
+        empty_lobby_service.join_lobby("Alice")
+        empty_lobby_service.join_lobby("Bob")
+        empty_lobby_service.update_player_status("Bob", PlayerStatus.REQUESTING_GAME)
+
+        # Verify we can get each player's status
+        assert empty_lobby_service.get_player_status("Alice") == PlayerStatus.AVAILABLE
+        assert (
+            empty_lobby_service.get_player_status("Bob") == PlayerStatus.REQUESTING_GAME
+        )
+
+    def test_get_player_status_nonexistent_player(
+        self, empty_lobby_service: LobbyService
+    ):
+        # Try to get status of player that doesn't exist
+        with pytest.raises(ValueError, match="Player 'NonExistent' not found in lobby"):
+            empty_lobby_service.get_player_status("NonExistent")
+
+    # Unit tests for get_lobby_players_for_player method
+
+    def test_get_lobby_players_for_player_returns_player_objects(
+        self, empty_lobby_service: LobbyService
+    ):
+        # Add players with different statuses
+        empty_lobby_service.join_lobby("Alice")
+        empty_lobby_service.join_lobby("Bob")
+        empty_lobby_service.join_lobby("Charlie")
+        empty_lobby_service.update_player_status("Bob", PlayerStatus.REQUESTING_GAME)
+        empty_lobby_service.update_player_status("Charlie", PlayerStatus.IN_GAME)
+
+        # Get lobby players for Alice
+        players: list[Player] = empty_lobby_service.get_lobby_players_for_player(
+            "Alice"
+        )
+
+        # Should return Bob and Charlie (all other players regardless of status)
+        assert len(players) == 2
+        assert all(isinstance(player, Player) for player in players)
+
+        player_names: list[str] = [player.name for player in players]
+        assert "Bob" in player_names
+        assert "Charlie" in player_names
+        assert "Alice" not in player_names  # Should not include requesting player
+
+    def test_get_lobby_players_for_player_excludes_requesting_player(
+        self, empty_lobby_service: LobbyService
+    ):
+        # Add several players
+        empty_lobby_service.join_lobby("Alice")
+        empty_lobby_service.join_lobby("Bob")
+        empty_lobby_service.join_lobby("Charlie")
+
+        # Get lobby players for Bob
+        players: list[Player] = empty_lobby_service.get_lobby_players_for_player("Bob")
+
+        # Should return Alice and Charlie, but not Bob
+        assert len(players) == 2
+        player_names: list[str] = [player.name for player in players]
+        assert "Alice" in player_names
+        assert "Charlie" in player_names
+        assert "Bob" not in player_names
+
+    def test_get_lobby_players_for_player_includes_all_statuses(
+        self, empty_lobby_service: LobbyService
+    ):
+        # Add players with different statuses
+        empty_lobby_service.join_lobby("Alice")
+        empty_lobby_service.join_lobby("Bob")
+        empty_lobby_service.join_lobby("Charlie")
+        empty_lobby_service.join_lobby("Diana")
+
+        # Update players to different statuses
+        empty_lobby_service.update_player_status("Bob", PlayerStatus.REQUESTING_GAME)
+        empty_lobby_service.update_player_status("Charlie", PlayerStatus.IN_GAME)
+        # Alice and Diana remain AVAILABLE
+
+        # Get lobby players for Diana
+        players: list[Player] = empty_lobby_service.get_lobby_players_for_player(
+            "Diana"
+        )
+
+        # Should return all other players regardless of status
+        assert len(players) == 3
+        player_names_and_statuses: list[tuple[str, PlayerStatus]] = [
+            (p.name, p.status) for p in players
+        ]
+
+        assert ("Alice", PlayerStatus.AVAILABLE) in player_names_and_statuses
+        assert ("Bob", PlayerStatus.REQUESTING_GAME) in player_names_and_statuses
+        assert ("Charlie", PlayerStatus.IN_GAME) in player_names_and_statuses
+        assert all(name != "Diana" for name, _ in player_names_and_statuses)
+
+    def test_get_lobby_players_for_player_empty_lobby(
+        self, empty_lobby_service: LobbyService
+    ):
+        # Add only one player
+        empty_lobby_service.join_lobby("Lonely")
+
+        # Get lobby players for the only player
+        players: list[Player] = empty_lobby_service.get_lobby_players_for_player(
+            "Lonely"
+        )
+
+        # Should return empty list (no other players)
+        assert len(players) == 0
+        assert players == []
+
+    def test_get_lobby_players_for_player_handles_empty_player_name(
+        self, empty_lobby_service: LobbyService
+    ):
+        # Test handling of empty player name
+        with pytest.raises(ValueError, match="Player name '' is invalid"):
+            empty_lobby_service.get_lobby_players_for_player("")
+
+    def test_get_lobby_players_for_player_handles_whitespace_player_name(
+        self, empty_lobby_service: LobbyService
+    ):
+        # Test handling of whitespace-only player name
+        with pytest.raises(ValueError, match="Player name '   ' is invalid"):
+            empty_lobby_service.get_lobby_players_for_player("   ")
+
+    def test_get_lobby_players_for_player_strips_player_name(
+        self, empty_lobby_service: LobbyService
+    ):
+        # Add players
+        empty_lobby_service.join_lobby("Alice")
+        empty_lobby_service.join_lobby("Bob")
+
+        # Get lobby players with whitespace around name
+        players: list[Player] = empty_lobby_service.get_lobby_players_for_player(
+            "  Alice  "
+        )
+
+        # Should work correctly and exclude Alice
+        assert len(players) == 1
+        assert players[0].name == "Bob"

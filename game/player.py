@@ -4,6 +4,8 @@ from enum import StrEnum
 
 class PlayerStatus(StrEnum):
     AVAILABLE = "Available"
+    REQUESTING_GAME = "Requesting Game"
+    IN_GAME = "In Game"
 
 
 @dataclass

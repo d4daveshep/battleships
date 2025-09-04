@@ -44,3 +44,29 @@ class LobbyService:
 
         return available_players
 
+    def get_lobby_players_for_player(self, player_name: str) -> list[Player]:
+        # Get all players (with status info) for a specific player - READ-ONLY operation
+        current_player = player_name.strip()
+
+        # Handle empty/whitespace names
+        if not current_player:
+            raise ValueError(f"Player name '{player_name}' is invalid")
+
+        # Get all players from lobby, excluding current player
+        all_players = list(self.lobby.players.values())
+        other_players = [
+            player
+            for player in all_players
+            if player.name != current_player
+        ]
+
+        return other_players
+
+    def update_player_status(self, player_name: str, status: PlayerStatus) -> None:
+        """Update a player's status in the lobby"""
+        self.lobby.update_player_status(player_name, status)
+
+    def get_player_status(self, player_name: str) -> PlayerStatus:
+        """Get a player's current status"""
+        return self.lobby.get_player_status(player_name)
+

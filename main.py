@@ -1,6 +1,9 @@
-from fastapi import FastAPI, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import FastAPI, Form, Request, HTTPException
+from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
+import asyncio
+import json
+from typing import AsyncGenerator
 
 from game.lobby import Lobby
 from game.player import Player, PlayerStatus
@@ -154,3 +157,54 @@ async def lobby_page(request: Request, player_name: str = "") -> HTMLResponse:
         template_context["error_message"] = str(e)
 
     return templates.TemplateResponse(request, "lobby.html", template_context)
+
+
+async def generate_sse_events(player_name: str) -> AsyncGenerator[str, None]:
+    """Generate SSE events for lobby updates"""
+    try:
+        lobby_data: list[Player] = lobby_service.get_lobby_players_for_player(player_name)
+        
+        # Create template context similar to lobby_page
+        template_context = {
+            "player_name": player_name,
+            "game_mode": "Two Player", 
+            "available_players": lobby_data,
+            "confirmation_message": "",
+            "player_status": "Available",
+            "error_message": "",
+        }
+        
+        # Render the lobby partial template as HTML fragment
+        html_content = templates.get_template("components/lobby_content.html").render(template_context)
+        
+        # Send as SSE data event
+        yield f"data: {html_content}\n\n"
+        
+    except Exception as e:
+        # Send error as SSE event
+        yield f"event: error\ndata: {{\"error\": \"Failed to load lobby data: {str(e)}\"}}\n\n"
+
+
+@app.get("/lobby/events/{player_name}")
+async def lobby_events(player_name: str) -> StreamingResponse:
+    """Server-Sent Events endpoint for real-time lobby updates"""
+    
+    # Validate player name using existing auth service
+    validation: PlayerNameValidation = auth_service.validate_player_name(
+        player_name, strip_quotes=True
+    )
+    
+    if not validation.is_valid:
+        raise HTTPException(status_code=422, detail=validation.error_message)
+    
+    # Return SSE stream
+    return StreamingResponse(
+        generate_sse_events(player_name),
+        media_type="text/plain; charset=utf-8",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "Cache-Control"
+        }
+    )

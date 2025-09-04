@@ -1,0 +1,55 @@
+<div data-testid="lobby-container" hx-swap-oob="outerHTML:[data-testid='lobby-container']">
+    <h1>Multiplayer Lobby</h1>
+    
+    <div data-testid="my-player-name">
+        <h3>Welcome, {{ player_name }}!</h3>
+    </div>
+    
+    <div data-testid="own-player-status">
+        Your Status: {{ player_status }}
+    </div>
+    
+    {% if confirmation_message %}
+    <div data-testid="confirmation-message">
+        {{ confirmation_message }}
+    </div>
+    {% endif %}
+    
+    {% if error_message %}
+    <div data-testid="error-message" class="error-message">
+        {{ error_message }}
+    </div>
+    {% endif %}
+
+    <div data-testid="available-players-list">
+        <h3>Available Players:</h3>
+        {% if available_players %}
+            {% for player in available_players %}
+            <div data-testid="player-{{ player.name }}">
+                {{ player.name }}
+                <span data-testid="player-{{ player.name }}-status">({{ player.status }})</span>
+                <form method="post" action="/select-opponent" style="display: inline;">
+                    <input type="hidden" name="player_name" value="{{ player_name }}">
+                    <input type="hidden" name="opponent_name" value="{{ player.name }}">
+                    <button type="submit" data-testid="select-opponent-{{ player.name }}"
+                            {% if player_status == "Requesting Game" or player.status != "Available" %}disabled{% endif %}>
+                        Select Opponent
+                    </button>
+                </form>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div data-testid="no-players-message">
+                No other players available
+            </div>
+            <div data-testid="waiting-message">
+                Waiting for other players to join...
+            </div>
+        {% endif %}
+    </div>
+    
+    
+    <!-- Keep existing elements for backward compatibility -->
+    <div data-testid="game-mode" style="display: none;">{{ game_mode }}</div>
+    <div data-testid="player-name" style="display: none;">{{ player_name }}</div>
+</div>

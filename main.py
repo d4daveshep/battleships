@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Form, Request
+from fastapi import FastAPI, Form, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
@@ -7,8 +7,44 @@ from game.player import Player, PlayerStatus
 from services.auth_service import AuthService, PlayerNameValidation
 from services.lobby_service import LobbyService
 
+# Constants
+ERROR_CSS_CLASS = "error"
+LOGIN_TEMPLATE = "login.html"
+HOME_URL = "/"
+
 app: FastAPI = FastAPI()
 templates: Jinja2Templates = Jinja2Templates(directory="templates")
+
+
+def _build_lobby_url(player_name: str) -> str:
+    """Build lobby URL with player name parameter"""
+    return f"/lobby?player_name={player_name.strip()}"
+
+
+def _build_game_url(player_name: str) -> str:
+    """Build game URL with player name parameter"""
+    return f"/game?player_name={player_name.strip()}"
+
+
+def _create_error_response(
+    request: Request,
+    error_message: str,
+    player_name: str = "",
+    css_class: str = ERROR_CSS_CLASS,
+    status_code: int = 400,
+) -> HTMLResponse:
+    """Create standardized error response template"""
+    return templates.TemplateResponse(
+        request,
+        LOGIN_TEMPLATE,
+        {
+            "error_message": error_message,
+            "player_name": player_name,
+            "css_class": css_class,
+        },
+        status_code=status_code,
+    )
+
 
 # Global lobby instance for state management
 game_lobby: Lobby = Lobby()
@@ -18,8 +54,6 @@ auth_service: AuthService = AuthService()
 lobby_service: LobbyService = LobbyService(game_lobby)
 
 
-
-
 # All validation and lobby logic moved to service classes
 
 
@@ -27,7 +61,7 @@ lobby_service: LobbyService = LobbyService(game_lobby)
 async def login_page(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(
         request,
-        "login.html",
+        LOGIN_TEMPLATE,
         {"player_name": "", "error_message": "", "css_class": ""},
     )
 
@@ -41,25 +75,23 @@ async def login_submit(
     )
 
     if not validation.is_valid:
-        return templates.TemplateResponse(
+        return _create_error_response(
             request,
-            "login.html",
-            {
-                "error_message": validation.error_message,
-                "player_name": "" if validation.error_message else player_name,
-                "css_class": validation.css_class,
-            },
+            validation.error_message,
+            "" if validation.error_message else player_name,
+            validation.css_class,
+            200,  # Login form errors return 200, not 400
         )
 
     if game_mode == "human":
         lobby_service.join_lobby(player_name)  # Add the player to the lobby
 
         return RedirectResponse(
-            url=f"/lobby?player_name={player_name.strip()}", status_code=302
+            url=_build_lobby_url(player_name), status_code=status.HTTP_302_FOUND
         )
     else:
         return RedirectResponse(
-            url=f"/game?player_name={player_name.strip()}", status_code=302
+            url=_build_game_url(player_name), status_code=status.HTTP_302_FOUND
         )
 
 
@@ -104,9 +136,6 @@ async def reset_lobby_for_testing() -> dict[str, str]:
     game_lobby.players.clear()
 
     return {"status": "lobby cleared"}
-
-
-
 
 
 @app.post("/select-opponent")
@@ -154,7 +183,9 @@ async def lobby_page(request: Request, player_name: str = "") -> HTMLResponse:
 
     # Try to get lobby data for valid player names
     try:
-        lobby_data: list[Player] = lobby_service.get_lobby_players_for_player(player_name)
+        lobby_data: list[Player] = lobby_service.get_lobby_players_for_player(
+            player_name
+        )
         template_context["available_players"] = lobby_data
     except ValueError as e:
         template_context["player_name"] = ""
@@ -163,46 +194,38 @@ async def lobby_page(request: Request, player_name: str = "") -> HTMLResponse:
     return templates.TemplateResponse(request, "lobby.html", template_context)
 
 
-
 @app.post("/leave-lobby", response_model=None)
 async def leave_lobby(
     request: Request, player_name: str = Form()
 ) -> RedirectResponse | HTMLResponse:
     """Handle player leaving the lobby"""
-    
+
     try:
         # Use the LobbyService.leave_lobby method we just implemented
         lobby_service.leave_lobby(player_name)
-        
+
         # Redirect to home/login page on success
-        return RedirectResponse(url="/", status_code=302)
-        
+        return RedirectResponse(url=HOME_URL, status_code=status.HTTP_302_FOUND)
+
     except ValueError as e:
         # Handle validation errors (empty name, nonexistent player)
         # Return 400 Bad Request for invalid input
-        return templates.TemplateResponse(
-            request,
-            "login.html", 
-            {
-                "error_message": str(e),
-                "player_name": "",
-                "css_class": "error",
-            },
-            status_code=400
-        )
+        return _create_error_response(request, str(e))
 
 
 @app.get("/lobby/players/{player_name}")
 async def lobby_players_partial(request: Request, player_name: str) -> HTMLResponse:
     """Return partial HTML with current player list for polling updates"""
     try:
-        lobby_data: list[Player] = lobby_service.get_lobby_players_for_player(player_name)
+        lobby_data: list[Player] = lobby_service.get_lobby_players_for_player(
+            player_name
+        )
         player_status = "Available"
         try:
             player_status = lobby_service.get_player_status(player_name).value
         except ValueError:
             pass
-            
+
         return templates.TemplateResponse(
             request,
             "components/players_list.html",

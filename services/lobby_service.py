@@ -7,13 +7,24 @@ class LobbyService:
         self.lobby = lobby
         # self.initialized_scenarios: set[str] = set()
 
+    def _validate_and_clean_player_name(
+        self,
+        player_name: str,
+        error_msg_template: str = "Player name '{player_name}' is invalid",
+    ) -> str:
+        """Validate and sanitize player name input"""
+        current_player: str = player_name.strip()
+        if not current_player:
+            if "{player_name}" in error_msg_template:
+                raise ValueError(error_msg_template.format(player_name=player_name))
+            else:
+                raise ValueError(error_msg_template)
+        return current_player
+
     def join_lobby(self, player_name: str) -> None:
         """Add a player to the lobby - this is the write operation"""
 
-        current_player = player_name.strip()
-
-        if not current_player:
-            raise ValueError(f"Player name '{player_name}' is invalid")
+        current_player: str = self._validate_and_clean_player_name(player_name)
 
         if player_name in self.lobby.players:
             raise ValueError(f"Player name '{player_name}' already exists in lobby")
@@ -24,16 +35,12 @@ class LobbyService:
         return self.lobby.get_available_players()
 
     def get_lobby_data_for_player(self, player_name: str) -> list[str]:
-        # Get lobby data for a specific player - READ-ONLY operation
-        current_player = player_name.strip()
-
-        # Handle empty/whitespace names
-        if not current_player:
-            raise ValueError(f"Player name '{player_name}' is invalid")
+        """Get lobby data for a specific player - READ-ONLY operation"""
+        current_player: str = self._validate_and_clean_player_name(player_name)
 
         # Get all available players from lobby, excluding current player
-        all_players = self.get_available_players()
-        available_players = [
+        all_players: list[Player] = self.get_available_players()
+        available_players: list[str] = [
             player.name
             for player in all_players
             if (
@@ -45,16 +52,12 @@ class LobbyService:
         return available_players
 
     def get_lobby_players_for_player(self, player_name: str) -> list[Player]:
-        # Get all players (with status info) for a specific player - READ-ONLY operation
-        current_player = player_name.strip()
-
-        # Handle empty/whitespace names
-        if not current_player:
-            raise ValueError(f"Player name '{player_name}' is invalid")
+        """Get all players (with status info) for a specific player - READ-ONLY operation"""
+        current_player: str = self._validate_and_clean_player_name(player_name)
 
         # Get all players from lobby, excluding current player
-        all_players = list(self.lobby.players.values())
-        other_players = [
+        all_players: list[Player] = list(self.lobby.players.values())
+        other_players: list[Player] = [
             player for player in all_players if player.name != current_player
         ]
 
@@ -72,10 +75,9 @@ class LobbyService:
         """Remove a player from the lobby"""
 
         # Step 1: Validate and clean input
-        current_player: str = player_name.strip()
-
-        if not current_player:
-            raise ValueError("Player name cannot be empty")
+        current_player: str = self._validate_and_clean_player_name(
+            player_name, "Player name cannot be empty"
+        )
 
         # Step 2: Use existing lobby.remove_player method
         # This will handle:

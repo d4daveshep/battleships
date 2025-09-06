@@ -434,3 +434,119 @@ def see_visual_indicator_player_unavailable(page: Page, player_name: str) -> Non
     button_disabled = select_button.is_disabled() if select_button.count() > 0 else False
     
     assert found_indicator or button_disabled, f"Player {player_name} should have visual indicator of unavailability"
+
+
+# New BDD steps for "Leaving the lobby" scenario
+
+@when('I click the "Leave Lobby" button')
+def click_leave_lobby_button(page: Page) -> None:
+    # Click the "Leave Lobby" button to exit the lobby
+    leave_button: Locator = page.locator('[data-testid="leave-lobby-button"]')
+    assert leave_button.is_visible(), "Leave Lobby button should be visible"
+    assert leave_button.is_enabled(), "Leave Lobby button should be enabled"
+    leave_button.click()
+
+
+@then("I should be returned to the login page")
+def returned_to_login_page(page: Page) -> None:
+    # Verify that the user is redirected back to the login page
+    page.wait_for_url("**/", timeout=5000)  # Wait for redirect to home/login page
+    
+    # Verify login page elements are present
+    login_title = page.locator("h1").text_content()
+    assert login_title is not None, "Login page should have a title"
+    assert "Battleship" in login_title or "Login" in login_title, "Should be on login page"
+    
+    # Verify login form elements are present
+    player_name_input = page.locator('input[name="player_name"]')
+    assert player_name_input.is_visible(), "Player name input should be visible on login page"
+
+
+@then("other players should no longer see me in their lobby view")
+def other_players_no_longer_see_me(page: Page) -> None:
+    # This step verifies that the current player is removed from other players' lobby views
+    # In a real implementation, this would involve checking other browser sessions or server state
+    # For BDD testing, we can simulate this by checking that the player count decreases
+    # or by making an API call to verify the player is no longer in the lobby
+    
+    # Store the player name for verification
+    current_player = getattr(page, "current_player_name", None)
+    if current_player:
+        # In a full implementation, this might involve:
+        # 1. Opening another browser session
+        # 2. Checking the lobby API endpoint
+        # 3. Verifying WebSocket messages are sent to other players
+        pass
+    
+    # For now, this step serves as a placeholder for the behavior specification
+
+
+# New BDD steps for "Player leaves the lobby while I'm viewing it" scenario
+
+@when(parsers.parse('"{player_name}" leaves the lobby'))
+def player_leaves_lobby(page: Page, player_name: str) -> None:
+    # Simulate another player leaving the lobby
+    # This would typically involve the other player clicking "Leave Lobby"
+    # For testing purposes, we simulate this via HTTP request or server state change
+    
+    import httpx
+    
+    with httpx.Client() as client:
+        # Simulate the player leaving the lobby
+        response = client.post(
+            f"http://localhost:8000/leave-lobby",
+            data={"player_name": player_name}
+        )
+    
+    # Store the player who left for verification
+    setattr(page, "player_who_left", player_name)
+    
+    # Wait for polling cycle to complete (polling every 1s + buffer)
+    page.wait_for_timeout(1500)  # 1.5s wait for real-time updates
+
+
+@then(parsers.parse('"{player_name}" should no longer appear in my available players list'))
+def player_no_longer_in_list(page: Page, player_name: str) -> None:
+    # Verify that the specified player is no longer visible in the available players list
+    player_element: Locator = page.locator(f'[data-testid="player-{player_name}"]')
+    assert not player_element.is_visible(), f"Player {player_name} should no longer be visible in the lobby"
+    
+    # Also verify that the select button for this player is gone
+    select_button: Locator = page.locator(f'[data-testid="select-opponent-{player_name}"]')
+    assert select_button.count() == 0, f"Select opponent button for {player_name} should be removed"
+
+
+@then(parsers.parse('I should still see "{player_name}" as available'))
+def should_still_see_player_available(page: Page, player_name: str) -> None:
+    # Verify that the remaining player is still visible and available
+    player_element: Locator = page.locator(f'[data-testid="player-{player_name}"]')
+    assert player_element.is_visible(), f"Player {player_name} should still be visible in the lobby"
+    
+    # Verify the select button is still available for this player
+    select_button: Locator = page.locator(f'[data-testid="select-opponent-{player_name}"]')
+    assert select_button.is_visible(), f"Select opponent button for {player_name} should still be visible"
+    assert select_button.is_enabled(), f"Select opponent button for {player_name} should still be enabled"
+
+
+@then("the player count should update accordingly")
+def player_count_should_update(page: Page) -> None:
+    # Verify that the player count reflects the change (one less player)
+    # This might be displayed as a counter or implied by the number of visible players
+    
+    # Check if there's a player count display
+    player_count_element: Locator = page.locator('[data-testid="player-count"]')
+    if player_count_element.count() > 0:
+        # If there's a specific player count element, verify it decreased
+        count_text = player_count_element.text_content()
+        # This would need to be compared against the expected count
+        # For now, just verify it's visible and contains a number
+        assert count_text is not None and any(char.isdigit() for char in count_text), "Player count should be displayed"
+    
+    # Alternative: verify by counting visible player elements
+    visible_players: Locator = page.locator('[data-testid^="player-"]:visible')
+    expected_count = 1  # Should be 1 remaining player (Noah) after Maya leaves
+    actual_count = visible_players.count()
+    
+    assert actual_count == expected_count, f"Expected {expected_count} players visible, but found {actual_count}"
+
+

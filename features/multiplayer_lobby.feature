@@ -73,6 +73,27 @@ Feature: Multiplayer Game Lobby
     And the "Select Opponent" button for "Rachel" should be disabled
     And I should see a visual indicator that "Rachel" is no longer available
 
+  Scenario: Leaving the lobby
+    Given I've logged in as "Victor" and selected human opponent
+    And there are other players in the lobby:
+      | Player Name | Status    |
+      | Rachel      | Available |
+      | Sam         | Available |
+    When I click the "Leave Lobby" button
+    Then I should be returned to the login page
+    And other players should no longer see me in their lobby view
+
+  Scenario: Player leaves the lobby while I'm viewing it
+    Given I've logged in as "Liam" and selected human opponent
+    And there are other players in the lobby:
+      | Player Name | Status    |
+      | Maya        | Available |
+      | Noah        | Available |
+    When "Maya" leaves the lobby
+    Then "Maya" should no longer appear in my available players list
+    And I should still see "Noah" as available
+    And the player count should update accordingly
+
   # Scenario: Multiple players joining the lobby simultaneously
   #   Given I am in the lobby as "Henry"
   #   And there is one other player "Iris" in the lobby
@@ -83,17 +104,6 @@ Feature: Multiplayer Game Lobby
   #     | Kelly |
   #   And each player should have a "Select Opponent" button
   #   And all players should show "Available" status
-  #
-  # Scenario: Player leaves the lobby while I'm viewing it
-  #   Given I am in the lobby as "Liam"
-  #   And there are other players in the lobby:
-  #     | Player Name | Status    |
-  #     | Maya        | Available |
-  #     | Noah        | Available |
-  #   When "Maya" leaves the lobby
-  #   Then "Maya" should no longer appear in my available players list
-  #   And I should still see "Noah" as available
-  #   And the player count should update accordingly
   #
   # Scenario: Cannot select players who are already in a game
   #   Given I am in the lobby as "Olivia"
@@ -115,14 +125,6 @@ Feature: Multiplayer Game Lobby
   #   Then I should see the current list of available players
   #   And player statuses should be up to date
   #   And my own status should remain unchanged
-  #
-  # Scenario: Leaving the lobby
-  #   Given I am in the lobby as "Victor"
-  #   And there are other players in the lobby
-  #   When I click the "Leave Lobby" button
-  #   Then I should be returned to the main menu or login page
-  #   And other players should no longer see me in their lobby view
-  #   And my status should be removed from the lobby
   #
   # Scenario: Network connection issues in lobby
   #   Given I am in the lobby as "Wendy"

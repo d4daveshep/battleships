@@ -190,3 +190,101 @@ class TestHealthEndpoint:
     def test_health_endpoint(self, client):
         response = client.get("/health")
         assert response.status_code == status.HTTP_200_OK
+
+
+class TestLeaveLobbyIntegration:
+    # Integration tests for leave lobby functionality
+    
+    def test_leave_lobby_endpoint_exists_and_accepts_post(self, client):
+        # Test that the leave lobby endpoint exists and accepts POST requests
+        response = client.post("/leave-lobby", data={"player_name": "TestPlayer"})
+        
+        # Should not return 404 (endpoint should exist)
+        # Should not return 405 (method should be allowed)
+        assert response.status_code != status.HTTP_404_NOT_FOUND
+        assert response.status_code != status.HTTP_405_METHOD_NOT_ALLOWED
+        
+    def test_leave_lobby_removes_player_from_lobby_state(self, client):
+        # Test that leaving lobby removes player from the lobby state
+        # First, clear the lobby
+        client.post("/test/reset-lobby")
+        
+        # Add player to lobby
+        client.post("/", data={"player_name": "LeavingPlayer", "game_mode": "human"})
+        
+        # Verify player is in lobby
+        lobby_response = client.get("/lobby?player_name=AnotherPlayer") 
+        assert "LeavingPlayer" in lobby_response.text
+        
+        # Player leaves lobby
+        leave_response = client.post("/leave-lobby", data={"player_name": "LeavingPlayer"})
+        assert leave_response.status_code == status.HTTP_200_OK
+        
+        # Verify player is no longer in lobby
+        lobby_check = client.get("/lobby?player_name=AnotherPlayer")
+        assert "LeavingPlayer" not in lobby_check.text
+        
+    def test_leave_lobby_redirects_to_home_page(self, client):
+        # Test that leaving lobby redirects to home/login page
+        # Add player to lobby first
+        client.post("/", data={"player_name": "RedirectTest", "game_mode": "human"})
+        
+        # Leave lobby
+        response = client.post("/leave-lobby", data={"player_name": "RedirectTest"}, follow_redirects=False)
+        
+        # Should redirect to home page
+        assert response.status_code == status.HTTP_302_FOUND
+        assert response.headers["location"] == "/"
+        
+    def test_leave_lobby_with_invalid_player_name(self, client):
+        # Test leaving lobby with player name that doesn't exist
+        response = client.post("/leave-lobby", data={"player_name": "NonExistentPlayer"})
+        
+        # Should handle gracefully (not crash)
+        assert response.status_code in [status.HTTP_200_OK, status.HTTP_400_BAD_REQUEST]
+        
+    def test_leave_lobby_with_empty_player_name(self, client):
+        # Test leaving lobby with empty player name
+        response = client.post("/leave-lobby", data={"player_name": ""})
+        
+        # Should handle gracefully
+        assert response.status_code in [status.HTTP_400_BAD_REQUEST, status.HTTP_422_UNPROCESSABLE_ENTITY]
+        
+    def test_leave_lobby_affects_other_players_view(self, client):
+        # Test that when a player leaves, other players' views are updated
+        # Clear lobby first
+        client.post("/test/reset-lobby")
+        
+        # Add multiple players
+        client.post("/", data={"player_name": "StayingPlayer", "game_mode": "human"})
+        client.post("/", data={"player_name": "LeavingPlayer", "game_mode": "human"})
+        
+        # Verify both players are visible to each other
+        staying_view = client.get("/lobby?player_name=StayingPlayer")
+        assert "LeavingPlayer" in staying_view.text
+        
+        # One player leaves
+        client.post("/leave-lobby", data={"player_name": "LeavingPlayer"})
+        
+        # Check that staying player no longer sees the leaving player
+        updated_view = client.get("/lobby?player_name=StayingPlayer") 
+        assert "LeavingPlayer" not in updated_view.text
+        assert "StayingPlayer" in updated_view.text  # Should still see themselves
+        
+    def test_leave_lobby_endpoint_real_time_polling_integration(self, client):
+        # Test that leave lobby integrates properly with real-time polling endpoint
+        # Add players to lobby
+        client.post("/test/reset-lobby")
+        client.post("/", data={"player_name": "PollingPlayer", "game_mode": "human"})
+        client.post("/", data={"player_name": "LeavingPlayerPolling", "game_mode": "human"})
+        
+        # Check initial state via polling endpoint
+        initial_poll = client.get("/lobby/players/PollingPlayer")
+        assert "LeavingPlayerPolling" in initial_poll.text
+        
+        # Player leaves
+        client.post("/leave-lobby", data={"player_name": "LeavingPlayerPolling"})
+        
+        # Check updated state via polling endpoint
+        updated_poll = client.get("/lobby/players/PollingPlayer")
+        assert "LeavingPlayerPolling" not in updated_poll.text

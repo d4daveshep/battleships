@@ -330,3 +330,122 @@ class TestLobbyService:
         # Should work correctly and exclude Alice
         assert len(players) == 1
         assert players[0].name == "Bob"
+
+    # Unit tests for leave_lobby method
+    
+    def test_leave_lobby_removes_existing_player(self, empty_lobby_service: LobbyService):
+        # Test that leave_lobby removes an existing player from the lobby
+        empty_lobby_service.join_lobby("Alice")
+        empty_lobby_service.join_lobby("Bob")
+        
+        # Verify both players are in lobby
+        players = empty_lobby_service.get_available_players()
+        assert len(players) == 2
+        
+        # Alice leaves the lobby
+        empty_lobby_service.leave_lobby("Alice")
+        
+        # Verify Alice is no longer in lobby but Bob remains
+        remaining_players = empty_lobby_service.get_available_players()
+        assert len(remaining_players) == 1
+        assert remaining_players[0].name == "Bob"
+        
+    def test_leave_lobby_with_nonexistent_player(self, empty_lobby_service: LobbyService):
+        # Test that leave_lobby with nonexistent player raises ValueError
+        with pytest.raises(ValueError, match="Player 'NonExistent' not found in lobby"):
+            empty_lobby_service.leave_lobby("NonExistent")
+            
+    def test_leave_lobby_with_empty_player_name(self, empty_lobby_service: LobbyService):
+        # Test that leave_lobby with empty player name raises ValueError
+        with pytest.raises(ValueError, match="Player name cannot be empty"):
+            empty_lobby_service.leave_lobby("")
+            
+    def test_leave_lobby_with_whitespace_player_name(self, empty_lobby_service: LobbyService):
+        # Test that leave_lobby with whitespace-only player name raises ValueError
+        with pytest.raises(ValueError, match="Player name cannot be empty"):
+            empty_lobby_service.leave_lobby("   ")
+            
+    def test_leave_lobby_strips_player_name(self, empty_lobby_service: LobbyService):
+        # Test that leave_lobby strips whitespace from player name
+        empty_lobby_service.join_lobby("Alice")
+        
+        # Leave with whitespace around name
+        empty_lobby_service.leave_lobby("  Alice  ")
+        
+        # Alice should be removed
+        players = empty_lobby_service.get_available_players()
+        assert len(players) == 0
+        
+    def test_leave_lobby_from_empty_lobby(self, empty_lobby_service: LobbyService):
+        # Test that leave_lobby from empty lobby raises ValueError
+        with pytest.raises(ValueError, match="Player 'Alice' not found in lobby"):
+            empty_lobby_service.leave_lobby("Alice")
+            
+    def test_leave_lobby_updates_other_players_views(self, empty_lobby_service: LobbyService):
+        # Test that when a player leaves, it affects other players' lobby views
+        empty_lobby_service.join_lobby("Alice")
+        empty_lobby_service.join_lobby("Bob")
+        empty_lobby_service.join_lobby("Charlie")
+        
+        # Bob should see Alice and Charlie
+        bob_view = empty_lobby_service.get_lobby_players_for_player("Bob")
+        bob_view_names = [p.name for p in bob_view]
+        assert "Alice" in bob_view_names
+        assert "Charlie" in bob_view_names
+        
+        # Alice leaves
+        empty_lobby_service.leave_lobby("Alice")
+        
+        # Bob should now only see Charlie
+        updated_bob_view = empty_lobby_service.get_lobby_players_for_player("Bob")
+        updated_names = [p.name for p in updated_bob_view]
+        assert "Alice" not in updated_names
+        assert "Charlie" in updated_names
+        assert len(updated_names) == 1
+        
+    def test_leave_lobby_with_different_player_statuses(self, empty_lobby_service: LobbyService):
+        # Test that players can leave regardless of their status
+        empty_lobby_service.join_lobby("Alice")
+        empty_lobby_service.join_lobby("Bob")
+        empty_lobby_service.join_lobby("Charlie")
+        
+        # Set different statuses
+        empty_lobby_service.update_player_status("Alice", PlayerStatus.REQUESTING_GAME)
+        empty_lobby_service.update_player_status("Bob", PlayerStatus.IN_GAME)
+        # Charlie remains AVAILABLE
+        
+        # All players should be able to leave regardless of status
+        empty_lobby_service.leave_lobby("Alice")  # REQUESTING_GAME status
+        empty_lobby_service.leave_lobby("Bob")    # IN_GAME status
+        empty_lobby_service.leave_lobby("Charlie") # AVAILABLE status
+        
+        # Lobby should be empty
+        players = empty_lobby_service.get_available_players()
+        assert len(players) == 0
+        
+    def test_leave_lobby_multiple_times_same_player(self, empty_lobby_service: LobbyService):
+        # Test that calling leave_lobby multiple times for same player raises ValueError
+        empty_lobby_service.join_lobby("Alice")
+        
+        # First leave should succeed
+        empty_lobby_service.leave_lobby("Alice")
+        
+        # Second leave should fail
+        with pytest.raises(ValueError, match="Player 'Alice' not found in lobby"):
+            empty_lobby_service.leave_lobby("Alice")
+            
+    def test_leave_lobby_last_player(self, empty_lobby_service: LobbyService):
+        # Test that the last player can leave, resulting in empty lobby
+        empty_lobby_service.join_lobby("LastPlayer")
+        
+        # Verify player is in lobby
+        players = empty_lobby_service.get_available_players()
+        assert len(players) == 1
+        assert players[0].name == "LastPlayer"
+        
+        # Last player leaves
+        empty_lobby_service.leave_lobby("LastPlayer")
+        
+        # Lobby should be empty
+        final_players = empty_lobby_service.get_available_players()
+        assert len(final_players) == 0

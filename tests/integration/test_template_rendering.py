@@ -87,3 +87,60 @@ class TestHealthEndpoint:
         
         assert response.status_code == status.HTTP_200_OK
         assert "application/json" in response.headers.get("content-type", "")
+
+
+class TestLeaveLobbyTemplateRendering:
+    # Integration tests for leave lobby button and template rendering
+    
+    def test_lobby_page_renders_leave_lobby_button(self, client):
+        # Test that lobby page includes the Leave Lobby button
+        response = client.get("/lobby?player_name=TestPlayer")
+        
+        assert response.status_code == status.HTTP_200_OK
+        # Check for Leave Lobby button in the rendered HTML
+        assert 'data-testid="leave-lobby-button"' in response.text
+        assert "Leave Lobby" in response.text
+        assert '<button' in response.text
+        
+    def test_leave_lobby_button_has_correct_attributes(self, client):
+        # Test that Leave Lobby button has correct HTML attributes
+        response = client.get("/lobby?player_name=ButtonTest")
+        
+        assert response.status_code == status.HTTP_200_OK
+        # Button should be properly formed with necessary attributes
+        assert 'type="submit"' in response.text or 'type="button"' in response.text
+        # Should have proper form or onclick handler
+        assert 'action=' in response.text or 'onclick=' in response.text or 'hx-' in response.text
+        
+    def test_lobby_template_includes_leave_functionality(self, client):
+        # Test that lobby template includes proper form or HTMX for leaving
+        # Clear lobby and add test player
+        client.post("/test/reset-lobby")
+        client.post("/", data={"player_name": "LeaveTest", "game_mode": "human"})
+        
+        response = client.get("/lobby?player_name=LeaveTest")
+        
+        assert response.status_code == status.HTTP_200_OK
+        # Template should include mechanism to leave lobby
+        assert "leave-lobby" in response.text.lower() or "/leave" in response.text
+        
+    def test_lobby_template_leave_button_accessibility(self, client):
+        # Test that Leave Lobby button has proper accessibility attributes
+        response = client.get("/lobby?player_name=AccessTest")
+        
+        assert response.status_code == status.HTTP_200_OK
+        # Check for accessibility features (though we'll keep it simple for now)
+        leave_button_html = response.text
+        # Button should be clearly identifiable
+        assert "Leave Lobby" in leave_button_html
+        assert 'data-testid="leave-lobby-button"' in leave_button_html
+        
+    def test_lobby_template_context_includes_player_name(self, client):
+        # Test that lobby template context properly includes player name for leave functionality
+        response = client.get("/lobby?player_name=ContextTest")
+        
+        assert response.status_code == status.HTTP_200_OK
+        # Player name should be available in template context for the leave action
+        assert "ContextTest" in response.text
+        # Should have some way to identify current player for leave action
+        assert 'name="player_name"' in response.text or 'value="ContextTest"' in response.text

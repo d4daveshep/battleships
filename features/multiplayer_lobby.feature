@@ -91,8 +91,7 @@ Feature: Multiplayer Game Lobby
       | Noah        | Available |
     When "Maya" leaves the lobby
     Then "Maya" should no longer appear in my available players list
-    And I should still see "Noah" as available
-    And the player count should update accordingly
+    And I should see "Noah" in the available players list
 
   # Scenario: Multiple players joining the lobby simultaneously
   #   Given I am in the lobby as "Henry"

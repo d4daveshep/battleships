@@ -55,9 +55,7 @@ class LobbyService:
         # Get all players from lobby, excluding current player
         all_players = list(self.lobby.players.values())
         other_players = [
-            player
-            for player in all_players
-            if player.name != current_player
+            player for player in all_players if player.name != current_player
         ]
 
         return other_players
@@ -70,3 +68,17 @@ class LobbyService:
         """Get a player's current status"""
         return self.lobby.get_player_status(player_name)
 
+    def leave_lobby(self, player_name: str) -> None:
+        """Remove a player from the lobby"""
+
+        # Step 1: Validate and clean input
+        current_player: str = player_name.strip()
+
+        if not current_player:
+            raise ValueError("Player name cannot be empty")
+
+        # Step 2: Use existing lobby.remove_player method
+        # This will handle:
+        # - Checking if player exists (raises ValueError if not)
+        # - Removing player from self.lobby.players dict
+        self.lobby.remove_player(current_player)

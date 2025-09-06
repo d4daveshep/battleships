@@ -164,6 +164,34 @@ async def lobby_page(request: Request, player_name: str = "") -> HTMLResponse:
 
 
 
+@app.post("/leave-lobby", response_model=None)
+async def leave_lobby(
+    request: Request, player_name: str = Form()
+) -> RedirectResponse | HTMLResponse:
+    """Handle player leaving the lobby"""
+    
+    try:
+        # Use the LobbyService.leave_lobby method we just implemented
+        lobby_service.leave_lobby(player_name)
+        
+        # Redirect to home/login page on success
+        return RedirectResponse(url="/", status_code=302)
+        
+    except ValueError as e:
+        # Handle validation errors (empty name, nonexistent player)
+        # Return 400 Bad Request for invalid input
+        return templates.TemplateResponse(
+            request,
+            "login.html", 
+            {
+                "error_message": str(e),
+                "player_name": "",
+                "css_class": "error",
+            },
+            status_code=400
+        )
+
+
 @app.get("/lobby/players/{player_name}")
 async def lobby_players_partial(request: Request, player_name: str) -> HTMLResponse:
     """Return partial HTML with current player list for polling updates"""

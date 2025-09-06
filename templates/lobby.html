@@ -56,6 +56,15 @@
         {% endif %}
     </div>
     
+    <!-- Leave Lobby Section -->
+    <div data-testid="leave-lobby-section">
+        <form method="post" action="/leave-lobby">
+            <input type="hidden" name="player_name" value="{{ player_name }}">
+            <button type="submit" data-testid="leave-lobby-button">
+                Leave Lobby
+            </button>
+        </form>
+    </div>
     
     <!-- Keep existing elements for backward compatibility -->
     <div data-testid="game-mode" style="display: none;">{{ game_mode }}</div>

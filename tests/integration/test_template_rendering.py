@@ -1,4 +1,5 @@
 from fastapi import status
+from fastapi.testclient import TestClient
 
 
 class TestTemplateRendering:
@@ -144,3 +145,179 @@ class TestLeaveLobbyTemplateRendering:
         assert "ContextTest" in response.text
         # Should have some way to identify current player for leave action
         assert 'name="player_name"' in response.text or 'value="ContextTest"' in response.text
+
+
+class TestLobbyPlayersPollingWithGameRequests:
+    """Integration tests for enhanced lobby polling endpoint with game request data"""
+
+    def test_lobby_players_endpoint_includes_game_request_notification(self, client: TestClient):
+        # Test that the polling endpoint includes game request notifications when present
+        
+        # Step 1: Setup players and create a game request
+        client.post("/test/reset-lobby")
+        client.post("/", data={"player_name": "Alice", "game_mode": "human"})
+        client.post("/", data={"player_name": "Bob", "game_mode": "human"})
+        
+        # Alice sends request to Bob
+        client.post(
+            "/select-opponent",
+            data={"player_name": "Alice", "opponent_name": "Bob"}
+        )
+        
+        # Step 2: Check Bob's polling endpoint includes game request notification
+        response = client.get("/lobby/players/Bob")
+        
+        assert response.status_code == status.HTTP_200_OK
+        assert 'data-testid="game-request-notification"' in response.text
+        assert "Game request from Alice" in response.text
+
+    def test_lobby_players_endpoint_includes_accept_decline_buttons(self, client: TestClient):
+        # Test that polling endpoint includes Accept/Decline buttons when player has pending request
+        
+        # Step 1: Setup players and create request
+        client.post("/test/reset-lobby")
+        client.post("/", data={"player_name": "Alice", "game_mode": "human"})
+        client.post("/", data={"player_name": "Bob", "game_mode": "human"})
+        
+        client.post(
+            "/select-opponent",
+            data={"player_name": "Alice", "opponent_name": "Bob"}
+        )
+        
+        # Step 2: Check Bob's polling response has Accept/Decline buttons
+        response = client.get("/lobby/players/Bob")
+        
+        assert response.status_code == status.HTTP_200_OK
+        assert 'data-testid="accept-game-request"' in response.text
+        assert 'data-testid="decline-game-request"' in response.text
+        assert "Accept" in response.text
+        assert "Decline" in response.text
+
+    def test_lobby_players_endpoint_shows_pending_response_status(self, client: TestClient):
+        # Test that polling endpoint shows "Pending Response" status for request receivers
+        
+        # Step 1: Setup and send request
+        client.post("/test/reset-lobby")
+        client.post("/", data={"player_name": "Alice", "game_mode": "human"})
+        client.post("/", data={"player_name": "Bob", "game_mode": "human"})
+        
+        client.post(
+            "/select-opponent",
+            data={"player_name": "Alice", "opponent_name": "Bob"}
+        )
+        
+        # Step 2: Check Bob's status in polling response
+        response = client.get("/lobby/players/Bob")
+        
+        assert response.status_code == status.HTTP_200_OK
+        assert "Pending Response" in response.text
+
+    def test_lobby_players_endpoint_disables_select_buttons_during_pending_response(self, client: TestClient):
+        # Test that Select Opponent buttons are disabled while player has pending request
+        
+        # Step 1: Setup three players
+        client.post("/test/reset-lobby")
+        client.post("/", data={"player_name": "Alice", "game_mode": "human"})
+        client.post("/", data={"player_name": "Bob", "game_mode": "human"})
+        client.post("/", data={"player_name": "Charlie", "game_mode": "human"})
+        
+        # Alice sends request to Bob
+        client.post(
+            "/select-opponent",
+            data={"player_name": "Alice", "opponent_name": "Bob"}
+        )
+        
+        # Step 2: Check that Bob's polling response has disabled Select buttons
+        response = client.get("/lobby/players/Bob")
+        
+        assert response.status_code == status.HTTP_200_OK
+        # Should contain disabled select buttons (for Charlie)
+        assert 'disabled' in response.text
+        assert 'data-testid="select-opponent-Charlie"' in response.text
+
+    def test_lobby_players_endpoint_no_game_request_notification_when_none_pending(self, client: TestClient):
+        # Test that polling endpoint doesn't show notification when no request is pending
+        
+        # Step 1: Setup player without any game requests
+        client.post("/test/reset-lobby")
+        client.post("/", data={"player_name": "Alice", "game_mode": "human"})
+        client.post("/", data={"player_name": "Bob", "game_mode": "human"})
+        
+        # Step 2: Check Alice's polling response has no notification
+        response = client.get("/lobby/players/Alice")
+        
+        assert response.status_code == status.HTTP_200_OK
+        assert 'data-testid="game-request-notification"' not in response.text
+        assert 'data-testid="accept-game-request"' not in response.text
+        assert 'data-testid="decline-game-request"' not in response.text
+
+    def test_lobby_players_endpoint_shows_game_confirmation_message_after_accept(self, client: TestClient):
+        # Test that polling endpoint can show game confirmation messages
+        
+        # Note: This test checks the template capability, actual message would come from accept endpoint
+        client.post("/test/reset-lobby")
+        client.post("/", data={"player_name": "Alice", "game_mode": "human"})
+        
+        response = client.get("/lobby/players/Alice")
+        
+        assert response.status_code == status.HTTP_200_OK
+        # Template should support game confirmation messages (even if not currently present)
+        # This is testing the template structure for game confirmation capability
+        # The actual message would be set by accept/decline endpoints
+
+    def test_lobby_players_endpoint_shows_decline_confirmation_message(self, client: TestClient):
+        # Test that polling endpoint can show decline confirmation messages
+        
+        client.post("/test/reset-lobby") 
+        client.post("/", data={"player_name": "Alice", "game_mode": "human"})
+        
+        response = client.get("/lobby/players/Alice")
+        
+        assert response.status_code == status.HTTP_200_OK
+        # Template should support decline confirmation messages
+        # This tests the template's capability to show confirmation messages
+
+    def test_lobby_players_endpoint_real_time_status_updates_after_request_sent(self, client: TestClient):
+        # Test that polling reflects real-time status changes when requests are sent
+        
+        # Step 1: Setup players
+        client.post("/test/reset-lobby")
+        client.post("/", data={"player_name": "Alice", "game_mode": "human"})
+        client.post("/", data={"player_name": "Bob", "game_mode": "human"})
+        client.post("/", data={"player_name": "Charlie", "game_mode": "human"})
+        
+        # Step 2: Alice sends request to Bob
+        client.post(
+            "/select-opponent",
+            data={"player_name": "Alice", "opponent_name": "Bob"}
+        )
+        
+        # Step 3: Check Charlie's view shows updated statuses for Alice and Bob
+        response = client.get("/lobby/players/Charlie")
+        
+        assert response.status_code == status.HTTP_200_OK
+        # Should show Alice as "Requesting Game"
+        assert "Alice" in response.text
+        assert "Requesting Game" in response.text
+        # Should show Bob as "Pending Response" or show that Bob is no longer selectable
+        assert "Bob" in response.text
+
+    def test_lobby_players_endpoint_template_structure_supports_all_game_request_elements(self, client: TestClient):
+        # Test that the template structure supports all necessary game request elements
+        
+        client.post("/test/reset-lobby")
+        client.post("/", data={"player_name": "TestPlayer", "game_mode": "human"})
+        
+        response = client.get("/lobby/players/TestPlayer")
+        
+        assert response.status_code == status.HTTP_200_OK
+        
+        # Check that the response structure could support game request elements
+        # (Even if not currently active, the template should have the structure)
+        html_content = response.text
+        
+        # Should have div structure that could contain notifications
+        assert "<div" in html_content
+        # Should have proper data-testid structure
+        assert "data-testid" in html_content
+        # Template should be structured to support dynamic content

@@ -93,6 +93,37 @@ Feature: Multiplayer Game Lobby
     Then "Maya" should no longer appear in my available players list
     And I should see "Noah" in the available players list
 
+  Scenario: Receiving a game request from another player
+    Given I've logged in as "Alice" and selected human opponent
+    And there are other players in the lobby:
+      | Player Name | Status    |
+      | Bob         | Available |
+      | Charlie     | Available |
+    When "Bob" selects me as their opponent
+    Then I should receive a game request notification from "Bob"
+    And I should see an "Accept" button for the game request
+    And I should see a "Decline" button for the game request
+    And my status should change to "Pending Response"
+    And I should not be able to select other players while responding to the request
+
+  Scenario: Accepting a game request from another player
+    Given I've logged in as "Alice" and selected human opponent
+    And I have received a game request from "Bob"
+    When I click the "Accept" button for Bob's game request
+    Then I should see a confirmation message "Game accepted! Starting game with Bob"
+    And I should be redirected to the game interface
+    And both "Alice" and "Bob" should no longer appear in other players' lobby views
+
+  Scenario: Declining a game request from another player
+    Given I've logged in as "Alice" and selected human opponent
+    And I have received a game request from "Bob"
+    When I click the "Decline" button for Bob's game request
+    Then I should see a message "Game request from Bob declined"
+    And my status should return to "Available"
+    And "Bob" should be notified that their request was declined
+    And I should be able to select other players again
+    And "Bob's" status should return to "Available"
+
   # Scenario: Multiple players joining the lobby simultaneously
   #   Given I am in the lobby as "Henry"
   #   And there is one other player "Iris" in the lobby

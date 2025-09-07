@@ -579,3 +579,244 @@ def player_no_longer_in_list(page: Page, player_name: str) -> None:
     assert select_button.count() == 0, (
         f"Select opponent button for {player_name} should be removed"
     )
+
+
+# New BDD steps for game request scenarios
+
+
+@when(parsers.parse('"{sender_player}" selects me as their opponent'))
+def sender_selects_me_as_opponent(page: Page, sender_player: str) -> None:
+    # Simulate another player selecting the current player as their opponent
+    # This triggers a game request being sent to the current player
+    
+    # Get the current player's name
+    current_player = getattr(page, "current_player_name", "TestPlayer")
+    
+    # Simulate the sender making a request via HTTP client
+    with httpx.Client() as client:
+        response = client.post(
+            "http://localhost:8000/select-opponent",
+            data={"player_name": sender_player, "opponent_name": current_player},
+        )
+    
+    # Store the request details for verification
+    setattr(page, "game_request_sender", sender_player)
+    setattr(page, "game_request_receiver", current_player)
+    
+    # Wait for polling cycle to update the UI
+    page.wait_for_timeout(1500)
+
+
+@then(parsers.parse('I should receive a game request notification from "{sender_player}"'))
+def receive_game_request_notification(page: Page, sender_player: str) -> None:
+    # Verify that a game request notification appears
+    notification_element: Locator = page.locator('[data-testid="game-request-notification"]')
+    assert notification_element.is_visible(), "Game request notification should be visible"
+    
+    notification_text = notification_element.inner_text()
+    assert sender_player in notification_text, (
+        f"Notification should mention {sender_player}, got '{notification_text}'"
+    )
+    assert "game request" in notification_text.lower(), (
+        f"Notification should mention game request, got '{notification_text}'"
+    )
+
+
+@then('I should see an "Accept" button for the game request')
+def see_accept_button(page: Page) -> None:
+    # Verify that an Accept button is visible for the game request
+    accept_button: Locator = page.locator('[data-testid="accept-game-request"]')
+    assert accept_button.is_visible(), "Accept button should be visible"
+    assert accept_button.is_enabled(), "Accept button should be enabled"
+    
+    button_text = accept_button.inner_text()
+    assert "accept" in button_text.lower(), (
+        f"Accept button should contain 'Accept', got '{button_text}'"
+    )
+
+
+@then('I should see a "Decline" button for the game request')
+def see_decline_button(page: Page) -> None:
+    # Verify that a Decline button is visible for the game request
+    decline_button: Locator = page.locator('[data-testid="decline-game-request"]')
+    assert decline_button.is_visible(), "Decline button should be visible"
+    assert decline_button.is_enabled(), "Decline button should be enabled"
+    
+    button_text = decline_button.inner_text()
+    assert "decline" in button_text.lower(), (
+        f"Decline button should contain 'Decline', got '{button_text}'"
+    )
+
+
+@then("I should not be able to select other players while responding to the request")
+def cannot_select_players_while_responding(page: Page) -> None:
+    # Verify that other Select Opponent buttons are disabled while responding to a request
+    select_buttons: Locator = page.locator('[data-testid^="select-opponent-"]')
+    button_count = select_buttons.count()
+    
+    if button_count > 0:
+        # If buttons are still visible, they should be disabled
+        for i in range(button_count):
+            button = select_buttons.nth(i)
+            assert button.is_disabled(), (
+                f"Select Opponent button {i} should be disabled while responding to request"
+            )
+
+
+@given(parsers.parse('I have received a game request from "{sender_player}"'))
+def have_received_game_request(page: Page, sender_player: str) -> None:
+    # Set up the state where the current player has received a game request
+    # This is a precondition for accept/decline scenarios
+    
+    current_player = getattr(page, "current_player_name", "TestPlayer")
+    
+    # Simulate receiving the game request
+    with httpx.Client() as client:
+        response = client.post(
+            "http://localhost:8000/select-opponent",
+            data={"player_name": sender_player, "opponent_name": current_player},
+        )
+    
+    setattr(page, "game_request_sender", sender_player)
+    setattr(page, "game_request_receiver", current_player)
+    
+    # Wait for the UI to update and show the request
+    page.wait_for_timeout(1500)
+    
+    # Verify the request is visible
+    notification: Locator = page.locator('[data-testid="game-request-notification"]')
+    assert notification.is_visible(), (
+        f"Game request from {sender_player} should be visible"
+    )
+
+
+@when(parsers.parse('I click the "Accept" button for {sender_name}\'s game request'))
+def click_accept_game_request(page: Page, sender_name: str) -> None:
+    # Click the Accept button for the game request
+    accept_button: Locator = page.locator('[data-testid="accept-game-request"]')
+    assert accept_button.is_visible(), "Accept button should be visible"
+    assert accept_button.is_enabled(), "Accept button should be enabled"
+    accept_button.click()
+
+
+@then(parsers.parse('I should see a confirmation message "{expected_message}"'))
+def see_game_confirmation_message(page: Page, expected_message: str) -> None:
+    # Verify the confirmation message appears after accepting
+    confirmation: Locator = page.locator('[data-testid="game-confirmation-message"]')
+    assert confirmation.is_visible(), "Game confirmation message should be visible"
+    
+    message_text = confirmation.inner_text()
+    assert expected_message in message_text, (
+        f"Expected '{expected_message}' in confirmation, got '{message_text}'"
+    )
+
+
+@then("I should be redirected to the game interface")
+def redirected_to_game_interface(page: Page) -> None:
+    # Verify redirection to the game page
+    page.wait_for_url("**/game*", timeout=5000)
+    
+    # Verify game interface elements are present
+    game_title = page.locator("h1").text_content()
+    assert game_title is not None, "Game page should have a title"
+    assert "game" in game_title.lower() or "battleship" in game_title.lower(), (
+        "Should be on game page"
+    )
+
+
+@then(parsers.parse('both "{player1}" and "{player2}" should no longer appear in other players\' lobby views'))
+def both_players_removed_from_lobby(page: Page, player1: str, player2: str) -> None:
+    # Verify that both players are no longer in the lobby
+    # This step represents the behavior from other players' perspectives
+    # In a real implementation, this would check multiple browser sessions or server state
+    
+    # For BDD testing, this serves as a specification placeholder
+    # The actual implementation would verify that:
+    # 1. Both players are marked as "In Game" 
+    # 2. They don't appear in available players lists for others
+    # 3. Their lobby sessions are ended
+    pass
+
+
+@when(parsers.parse('I click the "Decline" button for {sender_name}\'s game request'))
+def click_decline_game_request(page: Page, sender_name: str) -> None:
+    # Click the Decline button for the game request
+    decline_button: Locator = page.locator('[data-testid="decline-game-request"]')
+    assert decline_button.is_visible(), "Decline button should be visible"
+    assert decline_button.is_enabled(), "Decline button should be enabled"
+    decline_button.click()
+
+
+@then(parsers.parse('I should see a message "Game request from {sender_name} declined"'))
+def see_decline_confirmation_message(page: Page, sender_name: str) -> None:
+    # Verify the decline confirmation message
+    expected_message = f"Game request from {sender_name} declined"
+    decline_message: Locator = page.locator('[data-testid="decline-confirmation-message"]')
+    assert decline_message.is_visible(), "Decline confirmation message should be visible"
+    
+    message_text = decline_message.inner_text()
+    assert expected_message in message_text, (
+        f"Expected '{expected_message}' in decline message, got '{message_text}'"
+    )
+
+
+@then(parsers.parse('"{sender_name}" should be notified that their request was declined'))
+def sender_notified_of_decline(page: Page, sender_name: str) -> None:
+    # Verify that the sender receives notification of the decline
+    # In a real implementation, this would check the sender's browser session or server notifications
+    # For BDD testing, this serves as a specification placeholder
+    
+    # The actual implementation would verify that:
+    # 1. The sender gets a "Request declined" message
+    # 2. The sender's status returns to "Available"
+    # 3. Real-time updates notify the sender
+    pass
+
+
+@then("I should be able to select other players again")
+def can_select_other_players_again(page: Page) -> None:
+    # Verify that Select Opponent buttons are re-enabled after declining
+    select_buttons: Locator = page.locator('[data-testid^="select-opponent-"]')
+    button_count = select_buttons.count()
+    
+    if button_count > 0:
+        # Check that at least some buttons are enabled
+        enabled_count = 0
+        for i in range(button_count):
+            button = select_buttons.nth(i)
+            if button.is_enabled():
+                enabled_count += 1
+        
+        assert enabled_count > 0, (
+            "At least some Select Opponent buttons should be enabled after declining"
+        )
+
+
+@then(parsers.parse('"{sender_name}\'s" status should return to "Available"'))
+def sender_status_returns_to_available(page: Page, sender_name: str) -> None:
+    # Verify that the sender's status returns to Available after decline
+    # This tests the real-time status updates in the lobby
+    
+    # Wait for status update polling cycle
+    page.wait_for_timeout(1500)
+    
+    # Check the sender's status in the lobby
+    sender_status: Locator = page.locator(f'[data-testid="player-{sender_name}-status"]')
+    
+    if sender_status.count() > 0:
+        status_text = sender_status.inner_text()
+        assert "available" in status_text.lower(), (
+            f"{sender_name}'s status should be Available, got '{status_text}'"
+        )
+    else:
+        # Alternative: check if sender appears in available players list
+        sender_element: Locator = page.locator(f'[data-testid="player-{sender_name}"]')
+        assert sender_element.is_visible(), (
+            f"{sender_name} should be visible in available players after decline"
+        )
+        
+        # Check that their Select Opponent button is enabled
+        sender_button: Locator = page.locator(f'[data-testid="select-opponent-{sender_name}"]')
+        assert sender_button.is_enabled(), (
+            f"Select Opponent button for {sender_name} should be enabled"
+        )

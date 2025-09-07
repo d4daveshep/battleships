@@ -491,7 +491,6 @@ class TestLobbyServiceGameRequests:
         assert pending_request is not None
         assert pending_request.sender == "Alice"
         assert pending_request.receiver == "Bob"
-        assert pending_request.status == "pending"
 
     def test_send_game_request_sender_not_available(
         self, empty_lobby_service: LobbyService
@@ -552,7 +551,6 @@ class TestLobbyServiceGameRequests:
         assert request is not None
         assert request.sender == "Alice"
         assert request.receiver == "Bob"
-        assert request.status == "pending"
 
     def test_get_pending_request_for_player_none_exists(
         self, empty_lobby_service: LobbyService
@@ -659,6 +657,8 @@ class TestLobbyServiceGameRequests:
         bob_request = empty_lobby_service.get_pending_request_for_player("Bob")
         diana_request = empty_lobby_service.get_pending_request_for_player("Diana")
 
+        assert bob_request is not None
+        assert diana_request is not None
         assert bob_request.sender == "Alice"
         assert diana_request.sender == "Charlie"
 

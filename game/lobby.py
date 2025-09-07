@@ -61,8 +61,7 @@ class Lobby:
         request = GameRequest(
             sender=sender,
             receiver=receiver,
-            timestamp=datetime.now(),
-            status="pending"
+            timestamp=datetime.now()
         )
         
         # Store the request

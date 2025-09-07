@@ -140,7 +140,6 @@ class TestLobbyGameRequests:
         
         assert game_request.sender == "Alice"
         assert game_request.receiver == "Bob"
-        assert game_request.status == "pending"
         
         # Verify: Player statuses are updated
         assert empty_lobby.get_player_status("Alice") == PlayerStatus.REQUESTING_GAME
@@ -188,7 +187,6 @@ class TestLobbyGameRequests:
         assert request is not None
         assert request.sender == "Alice"
         assert request.receiver == "Bob"
-        assert request.status == "pending"
 
     def test_get_pending_request_none_exists(self, empty_lobby):
         # Setup: Add player with no pending request

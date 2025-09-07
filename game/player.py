@@ -15,7 +15,6 @@ class GameRequest:
     sender: str
     receiver: str
     timestamp: datetime
-    status: str
 
 
 @dataclass

@@ -1,11 +1,20 @@
 from dataclasses import dataclass
+from datetime import datetime
 from enum import StrEnum
 
 
 class PlayerStatus(StrEnum):
     AVAILABLE = "Available"
     REQUESTING_GAME = "Requesting Game"
+    PENDING_RESPONSE = "Pending Response"
     IN_GAME = "In Game"
+
+
+@dataclass
+class GameRequest:
+    sender: str
+    receiver: str
+    timestamp: datetime
 
 
 @dataclass

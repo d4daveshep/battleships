@@ -330,3 +330,397 @@ class TestLobbyService:
         # Should work correctly and exclude Alice
         assert len(players) == 1
         assert players[0].name == "Bob"
+
+    # Unit tests for leave_lobby method
+
+    def test_leave_lobby_removes_existing_player(
+        self, empty_lobby_service: LobbyService
+    ):
+        # Test that leave_lobby removes an existing player from the lobby
+        empty_lobby_service.join_lobby("Alice")
+        empty_lobby_service.join_lobby("Bob")
+
+        # Verify both players are in lobby
+        players = empty_lobby_service.get_available_players()
+        assert len(players) == 2
+
+        # Alice leaves the lobby
+        empty_lobby_service.leave_lobby("Alice")
+
+        # Verify Alice is no longer in lobby but Bob remains
+        remaining_players = empty_lobby_service.get_available_players()
+        assert len(remaining_players) == 1
+        assert remaining_players[0].name == "Bob"
+
+    def test_leave_lobby_with_nonexistent_player(
+        self, empty_lobby_service: LobbyService
+    ):
+        # Test that leave_lobby with nonexistent player raises ValueError
+        with pytest.raises(ValueError, match="Player 'NonExistent' not found in lobby"):
+            empty_lobby_service.leave_lobby("NonExistent")
+
+    def test_leave_lobby_with_empty_player_name(
+        self, empty_lobby_service: LobbyService
+    ):
+        # Test that leave_lobby with empty player name raises ValueError
+        with pytest.raises(ValueError, match="Player name cannot be empty"):
+            empty_lobby_service.leave_lobby("")
+
+    def test_leave_lobby_with_whitespace_player_name(
+        self, empty_lobby_service: LobbyService
+    ):
+        # Test that leave_lobby with whitespace-only player name raises ValueError
+        with pytest.raises(ValueError, match="Player name cannot be empty"):
+            empty_lobby_service.leave_lobby("   ")
+
+    def test_leave_lobby_strips_player_name(self, empty_lobby_service: LobbyService):
+        # Test that leave_lobby strips whitespace from player name
+        empty_lobby_service.join_lobby("Alice")
+
+        # Leave with whitespace around name
+        empty_lobby_service.leave_lobby("  Alice  ")
+
+        # Alice should be removed
+        players = empty_lobby_service.get_available_players()
+        assert len(players) == 0
+
+    def test_leave_lobby_from_empty_lobby(self, empty_lobby_service: LobbyService):
+        # Test that leave_lobby from empty lobby raises ValueError
+        with pytest.raises(ValueError, match="Player 'Alice' not found in lobby"):
+            empty_lobby_service.leave_lobby("Alice")
+
+    def test_leave_lobby_updates_other_players_views(
+        self, empty_lobby_service: LobbyService
+    ):
+        # Test that when a player leaves, it affects other players' lobby views
+        empty_lobby_service.join_lobby("Alice")
+        empty_lobby_service.join_lobby("Bob")
+        empty_lobby_service.join_lobby("Charlie")
+
+        # Bob should see Alice and Charlie
+        bob_view = empty_lobby_service.get_lobby_players_for_player("Bob")
+        bob_view_names = [p.name for p in bob_view]
+        assert "Alice" in bob_view_names
+        assert "Charlie" in bob_view_names
+
+        # Alice leaves
+        empty_lobby_service.leave_lobby("Alice")
+
+        # Bob should now only see Charlie
+        updated_bob_view = empty_lobby_service.get_lobby_players_for_player("Bob")
+        updated_names = [p.name for p in updated_bob_view]
+        assert "Alice" not in updated_names
+        assert "Charlie" in updated_names
+        assert len(updated_names) == 1
+
+    def test_leave_lobby_with_different_player_statuses(
+        self, empty_lobby_service: LobbyService
+    ):
+        # Test that players can leave regardless of their status
+        empty_lobby_service.join_lobby("Alice")
+        empty_lobby_service.join_lobby("Bob")
+        empty_lobby_service.join_lobby("Charlie")
+
+        # Set different statuses
+        empty_lobby_service.update_player_status("Alice", PlayerStatus.REQUESTING_GAME)
+        empty_lobby_service.update_player_status("Bob", PlayerStatus.IN_GAME)
+        # Charlie remains AVAILABLE
+
+        # All players should be able to leave regardless of status
+        empty_lobby_service.leave_lobby("Alice")  # REQUESTING_GAME status
+        empty_lobby_service.leave_lobby("Bob")  # IN_GAME status
+        empty_lobby_service.leave_lobby("Charlie")  # AVAILABLE status
+
+        # Lobby should be empty
+        players = empty_lobby_service.get_available_players()
+        assert len(players) == 0
+
+    def test_leave_lobby_multiple_times_same_player(
+        self, empty_lobby_service: LobbyService
+    ):
+        # Test that calling leave_lobby multiple times for same player raises ValueError
+        empty_lobby_service.join_lobby("Alice")
+
+        # First leave should succeed
+        empty_lobby_service.leave_lobby("Alice")
+
+        # Second leave should fail
+        with pytest.raises(ValueError, match="Player 'Alice' not found in lobby"):
+            empty_lobby_service.leave_lobby("Alice")
+
+    def test_leave_lobby_last_player(self, empty_lobby_service: LobbyService):
+        # Test that the last player can leave, resulting in empty lobby
+        empty_lobby_service.join_lobby("LastPlayer")
+
+        # Verify player is in lobby
+        players = empty_lobby_service.get_available_players()
+        assert len(players) == 1
+        assert players[0].name == "LastPlayer"
+
+        # Last player leaves
+        empty_lobby_service.leave_lobby("LastPlayer")
+
+        # Lobby should be empty
+        final_players = empty_lobby_service.get_available_players()
+        assert len(final_players) == 0
+
+
+class TestLobbyServiceGameRequests:
+    """Tests for game request functionality in LobbyService"""
+
+    def test_send_game_request_success(self, empty_lobby_service: LobbyService):
+        # Setup: Add two available players
+        empty_lobby_service.join_lobby("Alice")
+        empty_lobby_service.join_lobby("Bob")
+
+        # Test: Send game request from Alice to Bob
+        empty_lobby_service.send_game_request("Alice", "Bob")
+
+        # Verify: Both players have correct status
+        assert (
+            empty_lobby_service.get_player_status("Alice")
+            == PlayerStatus.REQUESTING_GAME
+        )
+        assert (
+            empty_lobby_service.get_player_status("Bob")
+            == PlayerStatus.PENDING_RESPONSE
+        )
+
+        # Verify: Bob has a pending request from Alice
+        pending_request = empty_lobby_service.get_pending_request_for_player("Bob")
+        assert pending_request is not None
+        assert pending_request.sender == "Alice"
+        assert pending_request.receiver == "Bob"
+
+    def test_send_game_request_sender_not_available(
+        self, empty_lobby_service: LobbyService
+    ):
+        # Setup: Add players with Alice already requesting a game
+        empty_lobby_service.join_lobby("Alice")
+        empty_lobby_service.join_lobby("Bob")
+        empty_lobby_service.update_player_status("Alice", PlayerStatus.REQUESTING_GAME)
+
+        # Test: Alice cannot send another request while already requesting
+        with pytest.raises(ValueError, match="Sender Alice is not available"):
+            empty_lobby_service.send_game_request("Alice", "Bob")
+
+    def test_send_game_request_receiver_not_available(
+        self, empty_lobby_service: LobbyService
+    ):
+        # Setup: Add players with Bob not available
+        empty_lobby_service.join_lobby("Alice")
+        empty_lobby_service.join_lobby("Bob")
+        empty_lobby_service.update_player_status("Bob", PlayerStatus.IN_GAME)
+
+        # Test: Cannot send request to unavailable player
+        with pytest.raises(ValueError, match="Receiver Bob is not available"):
+            empty_lobby_service.send_game_request("Alice", "Bob")
+
+    def test_send_game_request_nonexistent_players(
+        self, empty_lobby_service: LobbyService
+    ):
+        # Test: Should validate that both players exist
+        with pytest.raises(ValueError, match="not found in lobby"):
+            empty_lobby_service.send_game_request("Alice", "Bob")
+
+        # Add only Alice
+        empty_lobby_service.join_lobby("Alice")
+
+        with pytest.raises(ValueError, match="not found in lobby"):
+            empty_lobby_service.send_game_request("Alice", "Bob")
+
+    def test_send_game_request_empty_names(self, empty_lobby_service: LobbyService):
+        # Test: Should validate player names are not empty
+        with pytest.raises(ValueError):
+            empty_lobby_service.send_game_request("", "Bob")
+
+        with pytest.raises(ValueError):
+            empty_lobby_service.send_game_request("Alice", "")
+
+    def test_get_pending_request_for_player_exists(
+        self, empty_lobby_service: LobbyService
+    ):
+        # Setup: Add players and send request
+        empty_lobby_service.join_lobby("Alice")
+        empty_lobby_service.join_lobby("Bob")
+        empty_lobby_service.send_game_request("Alice", "Bob")
+
+        # Test: Get pending request for receiver
+        request = empty_lobby_service.get_pending_request_for_player("Bob")
+
+        assert request is not None
+        assert request.sender == "Alice"
+        assert request.receiver == "Bob"
+
+    def test_get_pending_request_for_player_none_exists(
+        self, empty_lobby_service: LobbyService
+    ):
+        # Setup: Add player with no pending request
+        empty_lobby_service.join_lobby("Alice")
+
+        # Test: Should return None when no request exists
+        request = empty_lobby_service.get_pending_request_for_player("Alice")
+        assert request is None
+
+    def test_get_pending_request_for_player_empty_name(
+        self, empty_lobby_service: LobbyService
+    ):
+        # Test: Should validate player name
+        with pytest.raises(ValueError):
+            empty_lobby_service.get_pending_request_for_player("")
+
+    def test_accept_game_request_success(self, empty_lobby_service: LobbyService):
+        # Setup: Add players and send request
+        empty_lobby_service.join_lobby("Alice")
+        empty_lobby_service.join_lobby("Bob")
+        empty_lobby_service.send_game_request("Alice", "Bob")
+
+        # Test: Bob accepts the request
+        sender, receiver = empty_lobby_service.accept_game_request("Bob")
+
+        # Verify: Returns correct player names
+        assert sender == "Alice"
+        assert receiver == "Bob"
+
+        # Verify: Both players are now IN_GAME
+        assert empty_lobby_service.get_player_status("Alice") == PlayerStatus.IN_GAME
+        assert empty_lobby_service.get_player_status("Bob") == PlayerStatus.IN_GAME
+
+        # Verify: No pending request remains
+        request = empty_lobby_service.get_pending_request_for_player("Bob")
+        assert request is None
+
+    def test_accept_game_request_no_pending_request(
+        self, empty_lobby_service: LobbyService
+    ):
+        # Setup: Add player with no pending request
+        empty_lobby_service.join_lobby("Alice")
+
+        # Test: Should raise error when no request to accept
+        with pytest.raises(ValueError, match="No pending game request"):
+            empty_lobby_service.accept_game_request("Alice")
+
+    def test_accept_game_request_empty_name(self, empty_lobby_service: LobbyService):
+        # Test: Should validate player name
+        with pytest.raises(ValueError):
+            empty_lobby_service.accept_game_request("")
+
+    def test_decline_game_request_success(self, empty_lobby_service: LobbyService):
+        # Setup: Add players and send request
+        empty_lobby_service.join_lobby("Alice")
+        empty_lobby_service.join_lobby("Bob")
+        empty_lobby_service.send_game_request("Alice", "Bob")
+
+        # Test: Bob declines the request
+        sender = empty_lobby_service.decline_game_request("Bob")
+
+        # Verify: Returns sender name
+        assert sender == "Alice"
+
+        # Verify: Both players are back to AVAILABLE
+        assert empty_lobby_service.get_player_status("Alice") == PlayerStatus.AVAILABLE
+        assert empty_lobby_service.get_player_status("Bob") == PlayerStatus.AVAILABLE
+
+        # Verify: No pending request remains
+        request = empty_lobby_service.get_pending_request_for_player("Bob")
+        assert request is None
+
+    def test_decline_game_request_no_pending_request(
+        self, empty_lobby_service: LobbyService
+    ):
+        # Setup: Add player with no pending request
+        empty_lobby_service.join_lobby("Alice")
+
+        # Test: Should raise error when no request to decline
+        with pytest.raises(ValueError, match="No pending game request"):
+            empty_lobby_service.decline_game_request("Alice")
+
+    def test_decline_game_request_empty_name(self, empty_lobby_service: LobbyService):
+        # Test: Should validate player name
+        with pytest.raises(ValueError):
+            empty_lobby_service.decline_game_request("")
+
+    def test_multiple_game_requests_different_receivers(
+        self, empty_lobby_service: LobbyService
+    ):
+        # Setup: Add multiple players
+        empty_lobby_service.join_lobby("Alice")
+        empty_lobby_service.join_lobby("Bob")
+        empty_lobby_service.join_lobby("Charlie")
+        empty_lobby_service.join_lobby("Diana")
+
+        # Test: Send requests from different senders to different receivers
+        empty_lobby_service.send_game_request("Alice", "Bob")
+        empty_lobby_service.send_game_request("Charlie", "Diana")
+
+        # Verify: Both requests exist independently
+        bob_request = empty_lobby_service.get_pending_request_for_player("Bob")
+        diana_request = empty_lobby_service.get_pending_request_for_player("Diana")
+
+        assert bob_request is not None
+        assert diana_request is not None
+        assert bob_request.sender == "Alice"
+        assert diana_request.sender == "Charlie"
+
+        # Verify: Players have correct statuses
+        assert (
+            empty_lobby_service.get_player_status("Alice")
+            == PlayerStatus.REQUESTING_GAME
+        )
+        assert (
+            empty_lobby_service.get_player_status("Bob")
+            == PlayerStatus.PENDING_RESPONSE
+        )
+        assert (
+            empty_lobby_service.get_player_status("Charlie")
+            == PlayerStatus.REQUESTING_GAME
+        )
+        assert (
+            empty_lobby_service.get_player_status("Diana")
+            == PlayerStatus.PENDING_RESPONSE
+        )
+
+    def test_game_request_workflow_accept(self, empty_lobby_service: LobbyService):
+        # Test: Complete workflow from request to acceptance
+        empty_lobby_service.join_lobby("Alice")
+        empty_lobby_service.join_lobby("Bob")
+
+        # Step 1: Alice sends request to Bob
+        empty_lobby_service.send_game_request("Alice", "Bob")
+        assert (
+            empty_lobby_service.get_player_status("Alice")
+            == PlayerStatus.REQUESTING_GAME
+        )
+        assert (
+            empty_lobby_service.get_player_status("Bob")
+            == PlayerStatus.PENDING_RESPONSE
+        )
+
+        # Step 2: Bob accepts the request
+        sender, receiver = empty_lobby_service.accept_game_request("Bob")
+        assert sender == "Alice"
+        assert receiver == "Bob"
+        assert empty_lobby_service.get_player_status("Alice") == PlayerStatus.IN_GAME
+        assert empty_lobby_service.get_player_status("Bob") == PlayerStatus.IN_GAME
+
+    def test_game_request_workflow_decline(self, empty_lobby_service: LobbyService):
+        # Test: Complete workflow from request to decline
+        empty_lobby_service.join_lobby("Alice")
+        empty_lobby_service.join_lobby("Bob")
+
+        # Step 1: Alice sends request to Bob
+        empty_lobby_service.send_game_request("Alice", "Bob")
+        assert (
+            empty_lobby_service.get_player_status("Alice")
+            == PlayerStatus.REQUESTING_GAME
+        )
+        assert (
+            empty_lobby_service.get_player_status("Bob")
+            == PlayerStatus.PENDING_RESPONSE
+        )
+
+        # Step 2: Bob declines the request
+        sender = empty_lobby_service.decline_game_request("Bob")
+        assert sender == "Alice"
+        assert empty_lobby_service.get_player_status("Alice") == PlayerStatus.AVAILABLE
+        assert empty_lobby_service.get_player_status("Bob") == PlayerStatus.AVAILABLE

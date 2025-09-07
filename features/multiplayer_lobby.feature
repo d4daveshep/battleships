@@ -69,9 +69,60 @@ Feature: Multiplayer Game Lobby
       | Rachel      | Available |
       | Sam         | Available |
     When "Rachel" receives a game request from "Sam"
-    Then I should see "Rachel's" status change from "Available" to "Requesting Game"
+    Then I should see "Rachel's" status change from "Available" to "Pending Response"
     And the "Select Opponent" button for "Rachel" should be disabled
     And I should see a visual indicator that "Rachel" is no longer available
+
+  Scenario: Leaving the lobby
+    Given I've logged in as "Victor" and selected human opponent
+    And there are other players in the lobby:
+      | Player Name | Status    |
+      | Rachel      | Available |
+      | Sam         | Available |
+    When I click the "Leave Lobby" button
+    Then I should be returned to the login page
+    And other players should no longer see me in their lobby view
+
+  Scenario: Player leaves the lobby while I'm viewing it
+    Given I've logged in as "Liam" and selected human opponent
+    And there are other players in the lobby:
+      | Player Name | Status    |
+      | Maya        | Available |
+      | Noah        | Available |
+    When "Maya" leaves the lobby
+    Then "Maya" should no longer appear in my available players list
+    And I should see "Noah" in the available players list
+
+  Scenario: Receiving a game request from another player
+    Given I've logged in as "Alice" and selected human opponent
+    And there are other players in the lobby:
+      | Player Name | Status    |
+      | Bob         | Available |
+      | Charlie     | Available |
+    When "Bob" selects me as their opponent
+    Then I should receive a game request notification from "Bob"
+    And I should see an "Accept" button for the game request
+    And I should see a "Decline" button for the game request
+    And my status should change to "Pending Response"
+    And I should not be able to select other players while responding to the request
+
+  Scenario: Accepting a game request from another player
+    Given I've logged in as "Alice" and selected human opponent
+    And I have received a game request from "Bob"
+    When I click the "Accept" button for Bob's game request
+    Then I should see a confirmation message "Game accepted! Starting game with Bob"
+    And I should be redirected to the game interface
+    And both "Alice" and "Bob" should no longer appear in other players' lobby views
+
+  Scenario: Declining a game request from another player
+    Given I've logged in as "Alice" and selected human opponent
+    And I have received a game request from "Bob"
+    When I click the "Decline" button for Bob's game request
+    Then I should see a message "Game request from Bob declined"
+    And my status should return to "Available"
+    And "Bob" should be notified that their request was declined
+    And I should be able to select other players again
+    And "Bob's" status should return to "Available"
 
   # Scenario: Multiple players joining the lobby simultaneously
   #   Given I am in the lobby as "Henry"
@@ -83,17 +134,6 @@ Feature: Multiplayer Game Lobby
   #     | Kelly |
   #   And each player should have a "Select Opponent" button
   #   And all players should show "Available" status
-  #
-  # Scenario: Player leaves the lobby while I'm viewing it
-  #   Given I am in the lobby as "Liam"
-  #   And there are other players in the lobby:
-  #     | Player Name | Status    |
-  #     | Maya        | Available |
-  #     | Noah        | Available |
-  #   When "Maya" leaves the lobby
-  #   Then "Maya" should no longer appear in my available players list
-  #   And I should still see "Noah" as available
-  #   And the player count should update accordingly
   #
   # Scenario: Cannot select players who are already in a game
   #   Given I am in the lobby as "Olivia"
@@ -115,14 +155,6 @@ Feature: Multiplayer Game Lobby
   #   Then I should see the current list of available players
   #   And player statuses should be up to date
   #   And my own status should remain unchanged
-  #
-  # Scenario: Leaving the lobby
-  #   Given I am in the lobby as "Victor"
-  #   And there are other players in the lobby
-  #   When I click the "Leave Lobby" button
-  #   Then I should be returned to the main menu or login page
-  #   And other players should no longer see me in their lobby view
-  #   And my status should be removed from the lobby
   #
   # Scenario: Network connection issues in lobby
   #   Given I am in the lobby as "Wendy"

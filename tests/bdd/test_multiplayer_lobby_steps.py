@@ -1,4 +1,5 @@
 from pytest_bdd import scenarios, given, when, then, parsers
+import httpx
 from playwright.sync_api import Page, Locator
 from tests.bdd.conftest import login_and_select_multiplayer
 
@@ -23,6 +24,10 @@ def multiplayer_lobby_system_available(page: Page) -> None:
 def other_players_in_lobby(page: Page, datatable) -> None:
     # This step sets up pre-existing players in the lobby
     # Parse the table data from the step to set up lobby state
+
+    # Store the current player's perspective to restore later
+    current_player = getattr(page, "current_player_name", None)
+
     expected_players: list[dict[str, str]] = []
     for row in datatable[1:]:
         player_name: str = row[0]
@@ -32,6 +37,14 @@ def other_players_in_lobby(page: Page, datatable) -> None:
             expected_players.append({"name": player_name, "status": status})
 
     setattr(page, "expected_lobby_players", expected_players)
+
+    # Restore the original player's perspective if it was set
+    if current_player:
+        page.goto(f"http://localhost:8000/lobby?player_name={current_player}")
+        # Wait for the lobby page to load
+        page.wait_for_selector('[data-testid="lobby-container"]')
+        # Restore the stored player name
+        setattr(page, "current_player_name", current_player)
 
 
 @when(parsers.parse('I login as "{player_name}" and select human opponent'))
@@ -321,6 +334,18 @@ def my_status_should_change(page: Page, expected_status: str) -> None:
     )
 
 
+@then(parsers.parse('my status should return to "{expected_status}"'))
+def my_status_should_return_to(page: Page, expected_status: str) -> None:
+    # Check that the current player's status has returned to expected status
+    status_element: Locator = page.locator('[data-testid="own-player-status"]')
+    assert status_element.is_visible(), "Player status should be visible"
+
+    status_text = status_element.inner_text()
+    assert expected_status in status_text, (
+        f"Expected status '{expected_status}' in status text, got '{status_text}'"
+    )
+
+
 @then(
     "I should not be able to select other players while waiting for my request to be completed"
 )
@@ -346,91 +371,472 @@ def cannot_select_other_players_while_waiting(page: Page) -> None:
 
 # New BDD steps for "Lobby shows real-time updates" scenario
 
+
 @when(parsers.parse('"{target_player}" receives a game request from "{sender_player}"'))
-def target_player_receives_game_request(page: Page, target_player: str, sender_player: str) -> None:
+def target_player_receives_game_request(
+    page: Page, target_player: str, sender_player: str
+) -> None:
     # Simulate another player (sender) sending a game request to target_player
     # This would typically involve:
     # 1. Making an HTTP request from sender to select target as opponent
     # 2. Triggering real-time updates via WebSocket/polling
-    
+
     # For now, simulate this by making the request via HTTP client
     # In a real implementation, this might involve WebSocket messaging
     import httpx
-    
+
     with httpx.Client() as client:
         # Simulate sender selecting target as opponent
         response = client.post(
             "http://localhost:8000/select-opponent",
-            data={"player_name": sender_player, "opponent_name": target_player}
+            data={"player_name": sender_player, "opponent_name": target_player},
         )
-    
+
     # Store the interaction for verification
     setattr(page, "game_request_sender", sender_player)
     setattr(page, "game_request_target", target_player)
-    
-    # Wait a moment for potential real-time updates to propagate
-    page.wait_for_timeout(500)  # 500ms wait for updates
+
+    # Wait for polling cycle to complete (polling every 1s + buffer)
+    page.wait_for_timeout(1500)  # 1.5s wait for updates
 
 
-@then(parsers.parse('I should see "{player_name}\'s" status change from "{old_status}" to "{new_status}"'))
-def see_player_status_change(page: Page, player_name: str, old_status: str, new_status: str) -> None:
+@then(
+    parsers.parse(
+        'I should see "{player_name}\'s" status change from "{old_status}" to "{new_status}"'
+    )
+)
+def see_player_status_change(
+    page: Page, player_name: str, old_status: str, new_status: str
+) -> None:
     # Check that the player's status has changed to the new status
     # This tests real-time updates of player status in the lobby
-    
+
     # Look for player status indicator (this might be in a data attribute or text)
-    player_status_element: Locator = page.locator(f'[data-testid="player-{player_name}-status"]')
-    
+    player_status_element: Locator = page.locator(
+        f'[data-testid="player-{player_name}-status"]'
+    )
+
     if player_status_element.count() > 0:
         # If there's a specific status element, check it
         status_text = player_status_element.inner_text()
-        assert new_status in status_text, f"Expected status '{new_status}' for {player_name}, got '{status_text}'"
+        assert new_status in status_text, (
+            f"Expected status '{new_status}' for {player_name}, got '{status_text}'"
+        )
     else:
         # Alternative: check if the player element has status information
         player_element: Locator = page.locator(f'[data-testid="player-{player_name}"]')
-        assert player_element.is_visible(), f"Player {player_name} should be visible in lobby"
-        
+        assert player_element.is_visible(), (
+            f"Player {player_name} should be visible in lobby"
+        )
+
         # Check for status indicator in the player's section
         # This might involve looking for CSS classes or text content
         player_html = player_element.inner_html()
-        assert new_status.lower() in player_html.lower(), f"Player {player_name} should show status '{new_status}'"
+        assert new_status.lower() in player_html.lower(), (
+            f"Player {player_name} should show status '{new_status}'"
+        )
 
 
-@then(parsers.parse('the "Select Opponent" button for "{player_name}" should be disabled'))
+@then(
+    parsers.parse('the "Select Opponent" button for "{player_name}" should be disabled')
+)
 def select_opponent_button_should_be_disabled(page: Page, player_name: str) -> None:
     # Verify that the Select Opponent button for the specified player is disabled
     # This tests that players with "Requesting Game" status can't be selected
-    
-    select_button: Locator = page.locator(f'[data-testid="select-opponent-{player_name}"]')
-    assert select_button.is_visible(), f"Select Opponent button for {player_name} should be visible"
-    assert select_button.is_disabled(), f"Select Opponent button for {player_name} should be disabled"
+
+    select_button: Locator = page.locator(
+        f'[data-testid="select-opponent-{player_name}"]'
+    )
+    assert select_button.is_visible(), (
+        f"Select Opponent button for {player_name} should be visible"
+    )
+    assert select_button.is_disabled(), (
+        f"Select Opponent button for {player_name} should be disabled"
+    )
 
 
-@then(parsers.parse('I should see a visual indicator that "{player_name}" is no longer available'))
+@then(
+    parsers.parse(
+        'I should see a visual indicator that "{player_name}" is no longer available'
+    )
+)
 def see_visual_indicator_player_unavailable(page: Page, player_name: str) -> None:
     # Check for visual indicators that show the player is no longer available
     # This could be CSS classes, icons, or other visual cues
-    
+
     player_element: Locator = page.locator(f'[data-testid="player-{player_name}"]')
-    assert player_element.is_visible(), f"Player {player_name} should still be visible in lobby"
-    
+    assert player_element.is_visible(), (
+        f"Player {player_name} should still be visible in lobby"
+    )
+
     # Check for visual indicators of unavailability
     # This might involve CSS classes like "unavailable", "requesting", etc.
     player_html = player_element.inner_html()
-    
+
     # Look for common visual indicators
     visual_indicators = [
         "unavailable",
-        "requesting", 
+        "requesting",
         "disabled",
         "pending",
         "status-requesting",
-        "player-busy"
+        "player-busy",
     ]
-    
-    found_indicator = any(indicator in player_html.lower() for indicator in visual_indicators)
-    
+
+    found_indicator = any(
+        indicator in player_html.lower() for indicator in visual_indicators
+    )
+
     # Also check if the button is disabled (another visual cue)
-    select_button: Locator = page.locator(f'[data-testid="select-opponent-{player_name}"]')
-    button_disabled = select_button.is_disabled() if select_button.count() > 0 else False
+    select_button: Locator = page.locator(
+        f'[data-testid="select-opponent-{player_name}"]'
+    )
+    button_disabled = (
+        select_button.is_disabled() if select_button.count() > 0 else False
+    )
+
+    assert found_indicator or button_disabled, (
+        f"Player {player_name} should have visual indicator of unavailability"
+    )
+
+
+# New BDD steps for "Leaving the lobby" scenario
+
+
+@when('I click the "Leave Lobby" button')
+def click_leave_lobby_button(page: Page) -> None:
+    # Click the "Leave Lobby" button to exit the lobby
+    leave_button: Locator = page.locator('[data-testid="leave-lobby-button"]')
+    assert leave_button.is_visible(), "Leave Lobby button should be visible"
+    assert leave_button.is_enabled(), "Leave Lobby button should be enabled"
+    leave_button.click()
+
+
+@then("I should be returned to the login page")
+def returned_to_login_page(page: Page) -> None:
+    # Verify that the user is redirected back to the login page
+    page.wait_for_url("**/", timeout=5000)  # Wait for redirect to home/login page
+
+    # Verify login page elements are present
+    login_title = page.locator("h1").text_content()
+    assert login_title is not None, "Login page should have a title"
+    assert "Battleship" in login_title or "Login" in login_title, (
+        "Should be on login page"
+    )
+
+    # Verify login form elements are present
+    player_name_input = page.locator('input[name="player_name"]')
+    assert player_name_input.is_visible(), (
+        "Player name input should be visible on login page"
+    )
+
+
+@then("other players should no longer see me in their lobby view")
+def other_players_no_longer_see_me(page: Page) -> None:
+    # This step verifies that the current player is removed from other players' lobby views
+    # In a real implementation, this would involve checking other browser sessions or server state
+    # For BDD testing, we can simulate this by checking that the player count decreases
+    # or by making an API call to verify the player is no longer in the lobby
+
+    # Store the player name for verification
+    current_player = getattr(page, "current_player_name", None)
+    if current_player:
+        # In a full implementation, this might involve:
+        # 1. Opening another browser session
+        # 2. Checking the lobby API endpoint
+        # 3. Verifying WebSocket messages are sent to other players
+        pass
+
+    # For now, this step serves as a placeholder for the behavior specification
+
+
+# New BDD steps for "Player leaves the lobby while I'm viewing it" scenario
+
+
+@when(parsers.parse('"{player_name}" leaves the lobby'))
+def player_leaves_lobby(page: Page, player_name: str) -> None:
+    # Simulate another player leaving the lobby
+    # This would typically involve the other player clicking "Leave Lobby"
+    # For testing purposes, we simulate this via HTTP request or server state change
+
+    with httpx.Client() as client:
+        # Simulate the player leaving the lobby
+        response = client.post(
+            "http://localhost:8000/leave-lobby", data={"player_name": player_name}
+        )
+
+    # Store the player who left for verification
+    setattr(page, "player_who_left", player_name)
+
+    # Wait for polling cycle to complete (polling every 1s + buffer)
+    page.wait_for_timeout(1500)  # 1.5s wait for real-time updates
+
+
+@then(
+    parsers.parse(
+        '"{player_name}" should no longer appear in my available players list'
+    )
+)
+def player_no_longer_in_list(page: Page, player_name: str) -> None:
+    # Verify that the specified player is no longer visible in the available players list
+    player_element: Locator = page.locator(f'[data-testid="player-{player_name}"]')
+    assert not player_element.is_visible(), (
+        f"Player {player_name} should no longer be visible in the lobby"
+    )
+
+    # Also verify that the select button for this player is gone
+    select_button: Locator = page.locator(
+        f'[data-testid="select-opponent-{player_name}"]'
+    )
+    assert select_button.count() == 0, (
+        f"Select opponent button for {player_name} should be removed"
+    )
+
+
+# New BDD steps for game request scenarios
+
+
+@when(parsers.parse('"{sender_player}" selects me as their opponent'))
+def sender_selects_me_as_opponent(page: Page, sender_player: str) -> None:
+    # Simulate another player selecting the current player as their opponent
+    # This triggers a game request being sent to the current player
     
-    assert found_indicator or button_disabled, f"Player {player_name} should have visual indicator of unavailability"
+    # Get the current player's name
+    current_player = getattr(page, "current_player_name", "TestPlayer")
+    
+    # Simulate the sender making a request via HTTP client
+    with httpx.Client() as client:
+        response = client.post(
+            "http://localhost:8000/select-opponent",
+            data={"player_name": sender_player, "opponent_name": current_player},
+        )
+    
+    # Store the request details for verification
+    setattr(page, "game_request_sender", sender_player)
+    setattr(page, "game_request_receiver", current_player)
+    
+    # Wait for polling cycle to update the UI
+    page.wait_for_timeout(1500)
+
+
+@then(parsers.parse('I should receive a game request notification from "{sender_player}"'))
+def receive_game_request_notification(page: Page, sender_player: str) -> None:
+    # Verify that a game request notification appears
+    notification_element: Locator = page.locator('[data-testid="game-request-notification"]')
+    assert notification_element.is_visible(), "Game request notification should be visible"
+    
+    notification_text = notification_element.inner_text()
+    assert sender_player in notification_text, (
+        f"Notification should mention {sender_player}, got '{notification_text}'"
+    )
+    assert "game request" in notification_text.lower(), (
+        f"Notification should mention game request, got '{notification_text}'"
+    )
+
+
+@then('I should see an "Accept" button for the game request')
+def see_accept_button(page: Page) -> None:
+    # Verify that an Accept button is visible for the game request
+    accept_button: Locator = page.locator('[data-testid="accept-game-request"]')
+    assert accept_button.is_visible(), "Accept button should be visible"
+    assert accept_button.is_enabled(), "Accept button should be enabled"
+    
+    button_text = accept_button.inner_text()
+    assert "accept" in button_text.lower(), (
+        f"Accept button should contain 'Accept', got '{button_text}'"
+    )
+
+
+@then('I should see a "Decline" button for the game request')
+def see_decline_button(page: Page) -> None:
+    # Verify that a Decline button is visible for the game request
+    decline_button: Locator = page.locator('[data-testid="decline-game-request"]')
+    assert decline_button.is_visible(), "Decline button should be visible"
+    assert decline_button.is_enabled(), "Decline button should be enabled"
+    
+    button_text = decline_button.inner_text()
+    assert "decline" in button_text.lower(), (
+        f"Decline button should contain 'Decline', got '{button_text}'"
+    )
+
+
+@then("I should not be able to select other players while responding to the request")
+def cannot_select_players_while_responding(page: Page) -> None:
+    # Verify that other Select Opponent buttons are disabled while responding to a request
+    select_buttons: Locator = page.locator('[data-testid^="select-opponent-"]')
+    button_count = select_buttons.count()
+    
+    if button_count > 0:
+        # If buttons are still visible, they should be disabled
+        for i in range(button_count):
+            button = select_buttons.nth(i)
+            assert button.is_disabled(), (
+                f"Select Opponent button {i} should be disabled while responding to request"
+            )
+
+
+@given(parsers.parse('I have received a game request from "{sender_player}"'))
+def have_received_game_request(page: Page, sender_player: str) -> None:
+    # Set up the state where the current player has received a game request
+    # This is a precondition for accept/decline scenarios
+    
+    current_player = getattr(page, "current_player_name", "TestPlayer")
+    
+    # First ensure the sender player is in the lobby
+    login_and_select_human_opponent(page, sender_player)
+    
+    # Restore current player's perspective 
+    page.goto(f"http://localhost:8000/lobby?player_name={current_player}")
+    page.wait_for_selector('[data-testid="lobby-container"]')
+    setattr(page, "current_player_name", current_player)
+    
+    # Simulate the sender selecting current player as opponent
+    with httpx.Client() as client:
+        response = client.post(
+            "http://localhost:8000/select-opponent",
+            data={"player_name": sender_player, "opponent_name": current_player},
+        )
+    
+    setattr(page, "game_request_sender", sender_player)
+    setattr(page, "game_request_receiver", current_player)
+    
+    # Wait for the UI to update and show the request
+    page.wait_for_timeout(1500)
+    
+    # Verify the request is visible
+    notification: Locator = page.locator('[data-testid="game-request-notification"]')
+    assert notification.is_visible(), (
+        f"Game request from {sender_player} should be visible"
+    )
+
+
+@when(parsers.parse('I click the "Accept" button for {sender_name}\'s game request'))
+def click_accept_game_request(page: Page, sender_name: str) -> None:
+    # Click the Accept button for the game request
+    accept_button: Locator = page.locator('[data-testid="accept-game-request"]')
+    assert accept_button.is_visible(), "Accept button should be visible"
+    assert accept_button.is_enabled(), "Accept button should be enabled"
+    accept_button.click()
+
+
+@then(parsers.parse('I should see a confirmation message "{expected_message}"'))
+def see_game_confirmation_message(page: Page, expected_message: str) -> None:
+    # Verify the confirmation message appears after accepting
+    confirmation: Locator = page.locator('[data-testid="game-confirmation-message"]')
+    assert confirmation.is_visible(), "Game confirmation message should be visible"
+    
+    message_text = confirmation.inner_text()
+    assert expected_message in message_text, (
+        f"Expected '{expected_message}' in confirmation, got '{message_text}'"
+    )
+
+
+@then("I should be redirected to the game interface")
+def redirected_to_game_interface(page: Page) -> None:
+    # Verify redirection to the game page
+    page.wait_for_url("**/game*", timeout=5000)
+    
+    # Verify game interface elements are present
+    game_title = page.locator("h1").text_content()
+    assert game_title is not None, "Game page should have a title"
+    assert "game" in game_title.lower() or "battleship" in game_title.lower(), (
+        "Should be on game page"
+    )
+
+
+@then(parsers.parse('both "{player1}" and "{player2}" should no longer appear in other players\' lobby views'))
+def both_players_removed_from_lobby(page: Page, player1: str, player2: str) -> None:
+    # Verify that both players are no longer in the lobby
+    # This step represents the behavior from other players' perspectives
+    # In a real implementation, this would check multiple browser sessions or server state
+    
+    # For BDD testing, this serves as a specification placeholder
+    # The actual implementation would verify that:
+    # 1. Both players are marked as "In Game" 
+    # 2. They don't appear in available players lists for others
+    # 3. Their lobby sessions are ended
+    pass
+
+
+@when(parsers.parse('I click the "Decline" button for {sender_name}\'s game request'))
+def click_decline_game_request(page: Page, sender_name: str) -> None:
+    # Click the Decline button for the game request
+    decline_button: Locator = page.locator('[data-testid="decline-game-request"]')
+    assert decline_button.is_visible(), "Decline button should be visible"
+    assert decline_button.is_enabled(), "Decline button should be enabled"
+    decline_button.click()
+
+
+@then(parsers.parse('I should see a message "Game request from {sender_name} declined"'))
+def see_decline_confirmation_message(page: Page, sender_name: str) -> None:
+    # Verify the decline confirmation message
+    expected_message = f"Game request from {sender_name} declined"
+    decline_message: Locator = page.locator('[data-testid="decline-confirmation-message"]')
+    assert decline_message.is_visible(), "Decline confirmation message should be visible"
+    
+    message_text = decline_message.inner_text()
+    assert expected_message in message_text, (
+        f"Expected '{expected_message}' in decline message, got '{message_text}'"
+    )
+
+
+@then(parsers.parse('"{sender_name}" should be notified that their request was declined'))
+def sender_notified_of_decline(page: Page, sender_name: str) -> None:
+    # Verify that the sender receives notification of the decline
+    # In a real implementation, this would check the sender's browser session or server notifications
+    # For BDD testing, this serves as a specification placeholder
+    
+    # The actual implementation would verify that:
+    # 1. The sender gets a "Request declined" message
+    # 2. The sender's status returns to "Available"
+    # 3. Real-time updates notify the sender
+    pass
+
+
+@then("I should be able to select other players again")
+def can_select_other_players_again(page: Page) -> None:
+    # Verify that Select Opponent buttons are re-enabled after declining
+    select_buttons: Locator = page.locator('[data-testid^="select-opponent-"]')
+    button_count = select_buttons.count()
+    
+    if button_count > 0:
+        # Check that at least some buttons are enabled
+        enabled_count = 0
+        for i in range(button_count):
+            button = select_buttons.nth(i)
+            if button.is_enabled():
+                enabled_count += 1
+        
+        assert enabled_count > 0, (
+            "At least some Select Opponent buttons should be enabled after declining"
+        )
+
+
+@then(parsers.parse('"{sender_name}\'s" status should return to "Available"'))
+def sender_status_returns_to_available(page: Page, sender_name: str) -> None:
+    # Verify that the sender's status returns to Available after decline
+    # This tests the real-time status updates in the lobby
+    
+    # Wait for status update polling cycle
+    page.wait_for_timeout(1500)
+    
+    # Check the sender's status in the lobby
+    sender_status: Locator = page.locator(f'[data-testid="player-{sender_name}-status"]')
+    
+    if sender_status.count() > 0:
+        status_text = sender_status.inner_text()
+        assert "available" in status_text.lower(), (
+            f"{sender_name}'s status should be Available, got '{status_text}'"
+        )
+    else:
+        # Alternative: check if sender appears in available players list
+        sender_element: Locator = page.locator(f'[data-testid="player-{sender_name}"]')
+        assert sender_element.is_visible(), (
+            f"{sender_name} should be visible in available players after decline"
+        )
+        
+        # Check that their Select Opponent button is enabled
+        sender_button: Locator = page.locator(f'[data-testid="select-opponent-{sender_name}"]')
+        assert sender_button.is_enabled(), (
+            f"Select Opponent button for {sender_name} should be enabled"
+        )

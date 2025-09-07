@@ -10,12 +10,12 @@
         <h3>Welcome, {{ player_name }}!</h3>
     </div>
     
-    <div data-testid="own-player-status">
+    <div data-testid="lobby-player-status">
         Your Status: {{ player_status }}
     </div>
     
     {% if confirmation_message %}
-    <div data-testid="confirmation-message">
+    <div data-testid="game-confirmation-message">
         {{ confirmation_message }}
     </div>
     {% endif %}
@@ -26,14 +26,17 @@
     </div>
     {% endif %}
 
-    <div data-testid="available-players-list">
+    <div data-testid="available-players-list" 
+         hx-get="/lobby/players/{{ player_name }}" 
+         hx-trigger="load, every 1s" 
+         hx-swap="innerHTML">
         <h3>Available Players:</h3>
         {% if available_players %}
             {% for player in available_players %}
             <div data-testid="player-{{ player.name }}">
                 {{ player.name }}
                 <span data-testid="player-{{ player.name }}-status">({{ player.status }})</span>
-                <form method="post" action="/select-opponent" style="display: inline;">
+                <form method="post" action="/select-opponent" class="inline-form">
                     <input type="hidden" name="player_name" value="{{ player_name }}">
                     <input type="hidden" name="opponent_name" value="{{ player.name }}">
                     <button type="submit" data-testid="select-opponent-{{ player.name }}"
@@ -53,6 +56,15 @@
         {% endif %}
     </div>
     
+    <!-- Leave Lobby Section -->
+    <div data-testid="leave-lobby-section">
+        <form method="post" action="/leave-lobby">
+            <input type="hidden" name="player_name" value="{{ player_name }}">
+            <button type="submit" data-testid="leave-lobby-button">
+                Leave Lobby
+            </button>
+        </form>
+    </div>
     
     <!-- Keep existing elements for backward compatibility -->
     <div data-testid="game-mode" style="display: none;">{{ game_mode }}</div>

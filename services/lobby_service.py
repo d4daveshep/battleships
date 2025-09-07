@@ -1,5 +1,5 @@
 from game.lobby import Lobby
-from game.player import Player, PlayerStatus
+from game.player import GameRequest, Player, PlayerStatus
 
 
 class LobbyService:
@@ -52,16 +52,17 @@ class LobbyService:
         return available_players
 
     def get_lobby_players_for_player(self, player_name: str) -> list[Player]:
-        """Get all players (with status info) for a specific player - READ-ONLY operation"""
+        """Get lobby players visible to a specific player - READ-ONLY operation"""
         current_player: str = self._validate_and_clean_player_name(player_name)
 
-        # Get all players from lobby, excluding current player
+        # Get all players from lobby, excluding current player (include all statuses)
         all_players: list[Player] = list(self.lobby.players.values())
-        other_players: list[Player] = [
-            player for player in all_players if player.name != current_player
+        lobby_players: list[Player] = [
+            player for player in all_players 
+            if player.name != current_player
         ]
 
-        return other_players
+        return lobby_players
 
     def update_player_status(self, player_name: str, status: PlayerStatus) -> None:
         """Update a player's status in the lobby"""
@@ -84,3 +85,36 @@ class LobbyService:
         # - Checking if player exists (raises ValueError if not)
         # - Removing player from self.lobby.players dict
         self.lobby.remove_player(current_player)
+
+    def send_game_request(self, sender: str, receiver: str) -> None:
+        """Send a game request from sender to receiver"""
+        # Validate player names
+        sender_clean = self._validate_and_clean_player_name(sender)
+        receiver_clean = self._validate_and_clean_player_name(receiver)
+        
+        # Use the lobby method to send the request
+        self.lobby.send_game_request(sender_clean, receiver_clean)
+
+    def get_pending_request_for_player(self, player_name: str) -> GameRequest | None:
+        """Get any pending game request for the specified player"""
+        # Validate player name
+        clean_name = self._validate_and_clean_player_name(player_name)
+        
+        # Get the request from the lobby
+        return self.lobby.get_pending_request(clean_name)
+
+    def accept_game_request(self, receiver: str) -> tuple[str, str]:
+        """Accept a game request"""
+        # Validate player name
+        receiver_clean = self._validate_and_clean_player_name(receiver)
+        
+        # Use the lobby method to accept the request
+        return self.lobby.accept_game_request(receiver_clean)
+
+    def decline_game_request(self, receiver: str) -> str:
+        """Decline a game request"""
+        # Validate player name
+        receiver_clean = self._validate_and_clean_player_name(receiver)
+        
+        # Use the lobby method to decline the request
+        return self.lobby.decline_game_request(receiver_clean)

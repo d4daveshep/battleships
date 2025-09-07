@@ -483,7 +483,7 @@ class TestLobbyServiceGameRequests:
         )
         assert (
             empty_lobby_service.get_player_status("Bob")
-            == PlayerStatus.PENDING_RESPONSE_TO_GAME_REQUEST
+            == PlayerStatus.PENDING_RESPONSE
         )
 
         # Verify: Bob has a pending request from Alice
@@ -669,7 +669,7 @@ class TestLobbyServiceGameRequests:
         )
         assert (
             empty_lobby_service.get_player_status("Bob")
-            == PlayerStatus.PENDING_RESPONSE_TO_GAME_REQUEST
+            == PlayerStatus.PENDING_RESPONSE
         )
         assert (
             empty_lobby_service.get_player_status("Charlie")
@@ -677,7 +677,7 @@ class TestLobbyServiceGameRequests:
         )
         assert (
             empty_lobby_service.get_player_status("Diana")
-            == PlayerStatus.PENDING_RESPONSE_TO_GAME_REQUEST
+            == PlayerStatus.PENDING_RESPONSE
         )
 
     def test_game_request_workflow_accept(self, empty_lobby_service: LobbyService):
@@ -693,7 +693,7 @@ class TestLobbyServiceGameRequests:
         )
         assert (
             empty_lobby_service.get_player_status("Bob")
-            == PlayerStatus.PENDING_RESPONSE_TO_GAME_REQUEST
+            == PlayerStatus.PENDING_RESPONSE
         )
 
         # Step 2: Bob accepts the request
@@ -716,7 +716,7 @@ class TestLobbyServiceGameRequests:
         )
         assert (
             empty_lobby_service.get_player_status("Bob")
-            == PlayerStatus.PENDING_RESPONSE_TO_GAME_REQUEST
+            == PlayerStatus.PENDING_RESPONSE
         )
 
         # Step 2: Bob declines the request

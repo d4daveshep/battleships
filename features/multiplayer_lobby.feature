@@ -69,7 +69,7 @@ Feature: Multiplayer Game Lobby
       | Rachel      | Available |
       | Sam         | Available |
     When "Rachel" receives a game request from "Sam"
-    Then I should see "Rachel's" status change from "Available" to "Requesting Game"
+    Then I should see "Rachel's" status change from "Available" to "Pending Response"
     And the "Select Opponent" button for "Rachel" should be disabled
     And I should see a visual indicator that "Rachel" is no longer available
 

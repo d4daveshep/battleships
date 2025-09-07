@@ -10,12 +10,12 @@
         <h3>Welcome, {{ player_name }}!</h3>
     </div>
     
-    <div data-testid="own-player-status">
+    <div data-testid="lobby-player-status">
         Your Status: {{ player_status }}
     </div>
     
     {% if confirmation_message %}
-    <div data-testid="confirmation-message">
+    <div data-testid="game-confirmation-message">
         {{ confirmation_message }}
     </div>
     {% endif %}

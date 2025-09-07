@@ -144,7 +144,7 @@ class TestLobbyGameRequests:
         
         # Verify: Player statuses are updated
         assert empty_lobby.get_player_status("Alice") == PlayerStatus.REQUESTING_GAME
-        assert empty_lobby.get_player_status("Bob") == PlayerStatus.PENDING_RESPONSE_TO_GAME_REQUEST
+        assert empty_lobby.get_player_status("Bob") == PlayerStatus.PENDING_RESPONSE
 
     def test_send_game_request_sender_not_available(self, empty_lobby):
         # Setup: Add players with Alice not available

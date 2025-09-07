@@ -334,6 +334,18 @@ def my_status_should_change(page: Page, expected_status: str) -> None:
     )
 
 
+@then(parsers.parse('my status should return to "{expected_status}"'))
+def my_status_should_return_to(page: Page, expected_status: str) -> None:
+    # Check that the current player's status has returned to expected status
+    status_element: Locator = page.locator('[data-testid="own-player-status"]')
+    assert status_element.is_visible(), "Player status should be visible"
+
+    status_text = status_element.inner_text()
+    assert expected_status in status_text, (
+        f"Expected status '{expected_status}' in status text, got '{status_text}'"
+    )
+
+
 @then(
     "I should not be able to select other players while waiting for my request to be completed"
 )
@@ -670,7 +682,15 @@ def have_received_game_request(page: Page, sender_player: str) -> None:
     
     current_player = getattr(page, "current_player_name", "TestPlayer")
     
-    # Simulate receiving the game request
+    # First ensure the sender player is in the lobby
+    login_and_select_human_opponent(page, sender_player)
+    
+    # Restore current player's perspective 
+    page.goto(f"http://localhost:8000/lobby?player_name={current_player}")
+    page.wait_for_selector('[data-testid="lobby-container"]')
+    setattr(page, "current_player_name", current_player)
+    
+    # Simulate the sender selecting current player as opponent
     with httpx.Client() as client:
         response = client.post(
             "http://localhost:8000/select-opponent",

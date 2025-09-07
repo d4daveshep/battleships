@@ -1,3 +1,37 @@
+<div data-testid="own-player-status">
+    Your Status: ({{ player_status }})
+</div>
+
+{% if game_confirmation_message %}
+<div data-testid="game-confirmation-message">
+    {{ game_confirmation_message }}
+</div>
+<!-- Auto-redirect to game page after showing confirmation -->
+<meta http-equiv="refresh" content="2;url=/game?player_name={{ player_name }}">
+{% endif %}
+
+{% if decline_confirmation_message %}
+<div data-testid="decline-confirmation-message">
+    {{ decline_confirmation_message }}
+</div>
+{% endif %}
+
+{% if pending_request %}
+<div data-testid="game-request-notification">
+    Game request from {{ pending_request.sender }}
+    <form method="post" action="/accept-game-request" style="display: inline;">
+        <input type="hidden" name="player_name" value="{{ player_name }}">
+        <input type="hidden" name="show_confirmation" value="true">
+        <button type="submit" data-testid="accept-game-request">Accept</button>
+    </form>
+    <form method="post" action="/decline-game-request" style="display: inline;">
+        <input type="hidden" name="player_name" value="{{ player_name }}">
+        <input type="hidden" name="show_confirmation" value="true">
+        <button type="submit" data-testid="decline-game-request">Decline</button>
+    </form>
+</div>
+{% endif %}
+
 <h3>Available Players:</h3>
 {% if available_players %}
     {% for player in available_players %}
@@ -8,7 +42,7 @@
             <input type="hidden" name="player_name" value="{{ player_name }}">
             <input type="hidden" name="opponent_name" value="{{ player.name }}">
             <button type="submit" data-testid="select-opponent-{{ player.name }}"
-                    {% if player_status == "Requesting Game" or player.status != "Available" %}disabled{% endif %}>
+                    {% if player_status in ["Requesting Game", "Pending Response"] or player.status != "Available" %}disabled{% endif %}>
                 Select Opponent
             </button>
         </form>

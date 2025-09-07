@@ -26,6 +26,7 @@ class TestPlayerStatus:
         expected_statuses = {
             PlayerStatus.AVAILABLE,
             PlayerStatus.REQUESTING_GAME,
+            PlayerStatus.PENDING_RESPONSE,
             PlayerStatus.IN_GAME,
         }
         actual_statuses: set[PlayerStatus] = {status for status in PlayerStatus}

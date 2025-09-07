@@ -8,8 +8,7 @@ class TestPlayerStatusGameRequestFeatures:
 
     def test_player_status_pending_response_exists(self):
         # Test the new PENDING_RESPONSE status for game request receivers
-        status: PlayerStatus = PlayerStatus.PENDING_RESPONSE_TO_GAME_REQUEST
-        
+        status: PlayerStatus = PlayerStatus.PENDING_RESPONSE
         assert status == "Pending Response"
 
     def test_player_status_values_includes_pending_response(self):
@@ -17,7 +16,7 @@ class TestPlayerStatusGameRequestFeatures:
         expected_statuses = {
             PlayerStatus.AVAILABLE,
             PlayerStatus.REQUESTING_GAME,
-            PlayerStatus.PENDING_RESPONSE_TO_GAME_REQUEST
+            PlayerStatus.PENDING_RESPONSE,
             PlayerStatus.IN_GAME,
         }
         actual_statuses: set[PlayerStatus] = {status for status in PlayerStatus}
@@ -25,17 +24,17 @@ class TestPlayerStatusGameRequestFeatures:
 
     def test_player_creation_with_pending_response_status(self):
         # Test creating a player with PENDING_RESPONSE status
-        player: Player = Player("Alice", PlayerStatus.PENDING_RESPONSE_TO_GAME_REQUEST)
+        player: Player = Player("Alice", PlayerStatus.PENDING_RESPONSE)
         assert player.name == "Alice"
-        assert player.status == PlayerStatus.PENDING_RESPONSE_TO_GAME_REQUEST
+        assert player.status == PlayerStatus.PENDING_RESPONSE
 
     def test_player_status_transition_to_pending_response(self):
         # Test transitioning a player from AVAILABLE to PENDING_RESPONSE
         player: Player = Player("Bob", PlayerStatus.AVAILABLE)
         
         # Simulate receiving a game request
-        player.status = PlayerStatus.PENDING_RESPONSE_TO_GAME_REQUEST
-        assert player.status == PlayerStatus.PENDING_RESPONSE_TO_GAME_REQUEST
+        player.status = PlayerStatus.PENDING_RESPONSE
+        assert player.status == PlayerStatus.PENDING_RESPONSE
         
         # Simulate accepting request (go to IN_GAME)
         player.status = PlayerStatus.IN_GAME
@@ -43,7 +42,7 @@ class TestPlayerStatusGameRequestFeatures:
 
     def test_player_status_transition_from_pending_response_to_available(self):
         # Test transitioning back to AVAILABLE after declining request
-        player: Player = Player("Charlie", PlayerStatus.PENDING_RESPONSE_TO_GAME_REQUEST)
+        player: Player = Player("Charlie", PlayerStatus.PENDING_RESPONSE)
         
         # Simulate declining request
         player.status = PlayerStatus.AVAILABLE

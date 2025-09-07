@@ -1,9 +1,11 @@
-from game.player import Player, PlayerStatus
+from datetime import datetime
+from game.player import GameRequest, Player, PlayerStatus
 
 
 class Lobby:
     def __init__(self):
         self.players: dict[str, Player] = {}
+        self.game_requests: dict[str, GameRequest] = {}
 
     def add_player(self, name: str, status: PlayerStatus) -> None:
         self.players[name] = Player(name, status)
@@ -39,3 +41,70 @@ class Lobby:
         if name not in self.players:
             raise ValueError(f"Player '{name}' not found in lobby")
         return self.players[name].status
+
+    def send_game_request(self, sender: str, receiver: str) -> None:
+        # Validate that both players exist
+        if sender not in self.players:
+            raise ValueError(f"Player '{sender}' not found in lobby")
+        if receiver not in self.players:
+            raise ValueError(f"Player '{receiver}' not found in lobby")
+        
+        # Validate that sender is available
+        if self.players[sender].status != PlayerStatus.AVAILABLE:
+            raise ValueError(f"Sender {sender} is not available")
+        
+        # Validate that receiver is available
+        if self.players[receiver].status != PlayerStatus.AVAILABLE:
+            raise ValueError(f"Receiver {receiver} is not available")
+        
+        # Create the game request
+        request = GameRequest(
+            sender=sender,
+            receiver=receiver,
+            timestamp=datetime.now(),
+            status="pending"
+        )
+        
+        # Store the request
+        self.game_requests[receiver] = request
+        
+        # Update player statuses
+        self.players[sender].status = PlayerStatus.REQUESTING_GAME
+        self.players[receiver].status = PlayerStatus.PENDING_RESPONSE
+
+    def get_pending_request(self, receiver: str) -> GameRequest | None:
+        return self.game_requests.get(receiver)
+
+    def accept_game_request(self, receiver: str) -> tuple[str, str]:
+        # Check if there's a pending request
+        if receiver not in self.game_requests:
+            raise ValueError(f"No pending game request for {receiver}")
+        
+        request = self.game_requests[receiver]
+        sender = request.sender
+        
+        # Update both players to IN_GAME
+        self.players[sender].status = PlayerStatus.IN_GAME
+        self.players[receiver].status = PlayerStatus.IN_GAME
+        
+        # Remove the request
+        del self.game_requests[receiver]
+        
+        return sender, receiver
+
+    def decline_game_request(self, receiver: str) -> str:
+        # Check if there's a pending request
+        if receiver not in self.game_requests:
+            raise ValueError(f"No pending game request for {receiver}")
+        
+        request = self.game_requests[receiver]
+        sender = request.sender
+        
+        # Return both players to AVAILABLE
+        self.players[sender].status = PlayerStatus.AVAILABLE
+        self.players[receiver].status = PlayerStatus.AVAILABLE
+        
+        # Remove the request
+        del self.game_requests[receiver]
+        
+        return sender

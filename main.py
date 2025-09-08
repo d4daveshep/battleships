@@ -270,7 +270,7 @@ async def lobby_page(request: Request, player_name: str = "") -> HTMLResponse:
         "game_mode": "Two Player",
         "available_players": [],
         "confirmation_message": "",
-        "player_status": "Available",
+        "player_status": PlayerStatus.AVAILABLE,
         "error_message": "",
     }
 
@@ -318,7 +318,7 @@ async def lobby_players_partial(request: Request, player_name: str) -> HTMLRespo
             player for player in all_players if player.status != PlayerStatus.IN_GAME
         ]
 
-        player_status = "Available"
+        player_status = PlayerStatus.AVAILABLE
         try:
             player_status = lobby_service.get_player_status(player_name).value
         except ValueError:
@@ -344,6 +344,6 @@ async def lobby_players_partial(request: Request, player_name: str) -> HTMLRespo
             {
                 "player_name": player_name,
                 "available_players": [],
-                "player_status": "Available",
+                "player_status": PlayerStatus.AVAILABLE,
             },
         )

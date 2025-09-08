@@ -4,7 +4,7 @@
 
 {% block content %}
 <h1>Battleships Login</h1>
-<form method="post" id="game-form">
+<form method="post" action="/" id="game-form">
     {% include "components/player_name_input.html" %}
     <button type="submit" name="game_mode" value="computer">Play against Computer</button>
     <button type="submit" name="game_mode" value="human">Play against Another Player</button>

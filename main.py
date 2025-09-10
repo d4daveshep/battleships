@@ -149,19 +149,19 @@ async def accept_game_request(
         sender, receiver = lobby_service.accept_game_request(player_name)
 
         # For BDD tests, check if we should show confirmation first
-        user_agent = request.headers.get("user-agent", "")
-        if "playwright" in user_agent.lower() or show_confirmation == "true":
-            # Show confirmation message for BDD tests
-            return templates.TemplateResponse(
-                request,
-                "components/players_list.html",
-                {
-                    "player_name": player_name,
-                    "available_players": [],
-                    "player_status": "In Game",
-                    "game_confirmation_message": f"Game accepted! Starting game with {sender}",
-                },
-            )
+        # user_agent = request.headers.get("user-agent", "")
+        # if "playwright" in user_agent.lower() or show_confirmation == "true":
+        #     # Show confirmation message for BDD tests
+        #     return templates.TemplateResponse(
+        #         request,
+        #         "components/players_list.html",
+        #         {
+        #             "player_name": player_name,
+        #             "available_players": [],
+        #             "player_status": "In Game",
+        #             "game_confirmation_message": f"Game accepted! Starting game with {sender}",
+        #         },
+        #     )
 
         # Normal flow: Redirect to game page
         return RedirectResponse(

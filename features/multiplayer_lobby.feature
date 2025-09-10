@@ -110,8 +110,8 @@ Feature: Multiplayer Game Lobby
     Given I've logged in as "Alice" and selected human opponent
     And I have received a game request from "Bob"
     When I click the "Accept" button for Bob's game request
-    Then I should see a confirmation message "Game accepted! Starting game with Bob"
-    And I should be redirected to the game interface
+    # Then I should see a confirmation message "Game accepted! Starting game with Bob"
+    Then I should be redirected to the game interface
     And both "Alice" and "Bob" should no longer appear in other players' lobby views
 
   Scenario: Declining a game request from another player

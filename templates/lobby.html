@@ -58,7 +58,6 @@
     
     <!-- Leave Lobby Section -->
     <div data-testid="leave-lobby-section">
-        <!-- <form method="post" action="/leave-lobby"> -->
         <form hx-post="/leave-lobby">
             <input type="hidden" name="player_name" value="{{ player_name }}">
             <button type="submit" data-testid="leave-lobby-button">

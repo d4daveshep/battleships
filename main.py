@@ -141,32 +141,23 @@ async def accept_game_request(
     request: Request,
     player_name: str = Form(),
     show_confirmation: str = Form(default=""),
-):
+) -> Response | RedirectResponse:
     """Accept a game request and redirect to game page"""
 
     try:
         # Accept the game request
         sender, receiver = lobby_service.accept_game_request(player_name)
+        redirect_url: str = _build_game_url(player_name)
 
-        # For BDD tests, check if we should show confirmation first
-        # user_agent = request.headers.get("user-agent", "")
-        # if "playwright" in user_agent.lower() or show_confirmation == "true":
-        #     # Show confirmation message for BDD tests
-        #     return templates.TemplateResponse(
-        #         request,
-        #         "components/players_list.html",
-        #         {
-        #             "player_name": player_name,
-        #             "available_players": [],
-        #             "player_status": "In Game",
-        #             "game_confirmation_message": f"Game accepted! Starting game with {sender}",
-        #         },
-        #     )
-
-        # Normal flow: Redirect to game page
-        return RedirectResponse(
-            url=_build_game_url(player_name), status_code=status.HTTP_302_FOUND
-        )
+        if request.headers.get("HX-Request"):
+            response: Response = Response(
+                status_code=status.HTTP_204_NO_CONTENT,
+                headers={"HX-Redirect": redirect_url},
+            )
+            return response
+        else:
+            # Normal flow: Redirect to game page
+            return RedirectResponse(url=redirect_url, status_code=status.HTTP_302_FOUND)
 
     except ValueError as e:
         # Handle validation errors (no pending request, etc.)

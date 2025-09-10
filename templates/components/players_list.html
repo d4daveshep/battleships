@@ -19,7 +19,7 @@
 {% if pending_request %}
 <div data-testid="game-request-notification">
     Game request from {{ pending_request.sender }}
-    <form method="post" action="/accept-game-request" style="display: inline;">
+    <form hx-post="/accept-game-request" hx-target="body" hx-swap="innerHTML" style="display: inline;">
         <input type="hidden" name="player_name" value="{{ player_name }}">
         <input type="hidden" name="show_confirmation" value="true">
         <button type="submit" data-testid="accept-game-request">Accept</button>

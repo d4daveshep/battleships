@@ -16,7 +16,7 @@ class TestTemplateRendering:
         assert "computer" in response.text
         # Check for form structure
         assert "<form" in response.text
-        assert "method=" in response.text
+        assert "hx-post=" in response.text
 
     def test_game_page_renders_with_player_name(self, client):
         # Test that game page renders with player name parameter

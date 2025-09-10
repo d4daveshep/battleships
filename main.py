@@ -299,15 +299,26 @@ async def lobby_page(request: Request, player_name: str = "") -> HTMLResponse:
 @app.post("/leave-lobby", response_model=None)
 async def leave_lobby(
     request: Request, player_name: str = Form()
-) -> RedirectResponse | HTMLResponse:
+) -> RedirectResponse | HTMLResponse | Response:
     """Handle player leaving the lobby"""
 
     try:
         # Use the LobbyService.leave_lobby method we just implemented
         lobby_service.leave_lobby(player_name)
 
-        # Redirect to home/login page on success
-        return RedirectResponse(url=HOME_URL, status_code=status.HTTP_302_FOUND)
+        if request.headers.get("HX-Request"):
+            response = Response(
+                status_code=status.HTTP_204_NO_CONTENT,
+                headers={
+                    "HX-Redirect": HOME_URL,
+                    "HX-Push-Url": HOME_URL,
+                },
+            )
+            return response
+
+        else:
+            # Fallback using standard redirect to home/login page on success
+            return RedirectResponse(url=HOME_URL, status_code=status.HTTP_302_FOUND)
 
     except ValueError as e:
         # Handle validation errors (empty name, nonexistent player)

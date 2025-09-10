@@ -36,7 +36,7 @@
             <div data-testid="player-{{ player.name }}">
                 {{ player.name }}
                 <span data-testid="player-{{ player.name }}-status">({{ player.status }})</span>
-                <form method="post" action="/select-opponent" class="inline-form">
+                <form hx-post="/select-opponent" class="inline-form">
                     <input type="hidden" name="player_name" value="{{ player_name }}">
                     <input type="hidden" name="opponent_name" value="{{ player.name }}">
                     <button type="submit" data-testid="select-opponent-{{ player.name }}"
@@ -58,7 +58,8 @@
     
     <!-- Leave Lobby Section -->
     <div data-testid="leave-lobby-section">
-        <form method="post" action="/leave-lobby">
+        <!-- <form method="post" action="/leave-lobby"> -->
+        <form hx-post="/leave-lobby">
             <input type="hidden" name="player_name" value="{{ player_name }}">
             <button type="submit" data-testid="leave-lobby-button">
                 Leave Lobby

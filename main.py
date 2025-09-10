@@ -5,6 +5,9 @@ import asyncio
 import json
 from typing import AsyncGenerator
 
+from starlette.responses import Response
+
+from game import player
 from game.lobby import Lobby
 from game.player import Player, PlayerStatus
 from services.auth_service import AuthService, PlayerNameValidation
@@ -72,7 +75,7 @@ async def login_page(request: Request) -> HTMLResponse:
 @app.post("/", response_model=None)
 async def login_submit(
     request: Request, player_name: str = Form(), game_mode: str = Form()
-) -> HTMLResponse | RedirectResponse:
+) -> HTMLResponse | RedirectResponse | Response:
     validation: PlayerNameValidation = auth_service.validate_player_name(
         player_name, strip_quotes=True
     )
@@ -83,19 +86,25 @@ async def login_submit(
             validation.error_message,
             "" if validation.error_message else player_name,
             validation.css_class,
-            200,  # Login form errors return 200, not 400
+            status.HTTP_200_OK,  # Login form errors return 200, not 400
         )
 
+    redirect_url: str
     if game_mode == "human":
         lobby_service.join_lobby(player_name)  # Add the player to the lobby
+        redirect_url = _build_lobby_url(player_name)
 
-        return RedirectResponse(
-            url=_build_lobby_url(player_name), status_code=status.HTTP_302_FOUND
-        )
     else:
-        return RedirectResponse(
-            url=_build_game_url(player_name), status_code=status.HTTP_302_FOUND
+        redirect_url = _build_game_url(player_name)
+
+    if request.headers.get("HX-Request"):
+        response = Response(
+            status_code=status.HTTP_204_NO_CONTENT,
+            headers={"HX-Redirect": redirect_url},
         )
+        return response
+    else:
+        return RedirectResponse(url=redirect_url, status_code=status.HTTP_303_SEE_OTHER)
 
 
 @app.get("/game", response_class=HTMLResponse)

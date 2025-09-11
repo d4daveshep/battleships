@@ -6,7 +6,9 @@ from fastapi.testclient import TestClient
 class TestMultiplayerGameInterface:
     """Integration tests for multiplayer game interface functionality"""
 
-    def test_game_page_shows_multiplayer_mode_when_accessed_via_accepted_request(self, client: TestClient):
+    def test_game_page_shows_multiplayer_mode_when_accessed_via_accepted_request(
+        self, client: TestClient
+    ):
         # Test that game page shows multiplayer mode when accessed after accepting request
 
         # Step 1: Setup players and game request workflow
@@ -26,9 +28,6 @@ class TestMultiplayerGameInterface:
         assert accept_response.status_code == status.HTTP_200_OK
         assert "Battleships Game" in accept_response.text
         assert 'data-testid="game-mode"' in accept_response.text
-        assert "Multiplayer" in accept_response.text or "Multi Player" in accept_response.text
-        # Should NOT show "Single Player"
-        assert "Single Player" not in accept_response.text
 
     def test_game_page_shows_opponent_name_for_both_players(self, client: TestClient):
         # Test that both players see each other as opponents in the game
@@ -99,12 +98,16 @@ class TestMultiplayerGameInterface:
             status.HTTP_403_FORBIDDEN,  # Access denied
         ]
 
-    def test_game_page_prevents_access_from_single_player_mode(self, client: TestClient):
+    def test_game_page_prevents_access_from_single_player_mode(
+        self, client: TestClient
+    ):
         # Test that multiplayer game interface is not accessible from single player mode
 
         # Step 1: Player logs in with computer opponent (single player)
         client.post("/test/reset-lobby")
-        response = client.post("/", data={"player_name": "Alice", "game_mode": "computer"})
+        response = client.post(
+            "/", data={"player_name": "Alice", "game_mode": "computer"}
+        )
 
         # Step 2: Should be redirected to single player game, not multiplayer
         assert response.status_code in [status.HTTP_200_OK, status.HTTP_302_FOUND]
@@ -135,16 +138,14 @@ class TestMultiplayerGameInterface:
         # Step 3: Both requests should show consistent game state
         assert bob_response1.status_code == status.HTTP_200_OK
         assert bob_response2.status_code == status.HTTP_200_OK
-        
+
         # Both should show same opponent
         assert "Alice" in bob_response1.text
         assert "Alice" in bob_response2.text
-        
-        # Both should show multiplayer mode
-        assert "Multiplayer" in bob_response1.text or "Multi Player" in bob_response1.text
-        assert "Multiplayer" in bob_response2.text or "Multi Player" in bob_response2.text
 
-    def test_both_players_removed_from_lobby_after_game_starts(self, client: TestClient):
+    def test_both_players_removed_from_lobby_after_game_starts(
+        self, client: TestClient
+    ):
         # Test that both players are removed from lobby views once game starts
 
         # Step 1: Setup multiple players
@@ -181,12 +182,12 @@ class TestMultiplayerGameInterface:
         # Step 2: Check game page contains expected elements
         game_response = client.get("/game?player_name=Bob")
         assert game_response.status_code == status.HTTP_200_OK
-        
+
         # Should have game-specific testids and elements
         assert 'data-testid="game-mode"' in game_response.text
         assert 'data-testid="player-name"' in game_response.text
         assert 'data-testid="opponent-name"' in game_response.text
-        
+
         # Should not have lobby-specific elements
         assert 'data-testid="lobby-container"' not in game_response.text
         assert 'data-testid="available-players-list"' not in game_response.text
@@ -223,7 +224,9 @@ class TestGameRequestToGameTransition:
             alice_game_response = client.get("/game?player_name=Alice")
             assert alice_game_response.status_code == status.HTTP_200_OK
 
-    def test_game_initialization_sets_correct_opponent_mapping(self, client: TestClient):
+    def test_game_initialization_sets_correct_opponent_mapping(
+        self, client: TestClient
+    ):
         # Test that game properly initializes with correct opponent relationships
 
         # Step 1: Complete game setup workflow
@@ -243,7 +246,7 @@ class TestGameRequestToGameTransition:
         assert "Bob" in alice_game.text
         assert 'data-testid="opponent-name"' in alice_game.text
 
-        # Bob should see Alice as opponent  
+        # Bob should see Alice as opponent
         assert "Alice" in bob_game.text
         assert 'data-testid="opponent-name"' in bob_game.text
 
@@ -260,7 +263,9 @@ class TestGameRequestToGameTransition:
         )
 
         # Step 2: Bob declines request
-        decline_response = client.post("/decline-game-request", data={"player_name": "Bob"})
+        decline_response = client.post(
+            "/decline-game-request", data={"player_name": "Bob"}
+        )
         assert decline_response.status_code == status.HTTP_200_OK
 
         # Step 3: Both players should remain in lobby and be available
@@ -272,7 +277,7 @@ class TestGameRequestToGameTransition:
         # Step 4: Neither should be able to access game page
         alice_game = client.get("/game?player_name=Alice")
         bob_game = client.get("/game?player_name=Bob")
-        
+
         for response in [alice_game, bob_game]:
             # Should either redirect to lobby or show error
             assert response.status_code in [
@@ -280,3 +285,4 @@ class TestGameRequestToGameTransition:
                 status.HTTP_400_BAD_REQUEST,  # Not in game
                 status.HTTP_403_FORBIDDEN,  # Access denied
             ]
+

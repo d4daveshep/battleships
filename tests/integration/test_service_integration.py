@@ -67,6 +67,9 @@ class TestLobbyServiceIntegration:
         client.post("/", data={"player_name": "Bob", "game_mode": "human"})
         client.post("/", data={"player_name": "Charlie", "game_mode": "human"})
 
+        # Now add Diana
+        client.post("/", data={"player_name": "Diana", "game_mode": "human"})
+
         # Now Diana should see them when accessing the lobby
         response = client.get("/lobby?player_name=Diana")
 

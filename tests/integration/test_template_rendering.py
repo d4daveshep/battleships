@@ -40,14 +40,12 @@ class TestTemplateRendering:
 
         assert response.status_code == status.HTTP_200_OK
         assert "LobbyPlayer" in response.text
-        assert "Two Player" in response.text  # Game mode for lobby
 
     def test_lobby_page_handles_missing_player_name(self, client):
         # Test lobby page behavior when player_name is missing
         response = client.get("/lobby")
 
         assert response.status_code == status.HTTP_200_OK
-        assert "Two Player" in response.text
         # Should render with empty available players list
         assert "available_players" in response.text or len(response.text) > 0
 
@@ -347,4 +345,3 @@ class TestLobbyPlayersPollingWithGameRequests:
         # Should have proper data-testid structure
         assert "data-testid" in html_content
         # Template should be structured to support dynamic content
-

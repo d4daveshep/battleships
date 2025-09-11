@@ -6,59 +6,55 @@
 <div data-testid="lobby-container">
     <h1>Multiplayer Lobby</h1>
     
-    <div data-testid="my-player-name">
+    <div data-testid="player-name">
         <h3>Welcome, {{ player_name }}!</h3>
     </div>
     
-    <!-- <div data-testid="lobby-player-status"> -->
-    <!--     Your Status: {{ player_status }} -->
-    <!-- </div> -->
+    <div data-testid="player-status">
+        Your Status: {{ player_status }}
+    </div>
     
     {% if confirmation_message %}
-    <div data-testid="game-confirmation-message">
+    <div data-testid="confirmation-message">
         {{ confirmation_message }}
     </div>
+    <!-- Auto-redirect to game page after showing confirmation -->
+    <!-- <meta http-equiv="refresh" content="2;url=/game?player_name={{ player_name }}"> -->
     {% endif %}
-    
-    {% if error_message %}
-    <div data-testid="error-message" class="error-message">
-        {{ error_message }}
+
+    {% if decline_confirmation_message %}
+    <div data-testid="decline-confirmation-message">
+        {{ decline_confirmation_message }}
     </div>
     {% endif %}
 
+    {% if pending_request %}
+    <div data-testid="game-request-notification">
+        Game request from {{ pending_request.sender }}
+        <form hx-post="/accept-game-request" hx-target="body" hx-swap="innerHTML" style="display: inline;">
+            <input type="hidden" name="player_name" value="{{ player_name }}">
+            <input type="hidden" name="show_confirmation" value="true">
+            <button type="submit" data-testid="accept-game-request">Accept</button>
+        </form>
+        <form method="post" action="/decline-game-request" style="display: inline;">
+            <input type="hidden" name="player_name" value="{{ player_name }}">
+            <input type="hidden" name="show_confirmation" value="true">
+            <button type="submit" data-testid="decline-game-request">Decline</button>
+        </form>
+    </div>
+    {% endif %}
+
+    <!-- Available Players section -->
     <div data-testid="available-players-list" 
          hx-get="/lobby/players/{{ player_name }}" 
          hx-trigger="load, every 1s" 
          hx-swap="innerHTML">
-        <h3>Available Players:</h3>
-        {% if available_players %}
-            {% for player in available_players %}
-            <div data-testid="player-{{ player.name }}">
-                {{ player.name }}
-                <span data-testid="player-{{ player.name }}-status">({{ player.status }})</span>
-                <form hx-post="/select-opponent" class="inline-form">
-                    <input type="hidden" name="player_name" value="{{ player_name }}">
-                    <input type="hidden" name="opponent_name" value="{{ player.name }}">
-                    <button type="submit" data-testid="select-opponent-{{ player.name }}"
-                            {% if player_status == "Requesting Game" or player.status != "Available" %}disabled{% endif %}>
-                        Select Opponent
-                    </button>
-                </form>
-            </div>
-            {% endfor %}
-        {% else %}
-            <div data-testid="no-players-message">
-                No other players available
-            </div>
-            <div data-testid="waiting-message">
-                Waiting for other players to join...
-            </div>
-        {% endif %}
     </div>
     
     <!-- Leave Lobby Section -->
     <div data-testid="leave-lobby-section">
-        <form hx-post="/leave-lobby">
+        <!-- <form hx-post="/leave-lobby" hx-target="body" hx-swap="innerHTML"> -->
+        <form method="post" action="/leave-lobby" >
             <input type="hidden" name="player_name" value="{{ player_name }}">
             <button type="submit" data-testid="leave-lobby-button">
                 Leave Lobby
@@ -66,8 +62,5 @@
         </form>
     </div>
     
-    <!-- Keep existing elements for backward compatibility -->
-    <div data-testid="game-mode" style="display: none;">{{ game_mode }}</div>
-    <div data-testid="player-name" style="display: none;">{{ player_name }}</div>
 </div>
 {% endblock %}

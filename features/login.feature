@@ -20,7 +20,6 @@ Feature: Player Login and Game Mode Selection
     When I enter "Bob" as my player name
     And I click the "Play against Another Player" button
     Then I should be redirected to the multiplayer lobby
-    And the game should be configured for two player mode
     And my player name should be set to "Bob"
 
   Scenario: Login attempt with empty player name

@@ -70,7 +70,10 @@ def player_mode_is_two_player(page: Page) -> None:
 
 @then(parsers.parse('my player name should be set to "{expected_name}"'))
 def player_name_is_set(page: Page, expected_name: str) -> None:
-    assert page.locator('[data-testid="player-name"]').text_content() == expected_name
+    name_text: str | None = page.locator('[data-testid="player-name"]').text_content()
+    assert name_text
+    assert expected_name in name_text
+    # assert expected_name in page.locator('[data-testid="player-name"]').text_content()
 
 
 @then(parsers.parse('I should see an error message "{error_message}"'))

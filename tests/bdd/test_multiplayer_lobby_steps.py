@@ -25,12 +25,13 @@ def other_players_in_lobby(page: Page, datatable) -> None:
     # This step sets up pre-existing players in the lobby
     # Parse the table data from the step to set up lobby state
 
-    # Ensure clean lobby state before adding players
-    with httpx.Client() as client:
-        client.post("http://localhost:8000/test/reset-lobby")
-
     # Store the current player's perspective to restore later
     current_player = getattr(page, "current_player_name", None)
+
+    # Only reset lobby if no current player is set (fresh scenario)
+    if current_player is None:
+        with httpx.Client() as client:
+            client.post("http://localhost:8000/test/reset-lobby")
 
     expected_players: list[dict[str, str]] = []
     for row in datatable[1:]:
@@ -85,7 +86,7 @@ def see_lobby_interface(page: Page) -> None:
 def see_my_name(page: Page) -> None:
     # Verify the current player's name is displayed in the lobby
     # Should show the player name that was used during login
-    my_name_element: Locator = page.locator('[data-testid="my-player-name"]')
+    my_name_element: Locator = page.locator('[data-testid="player-name"]')
     assert my_name_element.is_visible()
     # The text should contain the actual player name
     current_player = getattr(page, "current_player_name", "TestPlayer")
@@ -135,7 +136,7 @@ def see_select_opponent_buttons(page: Page) -> None:
 @then(parsers.parse('I should see my own status as "{status}"'))
 def see_own_status(page: Page, status: str) -> None:
     # Verify our own player status is displayed correctly
-    own_status: Locator = page.locator('[data-testid="own-player-status"]')
+    own_status: Locator = page.locator('[data-testid="player-status"]')
     assert own_status.is_visible()
     status_text = own_status.text_content()
     assert status_text is not None
@@ -182,7 +183,7 @@ def no_selectable_players(page: Page) -> None:
 @then(parsers.parse('my status should be "{status}"'))
 def my_status_should_be(page: Page, status: str) -> None:
     # Verify own player status - same as see_own_status but different wording
-    own_status: Locator = page.locator('[data-testid="own-player-status"]')
+    own_status: Locator = page.locator('[data-testid="player-status"]')
     assert own_status.is_visible()
     status_text = own_status.text_content()
     assert status_text is not None
@@ -319,30 +320,43 @@ def see_confirmation_message(page: Page, expected_message: str) -> None:
     )
 
 
-@then(parsers.parse('"{target_player}" should receive a game invitation from "{sender_player}"'))
-def target_player_receives_invitation(page: Page, target_player: str, sender_player: str) -> None:
+@then(
+    parsers.parse(
+        '"{target_player}" should receive a game invitation from "{sender_player}"'
+    )
+)
+def target_player_receives_invitation(
+    page: Page, target_player: str, sender_player: str
+) -> None:
     # Verify that the game invitation was sent from sender to target
     # This step checks the server state or notification system to confirm invitation delivery
-    
+
     # In a real implementation, this would:
     # 1. Check the target player's pending invitations via API
     # 2. Verify WebSocket/real-time notification was sent
     # 3. Check server-side game request state
-    
+
     # For now, verify that the sender's status changed to "Requesting Game"
     # which indicates the invitation was successfully sent
-    sender_status: Locator = page.locator(f'[data-testid="player-{sender_player}-status"]')
+    sender_status: Locator = page.locator(
+        f'[data-testid="player-{sender_player}-status"]'
+    )
     if sender_status.count() > 0:
         status_text = sender_status.inner_text()
-        assert "requesting" in status_text.lower() or "pending" in status_text.lower(), (
+        assert (
+            "requesting" in status_text.lower() or "pending" in status_text.lower()
+        ), (
             f"{sender_player} should have 'Requesting Game' status after sending invitation"
         )
-    
+
     # Also verify via server API that invitation exists
     import httpx
+
     with httpx.Client() as client:
         try:
-            response = client.get(f"http://localhost:8000/game-requests/{target_player}")
+            response = client.get(
+                f"http://localhost:8000/game-requests/{target_player}"
+            )
             if response.status_code == 200:
                 requests = response.json()
                 assert any(req.get("sender") == sender_player for req in requests), (
@@ -357,7 +371,7 @@ def target_player_receives_invitation(page: Page, target_player: str, sender_pla
 @then(parsers.parse('my status should change to "{expected_status}"'))
 def my_status_should_change(page: Page, expected_status: str) -> None:
     # Check that the current player's status has changed
-    status_element: Locator = page.locator('[data-testid="own-player-status"]')
+    status_element: Locator = page.locator('[data-testid="player-status"]')
     assert status_element.is_visible(), "Player status should be visible"
 
     status_text = status_element.inner_text()
@@ -369,7 +383,7 @@ def my_status_should_change(page: Page, expected_status: str) -> None:
 @then(parsers.parse('my status should return to "{expected_status}"'))
 def my_status_should_return_to(page: Page, expected_status: str) -> None:
     # Check that the current player's status has returned to expected status
-    status_element: Locator = page.locator('[data-testid="own-player-status"]')
+    status_element: Locator = page.locator('[data-testid="player-status"]')
     assert status_element.is_visible(), "Player status should be visible"
 
     status_text = status_element.inner_text()
@@ -456,10 +470,12 @@ def see_player_status_change(
             new_status,
             new_status.lower(),
             new_status.replace(" ", "-").lower(),
-            "pending" if "pending" in new_status.lower() else new_status
+            "pending" if "pending" in new_status.lower() else new_status,
         ]
-        
-        status_found = any(variation in status_text.lower() for variation in expected_status_variations)
+
+        status_found = any(
+            variation in status_text.lower() for variation in expected_status_variations
+        )
         assert status_found, (
             f"Expected status '{new_status}' for {player_name}, got '{status_text}'"
         )
@@ -476,13 +492,13 @@ def see_player_status_change(
         expected_status_variations = [
             new_status.lower(),
             new_status.replace(" ", "-").lower(),
-            "pending" if "pending" in new_status.lower() else new_status.lower()
+            "pending" if "pending" in new_status.lower() else new_status.lower(),
         ]
-        
-        status_found = any(variation in player_html.lower() for variation in expected_status_variations)
-        assert status_found, (
-            f"Player {player_name} should show status '{new_status}'"
+
+        status_found = any(
+            variation in player_html.lower() for variation in expected_status_variations
         )
+        assert status_found, f"Player {player_name} should show status '{new_status}'"
 
 
 @then(
@@ -563,13 +579,10 @@ def click_leave_lobby_button(page: Page) -> None:
 @then("I should be returned to the login page")
 def returned_to_login_page(page: Page) -> None:
     # Verify that the user is redirected back to the login page
-    # page.wait_for_url("**/", timeout=5000)  # Wait for redirect to home/login page
-    page.wait_for_url(
-        "http://localhost:8000", timeout=5000
-    )  # Wait for redirect to home/login page
+    page.wait_for_url("**/", timeout=5000)  # Wait for redirect to home/login page
 
     # Verify login page elements are present
-    page.locator("h1").wait_for()
+    # page.locator("h1").wait_for()
     login_title = page.locator("h1").text_content()
     assert login_title is not None, "Login page should have a title"
     assert "Battleships" in login_title or "Login" in login_title, (
@@ -750,7 +763,7 @@ def have_received_game_request(page: Page, sender_player: str) -> None:
     page.locator('button[value="human"]').click()
     page.wait_for_url("**/lobby*")
 
-    # Then ensure current player is in lobby  
+    # Then ensure current player is in lobby
     page.goto("http://localhost:8000/")
     page.locator('input[name="player_name"]').fill(current_player)
     page.locator('button[value="human"]').click()
@@ -788,13 +801,15 @@ def click_accept_game_request(page: Page, sender_name: str) -> None:
 
 @then(parsers.parse('I should see a confirmation message "{expected_message}"'))
 def see_game_confirmation_message(page: Page, expected_message: str) -> None:
-    # Verify the confirmation message appears after accepting
-    confirmation: Locator = page.locator('[data-testid="game-confirmation-message"]')
+    # Wait for the form submission to complete and the page to update
+    confirmation: Locator = page.locator('[data-testid="confirmation-message"]')
+    confirmation.wait_for(state="visible", timeout=5000)
+    
     assert confirmation.is_visible(), "Game confirmation message should be visible"
 
     message_text = confirmation.inner_text()
     assert expected_message in message_text, (
-        f"Expected '{expected_message}' in confirmation, got '{message_text}'"
+        f"Expected '{expected_message}' in confirmation message, got '{message_text}'"
     )
 
 
@@ -815,7 +830,7 @@ def redirected_to_game_interface(page: Page) -> None:
 def player_should_be_opponent(page: Page, player_name: str) -> None:
     # Verify that the specified player is set as the opponent in the game
     # This checks the game interface shows the correct opponent
-    
+
     # Look for opponent information in the game interface
     opponent_element: Locator = page.locator('[data-testid="opponent-name"]')
     if opponent_element.count() > 0:

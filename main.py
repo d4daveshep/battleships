@@ -245,17 +245,31 @@ async def select_opponent(
         )
         player_status = lobby_service.get_player_status(player_name).value
 
-        return templates.TemplateResponse(
-            request,
-            "lobby.html",
-            {
-                "player_name": player_name,
-                "game_mode": "Two Player",
-                "available_players": lobby_data,
-                "confirmation_message": f"Game request sent to {opponent_name}",
-                "player_status": player_status,
-            },
-        )
+        # Check for pending game request
+        pending_request = lobby_service.get_pending_request_for_player(player_name)
+
+        context = {
+            "player_name": player_name,
+            "available_players": lobby_data,
+            "confirmation_message": f"Game request sent to {opponent_name}",
+            "player_status": player_status,
+            "pending_request": pending_request,
+        }
+
+        # If this is an HTMX request, return just the lobby content div
+        if request.headers.get("HX-Request"):
+            return templates.TemplateResponse(
+                request=request,
+                name="lobby.html",
+                context=context,
+            )
+        else:
+            # For non-HTMX requests, return the full lobby page
+            return templates.TemplateResponse(
+                request=request,
+                name="lobby.html", 
+                context=context,
+            )
 
     except ValueError as e:
         # Handle validation errors (player not available, etc.)
@@ -303,6 +317,7 @@ async def leave_lobby(
                 headers={
                     "HX-Redirect": HOME_URL,
                     "HX-Push-Url": HOME_URL,
+                    # "HX-Replace-Url": HOME_URL,
                 },
             )
             return response

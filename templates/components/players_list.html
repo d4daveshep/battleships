@@ -1,37 +1,3 @@
-<div data-testid="own-player-status">
-    Your Status: {{ player_status }}
-</div>
-
-{% if game_confirmation_message %}
-<div data-testid="game-confirmation-message">
-    {{ game_confirmation_message }}
-</div>
-<!-- Auto-redirect to game page after showing confirmation -->
-<meta http-equiv="refresh" content="2;url=/game?player_name={{ player_name }}">
-{% endif %}
-
-{% if decline_confirmation_message %}
-<div data-testid="decline-confirmation-message">
-    {{ decline_confirmation_message }}
-</div>
-{% endif %}
-
-{% if pending_request %}
-<div data-testid="game-request-notification">
-    Game request from {{ pending_request.sender }}
-    <form hx-post="/accept-game-request" hx-target="body" hx-swap="innerHTML" style="display: inline;">
-        <input type="hidden" name="player_name" value="{{ player_name }}">
-        <input type="hidden" name="show_confirmation" value="true">
-        <button type="submit" data-testid="accept-game-request">Accept</button>
-    </form>
-    <form method="post" action="/decline-game-request" style="display: inline;">
-        <input type="hidden" name="player_name" value="{{ player_name }}">
-        <input type="hidden" name="show_confirmation" value="true">
-        <button type="submit" data-testid="decline-game-request">Decline</button>
-    </form>
-</div>
-{% endif %}
-
 <h3>Available Players:</h3>
 {% if available_players %}
     {% for player in available_players %}

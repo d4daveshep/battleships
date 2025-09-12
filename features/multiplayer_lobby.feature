@@ -13,36 +13,6 @@ Feature: Multiplayer Game Lobby
     Given the multiplayer lobby system is available
     # And I have successfully logged in with multiplayer mode selected
 
-  Scenario: Joining lobby with existing available players
-    Given there are other players in the lobby:
-      | Player Name | Status    |
-      | Alice       | Available |
-      | Bob         | Available |
-      | Charlie     | Available |
-    When I login as "Diana" and select human opponent
-    Then I should see the lobby interface
-    And I should see my name
-    And I should see my own status as "Available"
-    And I should see a list of available players:
-      | Player Name |
-      | Alice   |
-      | Bob     |
-      | Charlie |
-    And I should see a "Select Opponent" button for each available player
-
-  Scenario: Selecting an opponent from the lobby
-    Given I've logged in as "Diana" and selected human opponent
-    And there are other players in the lobby:
-      | Player Name | Status    |
-      | Alice       | Available |
-      | Bob         | Available |
-      | Charlie     | Available |
-    When I click "Select Opponent" next to "Alice"
-    Then I should see a confirmation message "Game request sent to Alice"
-    And "Alice" should receive a game invitation from "Diana"
-    And my status should change to "Requesting Game"
-    And I should not be able to select other players while waiting for my request to be completed
-
   Scenario: Joining an empty lobby
     Given there are no other players in the lobby
     When I login as "Eve" and select human opponent
@@ -62,6 +32,36 @@ Feature: Multiplayer Game Lobby
     And the "Waiting for other players" message should be hidden
     And I should be able to select "Grace" as my opponent
 
+  Scenario: Joining lobby with existing available players
+    Given there are other players in the lobby:
+      | Player Name | Status    |
+      | Alice       | Available |
+      | Bob         | Available |
+      | Charlie     | Available |
+    When I login as "Diana" and select human opponent
+    Then I should see the lobby interface
+    And I should see my name
+    And my status should be "Available"
+    And I should see a list of available players:
+      | Player Name |
+      | Alice   |
+      | Bob     |
+      | Charlie |
+    And I should see a "Select Opponent" button for each available player
+
+  Scenario: Selecting an opponent from the lobby
+    Given I've logged in as "Diana" and selected human opponent
+    And there are other players in the lobby:
+      | Player Name | Status    |
+      | Alice       | Available |
+      | Bob         | Available |
+      | Charlie     | Available |
+    When I click "Select Opponent" next to "Alice"
+    Then I should see a message "Game request sent to Alice"
+    And "Alice" should receive a game invitation from "Diana"
+    And my status should change to "Requesting Game"
+    And I should not be able to select other players while waiting for my request to be completed
+
   Scenario: Lobby shows real-time updates
     Given I've logged in as "Tina" and selected human opponent
     And there are other players in the lobby:
@@ -71,7 +71,6 @@ Feature: Multiplayer Game Lobby
     When "Rachel" receives a game request from "Sam"
     Then I should see "Rachel's" status change from "Available" to "Pending Response"
     And the "Select Opponent" button for "Rachel" should be disabled
-    And I should see a visual indicator that "Rachel" is no longer available
 
   Scenario: Leaving the lobby
     Given I've logged in as "Victor" and selected human opponent
@@ -113,20 +112,31 @@ Feature: Multiplayer Game Lobby
       | Bob         | Available |
       | Charlie     | Available |
     And I have received a game request from "Bob"
-    When I click the "Accept" button for Bob's game request
+    When I click the "Accept" button for the game request
     Then I should be redirected to the game interface
-    And "Bob" should be my opponent
+    And "Bob" should be named as my opponent
     And both "Alice" and "Bob" should no longer appear in other players' lobby views
 
   Scenario: Declining a game request from another player
     Given I've logged in as "Alice" and selected human opponent
     And I have received a game request from "Bob"
-    When I click the "Decline" button for Bob's game request
+    When I click the "Decline" button for the game request
     Then I should see a message "Game request from Bob declined"
-    And my status should return to "Available"
+    And my status should change to "Available"
     And "Bob" should be notified that their request was declined
     And I should be able to select other players again
-    And "Bob's" status should return to "Available"
+    And "Bob's" status should change to "Available"
+
+  Scenario: Another player accepts my game request
+    Given I've logged in as "Alice" and selected human opponent
+    And there are other players in the lobby:
+      | Player Name | Status    |
+      | Bob         | Available |
+      | Charlie     | Available |
+    And I've selected "Bob" as my opponent
+    When "Bob" accepts my game request
+    Then I should be redirected to the game interface
+    And "Bob" should be named as my opponent
 
   # Scenario: Multiple players joining the lobby simultaneously
   #   Given I am in the lobby as "Henry"

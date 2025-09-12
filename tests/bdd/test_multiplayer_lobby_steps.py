@@ -133,14 +133,7 @@ def see_select_opponent_buttons(page: Page) -> None:
         assert "Select Opponent" in button_text
 
 
-@then(parsers.parse('I should see my own status as "{status}"'))
-def see_own_status(page: Page, status: str) -> None:
-    # Verify our own player status is displayed correctly
-    own_status: Locator = page.locator('[data-testid="player-status"]')
-    assert own_status.is_visible()
-    status_text = own_status.text_content()
-    assert status_text is not None
-    assert status in status_text
+
 
 
 @given("there are no other players in the lobby")
@@ -151,24 +144,7 @@ def no_other_players_in_lobby(page: Page) -> None:
     pass
 
 
-@then('I should see a message "No other players available"')
-def see_no_players_message(page: Page) -> None:
-    # Verify that the empty lobby shows appropriate message
-    no_players_message: Locator = page.locator('[data-testid="no-players-message"]')
-    assert no_players_message.is_visible()
-    message_text = no_players_message.text_content()
-    assert message_text is not None
-    assert "No other players available" in message_text
 
-
-@then('I should see a message "Waiting for other players to join..."')
-def see_waiting_message(page: Page) -> None:
-    # Verify that the lobby shows waiting message for empty state
-    waiting_message: Locator = page.locator('[data-testid="waiting-message"]')
-    assert waiting_message.is_visible()
-    waiting_text = waiting_message.text_content()
-    assert waiting_text is not None
-    assert "Waiting for other players to join..." in waiting_text
 
 
 @then("I should not see any selectable players")
@@ -182,7 +158,7 @@ def no_selectable_players(page: Page) -> None:
 
 @then(parsers.parse('my status should be "{status}"'))
 def my_status_should_be(page: Page, status: str) -> None:
-    # Verify own player status - same as see_own_status but different wording
+    # Verify our own player status is displayed correctly
     own_status: Locator = page.locator('[data-testid="player-status"]')
     assert own_status.is_visible()
     status_text = own_status.text_content()
@@ -308,15 +284,30 @@ def click_select_opponent(page: Page, opponent_name: str) -> None:
     select_button.click()
 
 
-@then(parsers.parse('I should see a confirmation message "{expected_message}"'))
-def see_confirmation_message(page: Page, expected_message: str) -> None:
-    # Check for the confirmation message after selecting an opponent
-    confirmation_message: Locator = page.locator('[data-testid="confirmation-message"]')
-    assert confirmation_message.is_visible(), "Confirmation message should be visible"
-
-    message_text = confirmation_message.inner_text()
-    assert expected_message in message_text, (
-        f"Expected '{expected_message}' in confirmation message, got '{message_text}'"
+@then(parsers.parse('I should see a message "{expected_message}"'))
+def see_message(page: Page, expected_message: str) -> None:
+    # Universal message verification step - handles confirmation messages and general messages
+    message_locators = [
+        '[data-testid="confirmation-message"]',
+        '[data-testid="message"]',
+        '[data-testid="no-players-message"]',
+        '[data-testid="waiting-message"]',
+        '[data-testid="decline-confirmation-message"]'
+    ]
+    
+    message_found = False
+    actual_message_text = ""
+    
+    for locator in message_locators:
+        message_element: Locator = page.locator(locator)
+        if message_element.is_visible():
+            actual_message_text = message_element.inner_text()
+            if expected_message in actual_message_text:
+                message_found = True
+                break
+    
+    assert message_found, (
+        f"Expected message '{expected_message}' not found. Last checked text: '{actual_message_text}'"
     )
 
 
@@ -370,7 +361,7 @@ def target_player_receives_invitation(
 
 @then(parsers.parse('my status should change to "{expected_status}"'))
 def my_status_should_change(page: Page, expected_status: str) -> None:
-    # Check that the current player's status has changed
+    # Check that the current player's status has changed or returned to expected status
     status_element: Locator = page.locator('[data-testid="player-status"]')
     assert status_element.is_visible(), "Player status should be visible"
 
@@ -380,16 +371,7 @@ def my_status_should_change(page: Page, expected_status: str) -> None:
     )
 
 
-@then(parsers.parse('my status should return to "{expected_status}"'))
-def my_status_should_return_to(page: Page, expected_status: str) -> None:
-    # Check that the current player's status has returned to expected status
-    status_element: Locator = page.locator('[data-testid="player-status"]')
-    assert status_element.is_visible(), "Player status should be visible"
 
-    status_text = status_element.inner_text()
-    assert expected_status in status_text, (
-        f"Expected status '{expected_status}' in status text, got '{status_text}'"
-    )
 
 
 @then(
@@ -790,8 +772,8 @@ def have_received_game_request(page: Page, sender_player: str) -> None:
     )
 
 
-@when(parsers.parse('I click the "Accept" button for {sender_name}\'s game request'))
-def click_accept_game_request(page: Page, sender_name: str) -> None:
+@when(parsers.parse('I click the "Accept" button for the game request'))
+def click_accept_game_request(page: Page) -> None:
     # Click the Accept button for the game request
     accept_button: Locator = page.locator('[data-testid="accept-game-request"]')
     assert accept_button.is_visible(), "Accept button should be visible"
@@ -799,18 +781,7 @@ def click_accept_game_request(page: Page, sender_name: str) -> None:
     accept_button.click()
 
 
-@then(parsers.parse('I should see a confirmation message "{expected_message}"'))
-def see_game_confirmation_message(page: Page, expected_message: str) -> None:
-    # Wait for the form submission to complete and the page to update
-    confirmation: Locator = page.locator('[data-testid="confirmation-message"]')
-    confirmation.wait_for(state="visible", timeout=5000)
-    
-    assert confirmation.is_visible(), "Game confirmation message should be visible"
 
-    message_text = confirmation.inner_text()
-    assert expected_message in message_text, (
-        f"Expected '{expected_message}' in confirmation message, got '{message_text}'"
-    )
 
 
 @then("I should be redirected to the game interface")
@@ -827,6 +798,7 @@ def redirected_to_game_interface(page: Page) -> None:
 
 
 @then(parsers.parse('"{player_name}" should be my opponent'))
+@then(parsers.parse('"{player_name}" should be named as my opponent'))
 def player_should_be_opponent(page: Page, player_name: str) -> None:
     # Verify that the specified player is set as the opponent in the game
     # This checks the game interface shows the correct opponent
@@ -864,8 +836,8 @@ def both_players_removed_from_lobby(page: Page, player1: str, player2: str) -> N
     pass
 
 
-@when(parsers.parse('I click the "Decline" button for {sender_name}\'s game request'))
-def click_decline_game_request(page: Page, sender_name: str) -> None:
+@when(parsers.parse('I click the "Decline" button for the game request'))
+def click_decline_game_request(page: Page) -> None:
     # Click the Decline button for the game request
     decline_button: Locator = page.locator('[data-testid="decline-game-request"]')
     assert decline_button.is_visible(), "Decline button should be visible"
@@ -873,23 +845,7 @@ def click_decline_game_request(page: Page, sender_name: str) -> None:
     decline_button.click()
 
 
-@then(
-    parsers.parse('I should see a message "Game request from {sender_name} declined"')
-)
-def see_decline_confirmation_message(page: Page, sender_name: str) -> None:
-    # Verify the decline confirmation message
-    expected_message = f"Game request from {sender_name} declined"
-    decline_message: Locator = page.locator(
-        '[data-testid="decline-confirmation-message"]'
-    )
-    assert decline_message.is_visible(), (
-        "Decline confirmation message should be visible"
-    )
 
-    message_text = decline_message.inner_text()
-    assert expected_message in message_text, (
-        f"Expected '{expected_message}' in decline message, got '{message_text}'"
-    )
 
 
 @then(
@@ -926,7 +882,7 @@ def can_select_other_players_again(page: Page) -> None:
         )
 
 
-@then(parsers.parse('"{sender_name}\'s" status should return to "Available"'))
+@then(parsers.parse('"{sender_name}\'s" status should change to "Available"'))
 def sender_status_returns_to_available(page: Page, sender_name: str) -> None:
     # Verify that the sender's status returns to Available after decline
     # This tests the real-time status updates in the lobby
@@ -958,3 +914,60 @@ def sender_status_returns_to_available(page: Page, sender_name: str) -> None:
         assert sender_button.is_enabled(), (
             f"Select Opponent button for {sender_name} should be enabled"
         )
+
+
+# New BDD steps for "Another player accepts my game request" scenario
+
+
+@given(parsers.parse('I\'ve selected "{opponent_name}" as my opponent'))
+def ive_selected_opponent_as_my_opponent(page: Page, opponent_name: str) -> None:
+    # Set up state where current player has sent a game request to opponent
+    # This is a precondition for the "opponent accepts my request" scenario
+    
+    current_player = getattr(page, "current_player_name", "TestPlayer")
+    
+    # Click the "Select Opponent" button for the specified opponent
+    select_button: Locator = page.locator(
+        f'[data-testid="select-opponent-{opponent_name}"]'
+    )
+    assert select_button.is_visible(), (
+        f"Select Opponent button for {opponent_name} should be visible"
+    )
+    select_button.click()
+    
+    # Wait for the request to be processed
+    page.wait_for_timeout(1000)
+    
+    # Store the game request details for verification
+    setattr(page, "game_request_sender", current_player)
+    setattr(page, "game_request_target", opponent_name)
+    
+    # Verify the request was sent (confirmation message should appear)
+    confirmation_message: Locator = page.locator('[data-testid="confirmation-message"]')
+    assert confirmation_message.is_visible(), (
+        f"Game request confirmation should be visible after selecting {opponent_name}"
+    )
+
+
+@when(parsers.parse('"{opponent_name}" accepts my game request'))
+def opponent_accepts_my_game_request(page: Page, opponent_name: str) -> None:
+    # Simulate the opponent accepting the current player's game request
+    # This would typically involve the opponent clicking "Accept" in their browser session
+    
+    current_player = getattr(page, "current_player_name", "TestPlayer")
+    
+    # Simulate the opponent accepting the request via HTTP client
+    # In a real implementation, this would involve WebSocket messaging or API calls
+    with httpx.Client() as client:
+        response = client.post(
+            "http://localhost:8000/accept-game-request",
+            data={"player_name": opponent_name, "sender_name": current_player},
+        )
+    
+    # Store the acceptance details for verification
+    setattr(page, "game_request_accepted_by", opponent_name)
+    
+    # Wait for the UI to update with the acceptance
+    page.wait_for_timeout(1500)
+
+

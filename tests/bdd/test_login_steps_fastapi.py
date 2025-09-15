@@ -1,0 +1,192 @@
+from pytest_bdd import scenarios, given, when, then, parsers
+from fastapi.testclient import TestClient
+from bs4 import BeautifulSoup, Tag
+from httpx import Response
+from dataclasses import dataclass, field
+from typing import Optional
+import pytest
+
+
+scenarios("../../features/login.feature")
+
+
+@dataclass
+class BDDTestContext:
+    """Maintains state between BDD steps, replacing Playwright's Page"""
+    response: Optional[Response] = None
+    soup: Optional[BeautifulSoup] = None
+    form_data: dict[str, str] = field(default_factory=dict)
+    
+    def update_response(self, response: Response):
+        """Update context with new response and parse HTML"""
+        self.response = response
+        self.soup = BeautifulSoup(response.text, "html.parser")
+
+
+@pytest.fixture
+def test_context():
+    """Provide a test context for maintaining state between BDD steps"""
+    return BDDTestContext()
+
+
+@pytest.fixture
+def client():
+    """FastAPI TestClient fixture"""
+    from main import app
+    return TestClient(app, follow_redirects=False)
+
+
+def on_login_page(context: BDDTestContext) -> None:
+    """Helper function to verify we're on the login page"""
+    assert context.soup is not None
+    assert context.response is not None
+    h1_element = context.soup.find("h1")
+    assert h1_element and "Battleships Login" in h1_element.get_text()
+    assert context.response.status_code == 200
+
+
+@given("I am on the login page")
+def goto_login_page(client: TestClient, test_context: BDDTestContext) -> None:
+    response = client.get("/")
+    test_context.update_response(response)
+    on_login_page(test_context)
+
+
+@given("the login page is fully loaded")
+def login_page_is_loaded(test_context: BDDTestContext) -> None:
+    assert test_context.soup is not None
+    
+    # Check for player name input field
+    player_name_input = test_context.soup.find('input', {'type': 'text', 'name': 'player_name'})
+    assert player_name_input is not None
+    
+    # Check for computer button
+    computer_button = test_context.soup.find('button', {'value': 'computer'})
+    assert computer_button is not None
+    
+    # Check for human button
+    human_button = test_context.soup.find('button', {'value': 'human'})
+    assert human_button is not None
+
+
+@given("the player name field is empty")
+def player_name_field_is_empty(test_context: BDDTestContext) -> None:
+    assert test_context.soup is not None
+    player_name_input = test_context.soup.find('input', {'type': 'text', 'name': 'player_name'})
+    assert player_name_input is not None
+    # Input field should either have no value or empty value
+    if isinstance(player_name_input, Tag):
+        value = player_name_input.get('value', '')
+        assert value == ""
+
+
+@when(parsers.parse('I enter "{player_name}" as my player name'))
+def enter_player_name(test_context: BDDTestContext, player_name: str) -> None:
+    test_context.form_data['player_name'] = player_name
+
+
+@given('I click the "Play against Computer" button')
+@when('I click the "Play against Computer" button')
+def click_play_against_computer(client: TestClient, test_context: BDDTestContext) -> None:
+    form_data = test_context.form_data.copy()
+    form_data['game_mode'] = 'computer'
+    # Ensure player_name is always present, even if empty
+    if 'player_name' not in form_data:
+        form_data['player_name'] = ''
+    response = client.post("/", data=form_data)
+    test_context.update_response(response)
+
+
+@when('I click the "Play against Another Player" button')
+def click_play_against_human(client: TestClient, test_context: BDDTestContext) -> None:
+    form_data = test_context.form_data.copy()
+    form_data['game_mode'] = 'human'
+    # Ensure player_name is always present, even if empty
+    if 'player_name' not in form_data:
+        form_data['player_name'] = ''
+    response = client.post("/", data=form_data)
+    test_context.update_response(response)
+
+
+@then("I should be redirected to the game interface")
+def on_game_page(client: TestClient, test_context: BDDTestContext) -> None:
+    # Check for redirect response
+    assert test_context.response is not None
+    assert test_context.response.status_code == 303
+    redirect_url = test_context.response.headers.get('location')
+    assert redirect_url is not None
+    assert 'game' in redirect_url
+    
+    # Follow the redirect and update context
+    target_response = client.get(redirect_url)
+    test_context.update_response(target_response)
+    
+    # Verify we actually arrived at the game page
+    assert test_context.response.status_code == 200
+    assert test_context.soup is not None
+    h1_element = test_context.soup.find("h1")
+    assert h1_element and "Battleships Game" in h1_element.get_text()
+
+
+@then("I should be redirected to the multiplayer lobby")
+def on_multiplayer_lobby_page(client: TestClient, test_context: BDDTestContext) -> None:
+    # Check for redirect response
+    assert test_context.response is not None
+    assert test_context.response.status_code == 303
+    redirect_url = test_context.response.headers.get('location')
+    assert redirect_url is not None
+    assert 'lobby' in redirect_url
+    
+    # Follow the redirect and update context
+    target_response = client.get(redirect_url)
+    test_context.update_response(target_response)
+    
+    # Verify we actually arrived at the lobby page
+    assert test_context.response.status_code == 200
+    assert test_context.soup is not None
+    h1_element = test_context.soup.find("h1")
+    assert h1_element and "Multiplayer Lobby" in h1_element.get_text()
+
+
+@then("the game should be configured for single player mode")
+def player_mode_is_single_player(test_context: BDDTestContext) -> None:
+    # Context should already have the target page from redirect step
+    assert test_context.soup is not None
+    game_mode_element = test_context.soup.find(attrs={"data-testid": "game-mode"})
+    assert game_mode_element is not None
+    assert game_mode_element.get_text() == "Single Player"
+
+
+@then("the game should be configured for two player mode")
+def player_mode_is_two_player(test_context: BDDTestContext) -> None:
+    # Context should already have the target page from redirect step
+    assert test_context.soup is not None
+    game_mode_element = test_context.soup.find(attrs={"data-testid": "game-mode"})
+    assert game_mode_element is not None
+    assert game_mode_element.get_text() == "Two Player"
+
+
+@then(parsers.parse('my player name should be set to "{expected_name}"'))
+def player_name_is_set(test_context: BDDTestContext, expected_name: str) -> None:
+    # Context should already have the target page from redirect step
+    assert test_context.soup is not None
+    player_name_element = test_context.soup.find(attrs={"data-testid": "player-name"})
+    assert player_name_element is not None
+    name_text = player_name_element.get_text()
+    assert expected_name in name_text
+
+
+@then(parsers.parse('I should see an error message "{error_message}"'))
+def error_message_displayed(test_context: BDDTestContext, error_message: str) -> None:
+    assert test_context.soup is not None
+    error_element = test_context.soup.find(attrs={"data-testid": "error-message"})
+    assert error_element is not None
+    assert error_element.get_text() == error_message
+
+
+@then("I should remain on the login page")
+def remain_on_login_page(test_context: BDDTestContext) -> None:
+    # Should not be a redirect, should be 200 with login page content
+    assert test_context.response is not None
+    assert test_context.response.status_code == 200
+    on_login_page(test_context)

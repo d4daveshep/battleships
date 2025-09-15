@@ -1,7 +1,8 @@
 from pytest_bdd import when
-from game import player
+from game import lobby, player
 import pytest
-from game.player import Player, PlayerStatus
+import game
+from game.player import GameRequest, Player, PlayerStatus
 from services.lobby_service import LobbyService
 
 
@@ -100,9 +101,24 @@ class TestLobbyService:
         assert final_count == initial_count
         assert final_names == initial_names
 
-    def test_get_lobby_data_filters_by_available_status(self):
-        # TODO: Implement when we have other PlayerStatus defined
-        pass
+    def test_get_lobby_data_filters_out_in_game_status(
+        self, populated_lobby_service: LobbyService
+    ):
+        initial_player_count: int = len(
+            populated_lobby_service.get_lobby_data_for_player("Alice")
+        )
+
+        # Add Diana to lobby and set status to IN_GAME
+        populated_lobby_service.join_lobby("Diana")
+        populated_lobby_service.update_player_status("Diana", PlayerStatus.IN_GAME)
+
+        lobby_data: list[str] = populated_lobby_service.get_lobby_data_for_player(
+            "Alice"
+        )
+        assert len(lobby_data) == initial_player_count
+        assert "Diana" not in lobby_data, (
+            "IN_GAME player 'Diana' included in lobby data"
+        )
 
     def test_get_lobby_data_handles_empty_player_name(
         self, empty_lobby_service: LobbyService
@@ -568,6 +584,19 @@ class TestLobbyServiceGameRequests:
         # Test: Should validate player name
         with pytest.raises(ValueError):
             empty_lobby_service.get_pending_request_for_player("")
+
+    def test_get_pending_request_by_sender(self, empty_lobby_service: LobbyService):
+        # Setup: Add players and send request
+        empty_lobby_service.join_lobby("Alice")
+        empty_lobby_service.join_lobby("Bob")
+        empty_lobby_service.send_game_request("Alice", "Bob")
+
+        game_request: GameRequest | None = (
+            empty_lobby_service.get_pending_request_by_sender("Alice")
+        )
+        assert game_request is not None
+        assert game_request.sender == "Alice"
+        assert game_request.receiver == "Bob"
 
     def test_accept_game_request_success(self, empty_lobby_service: LobbyService):
         # Setup: Add players and send request

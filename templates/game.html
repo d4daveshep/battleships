@@ -5,5 +5,8 @@
 {% block content %}
 <h1>Battleships Game</h1>
 <div data-testid="game-mode">{{ game_mode }}</div>
-<div data-testid="player-name">{{ player_name }}</div>
+<div data-testid="player-name">Player: {{ player_name }}</div>
+{% if opponent_name %}
+<div data-testid="opponent-name">Opponent: {{ opponent_name }}</div>
+{% endif %}
 {% endblock %}

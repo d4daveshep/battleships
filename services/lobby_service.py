@@ -58,8 +58,7 @@ class LobbyService:
         # Get all players from lobby, excluding current player (include all statuses)
         all_players: list[Player] = list(self.lobby.players.values())
         lobby_players: list[Player] = [
-            player for player in all_players 
-            if player.name != current_player
+            player for player in all_players if player.name != current_player
         ]
 
         return lobby_players
@@ -91,7 +90,7 @@ class LobbyService:
         # Validate player names
         sender_clean = self._validate_and_clean_player_name(sender)
         receiver_clean = self._validate_and_clean_player_name(receiver)
-        
+
         # Use the lobby method to send the request
         self.lobby.send_game_request(sender_clean, receiver_clean)
 
@@ -99,15 +98,20 @@ class LobbyService:
         """Get any pending game request for the specified player"""
         # Validate player name
         clean_name = self._validate_and_clean_player_name(player_name)
-        
+
         # Get the request from the lobby
         return self.lobby.get_pending_request(clean_name)
+
+    def get_pending_request_by_sender(self, sender_name: str) -> GameRequest | None:
+        """Get any pending game request sent by the specified player"""
+        clean_name = self._validate_and_clean_player_name(sender_name)
+        return self.lobby.get_pending_request_by_sender(clean_name)
 
     def accept_game_request(self, receiver: str) -> tuple[str, str]:
         """Accept a game request"""
         # Validate player name
         receiver_clean = self._validate_and_clean_player_name(receiver)
-        
+
         # Use the lobby method to accept the request
         return self.lobby.accept_game_request(receiver_clean)
 
@@ -115,6 +119,6 @@ class LobbyService:
         """Decline a game request"""
         # Validate player name
         receiver_clean = self._validate_and_clean_player_name(receiver)
-        
+
         # Use the lobby method to decline the request
         return self.lobby.decline_game_request(receiver_clean)

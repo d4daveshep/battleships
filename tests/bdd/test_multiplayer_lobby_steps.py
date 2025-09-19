@@ -99,7 +99,7 @@ def see_my_name(page: Page) -> None:
 def see_available_players_list(page: Page, datatable) -> None:
     # Verify the player list shows expected players Alice, Bob, Charlie
     # This step should be updated to work with the refactored LobbyService
-    player_list: Locator = page.locator('[data-testid="available-players-list"]')
+    player_list: Locator = page.locator('[data-testid="lobby-player-status"]')
     assert player_list.is_visible()
 
     # Check for expected players from the scenario

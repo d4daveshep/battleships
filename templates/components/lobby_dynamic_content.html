@@ -1,0 +1,56 @@
+<div data-testid="player-status">
+    Your Status: {{ player_status }}
+</div>
+
+{% if confirmation_message %}
+<div data-testid="confirmation-message">
+    {{ confirmation_message }}
+</div>
+{% endif %}
+
+{% if pending_request %}
+<div data-testid="game-request-notification">
+    Game request from {{ pending_request.sender }}
+    <form hx-post="/accept-game-request" hx-target="body" hx-swap="innerHTML" style="display: inline;">
+        <input type="hidden" name="player_name" value="{{ player_name }}">
+        <input type="hidden" name="show_confirmation" value="true">
+        <button type="submit" data-testid="accept-game-request">Accept</button>
+    </form>
+    <form hx-post="/decline-game-request" hx-swap="innerHTML" style="display: inline;">
+        <input type="hidden" name="player_name" value="{{ player_name }}">
+        <input type="hidden" name="show_confirmation" value="true">
+        <button type="submit" data-testid="decline-game-request">Decline</button>
+    </form>
+</div>
+{% endif %}
+
+{% if decline_confirmation_message %}
+<div data-testid="decline-confirmation-message">
+    {{ decline_confirmation_message }}
+</div>
+{% endif %}
+
+<h3>Available Players:</h3>
+{% if available_players %}
+    {% for player in available_players %}
+    <div data-testid="player-{{ player.name }}">
+        {{ player.name }}
+        <span data-testid="player-{{ player.name }}-status">({{ player.status }})</span>
+        <form method="post" action="/select-opponent" style="display: inline;">
+            <input type="hidden" name="player_name" value="{{ player_name }}">
+            <input type="hidden" name="opponent_name" value="{{ player.name }}">
+            <button type="submit" data-testid="select-opponent-{{ player.name }}"
+                    {% if player_status in ["Requesting Game", "Pending Response"] or player.status != "Available" %}disabled{% endif %}>
+                Select Opponent
+            </button>
+        </form>
+    </div>
+    {% endfor %}
+{% else %}
+    <div data-testid="no-players-message">
+        No other players available
+    </div>
+    <div data-testid="waiting-message">
+        Waiting for other players to join...
+    </div>
+{% endif %}

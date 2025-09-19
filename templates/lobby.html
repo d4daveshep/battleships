@@ -10,18 +10,12 @@
         <h3>Welcome, {{ player_name }}!</h3>
     </div>
     
-    <!-- Lobby Player Status section -->
+    <!-- Lobby dynamic content section -->
     <div data-testid="lobby-player-status"
          hx-get="/lobby/status/{{ player_name }}"
          hx-trigger="load, every 1s"
          hx-swap="innerHTML">
 
-    </div>
-    <!-- Available Players section -->
-    <div data-testid="available-players-list" 
-         hx-get="/lobby/players/{{ player_name }}" 
-         hx-trigger="load, every 1s" 
-         hx-swap="innerHTML">
     </div>
     
     <!-- Leave Lobby Section -->

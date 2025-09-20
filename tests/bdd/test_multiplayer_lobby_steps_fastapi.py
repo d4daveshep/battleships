@@ -115,7 +115,7 @@ def no_other_players_in_lobby(client: TestClient) -> None:
     """Set up empty lobby condition"""
     # Reset lobby state via test endpoint
     try:
-        response = client.post("/test/reset-lobby")
+        client.post("/test/reset-lobby")
     except:
         pass  # Test endpoint may not exist yet, that's okay
 

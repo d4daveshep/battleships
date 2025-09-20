@@ -329,7 +329,9 @@ async def leave_lobby(
 
 
 @app.get("/lobby/status/{player_name}", response_model=None)
-async def lobby_status_partial(request: Request, player_name: str) -> HTMLResponse|Response:
+async def lobby_status_partial(
+    request: Request, player_name: str
+) -> HTMLResponse | Response:
     """Return partial HTML with polling for status updates and available for current player"""
 
     template_context = {
@@ -345,11 +347,11 @@ async def lobby_status_partial(request: Request, player_name: str) -> HTMLRespon
     try:
         # Get current player status
         try:
-            player_status:PlayerStatus=lobby_service.get_player_status(player_name)
+            player_status: PlayerStatus = lobby_service.get_player_status(player_name)
             template_context["player_status"] = player_status.value
 
             # If player is IN_GAME, redirect them to game page
-            if player_status== PlayerStatus.IN_GAME:
+            if player_status == PlayerStatus.IN_GAME:
                 # Find their opponent from the lobby
                 opponent_name: str = "ABC"
                 # for player in all_players:
@@ -393,8 +395,7 @@ async def lobby_status_partial(request: Request, player_name: str) -> HTMLRespon
         lobby_data: list[Player] = [
             player for player in all_players if player.status != PlayerStatus.IN_GAME
         ]
-        template_context["available_players"]=lobby_data
-
+        template_context["available_players"] = lobby_data
 
     except ValueError as e:
         template_context["player_name"] = ""

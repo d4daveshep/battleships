@@ -1,14 +1,10 @@
 from fastapi import FastAPI, Form, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-import asyncio
-import json
-from typing import Any, AsyncGenerator
+from typing import Any
 
 from starlette.responses import Response
-from starlette.status import HTTP_400_BAD_REQUEST
 
-from game import player
 from game.lobby import Lobby
 from game.player import GameRequest, Player, PlayerStatus
 from services.auth_service import AuthService, PlayerNameValidation

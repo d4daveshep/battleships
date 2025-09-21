@@ -10,13 +10,17 @@ from game.player import GameRequest, Player, PlayerStatus
 from services.auth_service import AuthService, PlayerNameValidation
 from services.lobby_service import LobbyService
 
-# Constants
-# ERROR_CSS_CLASS = "error"
-# LOGIN_TEMPLATE = "login.html"
-# HOME_URL = "/"
 
 app: FastAPI = FastAPI()
 templates: Jinja2Templates = Jinja2Templates(directory="templates")
+
+
+# Global lobby instance for state management
+_game_lobby: Lobby = Lobby()
+
+# Service instances
+auth_service: AuthService = AuthService()
+lobby_service: LobbyService = LobbyService(_game_lobby)
 
 
 def _build_lobby_url(player_name: str) -> str:
@@ -30,14 +34,6 @@ def _build_game_url(player_name: str, opponent_name: str = "") -> str:
         return f"/game?player_name={player_name.strip()}"
     else:
         return f"/game?player_name={player_name.strip()}&opponent_name={opponent_name.strip()}"
-
-
-# Global lobby instance for state management
-_game_lobby: Lobby = Lobby()
-
-# Service instances
-auth_service: AuthService = AuthService()
-lobby_service: LobbyService = LobbyService(_game_lobby)
 
 
 def _create_error_response(

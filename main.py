@@ -3,9 +3,10 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 import asyncio
 import json
-from typing import AsyncGenerator
+from typing import Any, AsyncGenerator
 
 from starlette.responses import Response
+from starlette.status import HTTP_400_BAD_REQUEST
 
 from game import player
 from game.lobby import Lobby
@@ -14,9 +15,9 @@ from services.auth_service import AuthService, PlayerNameValidation
 from services.lobby_service import LobbyService
 
 # Constants
-ERROR_CSS_CLASS = "error"
-LOGIN_TEMPLATE = "login.html"
-HOME_URL = "/"
+# ERROR_CSS_CLASS = "error"
+# LOGIN_TEMPLATE = "login.html"
+# HOME_URL = "/"
 
 app: FastAPI = FastAPI()
 templates: Jinja2Templates = Jinja2Templates(directory="templates")
@@ -35,43 +36,49 @@ def _build_game_url(player_name: str, opponent_name: str = "") -> str:
         return f"/game?player_name={player_name.strip()}&opponent_name={opponent_name.strip()}"
 
 
+# Global lobby instance for state management
+_game_lobby: Lobby = Lobby()
+
+# Service instances
+auth_service: AuthService = AuthService()
+lobby_service: LobbyService = LobbyService(_game_lobby)
+
+
 def _create_error_response(
     request: Request,
     error_message: str,
     player_name: str = "",
-    css_class: str = ERROR_CSS_CLASS,
-    status_code: int = 400,
+    css_class: str = "error",
+    status_code: int = status.HTTP_400_BAD_REQUEST,
 ) -> HTMLResponse:
-    """Create standardized error response template"""
+    """Display the login page with an error message"""
+
+    template_context: dict[str, str] = {
+        "error_message": error_message,
+        "player_name": player_name,
+        "css_class": css_class,
+    }
+
     return templates.TemplateResponse(
-        request,
-        LOGIN_TEMPLATE,
-        {
-            "error_message": error_message,
-            "player_name": player_name,
-            "css_class": css_class,
-        },
+        request=request,
+        name="login.html",
+        context=template_context,
         status_code=status_code,
     )
 
 
-# Global lobby instance for state management
-game_lobby: Lobby = Lobby()
-
-# Service instances
-auth_service: AuthService = AuthService()
-lobby_service: LobbyService = LobbyService(game_lobby)
-
-
-# All validation and lobby logic moved to service classes
-
-
 @app.get("/", response_class=HTMLResponse)
 async def login_page(request: Request) -> HTMLResponse:
+    template_context: dict[str, str] = {
+        "player_name": "",
+        "error_message": "",
+        "css_class": "",
+    }
+
     return templates.TemplateResponse(
-        request,
-        LOGIN_TEMPLATE,
-        {"player_name": "", "error_message": "", "css_class": ""},
+        request=request,
+        name="login.html",
+        context=template_context,
     )
 
 
@@ -85,37 +92,49 @@ async def login_submit(
 
     if not validation.is_valid:
         return _create_error_response(
-            request,
-            validation.error_message,
-            "" if validation.error_message else player_name,
-            validation.css_class,
-            status.HTTP_200_OK,  # Login form errors return 200, not 400
+            request=request,
+            error_message=validation.error_message,
+            player_name="" if validation.error_message else player_name,
+            css_class=validation.css_class,
+            status_code=status.HTTP_200_OK,  # Login form errors return 200, not 400
         )
+    try:
+        redirect_url: str
+        if game_mode == "human":
+            lobby_service.join_lobby(player_name)  # Add the player to the lobby
+            # TODO: add event here
+            redirect_url = _build_lobby_url(player_name)
 
-    redirect_url: str
-    if game_mode == "human":
-        lobby_service.join_lobby(player_name)  # Add the player to the lobby
-        # TODO: add event here
-        redirect_url = _build_lobby_url(player_name)
+        elif game_mode == "computer":
+            redirect_url = _build_game_url(player_name)
+        else:
+            raise ValueError(f"Invalid game mode: {game_mode}")
 
-    else:
-        redirect_url = _build_game_url(player_name)
-
-    if request.headers.get("HX-Request"):
-        response = Response(
-            status_code=status.HTTP_204_NO_CONTENT,
-            headers={"HX-Redirect": redirect_url},
+        if request.headers.get("HX-Request"):
+            response: Response = Response(
+                status_code=status.HTTP_204_NO_CONTENT,
+                headers={"HX-Redirect": redirect_url},
+            )
+            return response
+        else:
+            return RedirectResponse(
+                url=redirect_url, status_code=status.HTTP_303_SEE_OTHER
+            )
+    except ValueError as e:
+        return _create_error_response(
+            request=request,
+            error_message=str(e),
+            player_name=player_name,
+            css_class="error",
+            status_code=status.HTTP_400_BAD_REQUEST,
         )
-        return response
-    else:
-        return RedirectResponse(url=redirect_url, status_code=status.HTTP_303_SEE_OTHER)
 
 
 @app.get("/game", response_class=HTMLResponse)
 async def game_page(
     request: Request, player_name: str = "", opponent_name: str = ""
 ) -> HTMLResponse:
-    game_mode = "Two Player" if opponent_name else "Single Player"
+    game_mode: str = "Two Player" if opponent_name else "Single Player"
     return templates.TemplateResponse(
         request,
         "game.html",
@@ -147,74 +166,6 @@ async def validate_player_name(
     )
 
 
-@app.post("/accept-game-request", response_model=None)
-async def accept_game_request(
-    request: Request,
-    player_name: str = Form(),
-    show_confirmation: str = Form(default=""),
-) -> Response | RedirectResponse:
-    """Accept a game request and redirect to game page"""
-
-    try:
-        # Accept the game request
-        sender, receiver = lobby_service.accept_game_request(player_name)
-        # TODO: add event here
-
-        # The player_name is the receiver, sender is the opponent_name
-        opponent_name = sender
-        redirect_url: str = _build_game_url(player_name, opponent_name)
-
-        if request.headers.get("HX-Request"):
-            response: Response = Response(
-                status_code=status.HTTP_204_NO_CONTENT,
-                headers={"HX-Redirect": redirect_url},
-            )
-            return response
-        else:
-            # Normal flow: Redirect to game page
-            return RedirectResponse(url=redirect_url, status_code=status.HTTP_302_FOUND)
-
-    except ValueError as e:
-        # Handle validation errors (no pending request, etc.)
-        return _create_error_response(request, str(e))
-
-
-@app.post("/decline-game-request")
-async def decline_game_request(
-    request: Request,
-    player_name: str = Form(),
-    show_confirmation: str = Form(default=""),
-) -> HTMLResponse:
-    """Decline a game request and return to lobby"""
-
-    try:
-        # Decline the game request
-        sender = lobby_service.decline_game_request(player_name)
-        # TODO: add event here
-
-        # Get updated lobby data
-        lobby_data: list[Player] = lobby_service.get_lobby_players_for_player(
-            player_name
-        )
-        player_status = lobby_service.get_player_status(player_name).value
-
-        return templates.TemplateResponse(
-            request,
-            "components/lobby_dynamic_content.html",
-            {
-                "player_name": player_name,
-                "game_mode": "Two Player",
-                "available_players": lobby_data,
-                "decline_confirmation_message": f"Game request from {sender} declined",
-                "player_status": player_status,
-            },
-        )
-
-    except ValueError as e:
-        # Handle validation errors (no pending request, etc.)
-        return _create_error_response(request, str(e))
-
-
 @app.get("/health")
 async def health_check() -> dict[str, str]:
     """Health check endpoint for test infrastructure"""
@@ -224,7 +175,7 @@ async def health_check() -> dict[str, str]:
 @app.post("/test/reset-lobby")
 async def reset_lobby_for_testing() -> dict[str, str]:
     """Reset lobby state - for testing only"""
-    game_lobby.players.clear()
+    _game_lobby.players.clear()
 
     return {"status": "lobby cleared"}
 
@@ -236,27 +187,11 @@ async def select_opponent(
     """Handle opponent selection and return updated lobby view"""
 
     try:
-        # Use the new game request system
         lobby_service.send_game_request(player_name, opponent_name)
         # TODO: add event here
 
-        # # Get updated lobby data after status changes
-        # lobby_data: list[Player] = lobby_service.get_lobby_players_for_player(
-        #     player_name
-        # )
-        # player_status = lobby_service.get_player_status(player_name).value
-        #
-        # # Check for pending game request
-        # pending_request: GameRequest | None = (
-        #     lobby_service.get_pending_request_for_player(player_name)
-        # )
-
-        context = {
+        context: dict[str, str] = {
             "player_name": player_name,
-            # "available_players": lobby_data,
-            # "confirmation_message": f"Game request sent to {opponent_name}",
-            # "player_status": player_status,
-            # "pending_request": pending_request,
         }
         print(f"Lobby.html context: {context}")
 
@@ -283,14 +218,8 @@ async def select_opponent(
 @app.get("/lobby", response_class=HTMLResponse)
 async def lobby_page(request: Request, player_name: str = "") -> HTMLResponse:
     # Default template context
-    template_context = {
+    template_context: dict[str, str] = {
         "player_name": player_name,
-        # "game_mode": "Two Player",
-        # "available_players": [],
-        # "confirmation_message": "",
-        # "player_status": PlayerStatus.AVAILABLE,
-        # "pending_request": None,
-        # "error_message": "",
     }
 
     return templates.TemplateResponse(request, "lobby.html", template_context)
@@ -303,24 +232,22 @@ async def leave_lobby(
     """Handle player leaving the lobby"""
 
     try:
-        # Use the LobbyService.leave_lobby method we just implemented
         lobby_service.leave_lobby(player_name)
         # TODO: add event here
 
         if request.headers.get("HX-Request"):
-            response = Response(
+            response: Response = Response(
                 status_code=status.HTTP_204_NO_CONTENT,
                 headers={
-                    "HX-Redirect": HOME_URL,
-                    "HX-Push-Url": HOME_URL,
-                    # "HX-Replace-Url": HOME_URL,
+                    "HX-Redirect": "/",
+                    "HX-Push-Url": "/",
                 },
             )
             return response
 
         else:
             # Fallback using standard redirect to home/login page on success
-            return RedirectResponse(url=HOME_URL, status_code=status.HTTP_302_FOUND)
+            return RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
 
     except ValueError as e:
         # Handle validation errors (empty name, nonexistent player)
@@ -329,12 +256,12 @@ async def leave_lobby(
 
 
 @app.get("/lobby/status/{player_name}", response_model=None)
-async def lobby_status_partial(
+async def lobby_status_component(
     request: Request, player_name: str
 ) -> HTMLResponse | Response:
     """Return partial HTML with polling for status updates and available for current player"""
 
-    template_context = {
+    template_context: dict[str, Any] = {
         "player_name": player_name,
         "player_status": "",
         "confirmation_message": "",
@@ -350,19 +277,14 @@ async def lobby_status_partial(
             player_status: PlayerStatus = lobby_service.get_player_status(player_name)
             template_context["player_status"] = player_status.value
 
+            # TODO: I think this logic won't be necessary when we move to SSE event driven pages
+
             # If player is IN_GAME, redirect them to game page
             if player_status == PlayerStatus.IN_GAME:
-                # Find their opponent from the lobby
+                # FIXME: Find their opponent from the lobby
                 opponent_name: str = "ABC"
-                # for player in all_players:
-                #     if (
-                #         player.name != player_name
-                #         and player.status == PlayerStatus.IN_GAME
-                #     ):
-                #         opponent_name = player.name
-                #         break
 
-                game_url = _build_game_url(player_name, opponent_name)
+                game_url: str = _build_game_url(player_name, opponent_name)
 
                 # Return HTMX redirect
                 return Response(
@@ -406,68 +328,71 @@ async def lobby_status_partial(
     )
 
 
-@app.get("/lobby/players/{player_name}", response_model=None)
-async def lobby_players_partial(
-    request: Request, player_name: str
-) -> HTMLResponse | Response:
-    """Return partial HTML with current player list for polling updates"""
+@app.post("/decline-game-request")
+async def decline_game_request(
+    request: Request,
+    player_name: str = Form(),
+    show_confirmation: str = Form(default=""),
+) -> HTMLResponse:
+    """Decline a game request and return to lobby"""
+
     try:
-        all_players: list[Player] = lobby_service.get_lobby_players_for_player(
+        # Decline the game request
+        sender: str = lobby_service.decline_game_request(player_name)
+        # TODO: add event here
+
+        # Get updated lobby data
+        lobby_data: list[Player] = lobby_service.get_lobby_players_for_player(
             player_name
         )
-        # Filter out IN_GAME players for lobby view
-        lobby_data: list[Player] = [
-            player for player in all_players if player.status != PlayerStatus.IN_GAME
-        ]
-
-        player_status = PlayerStatus.AVAILABLE
-        try:
-            player_status_enum = lobby_service.get_player_status(player_name)
-            player_status = player_status_enum.value
-
-            # If player is IN_GAME, redirect them to game page
-            if player_status_enum == PlayerStatus.IN_GAME:
-                # Find their opponent from the lobby
-                opponent_name: str = ""
-                for player in all_players:
-                    if (
-                        player.name != player_name
-                        and player.status == PlayerStatus.IN_GAME
-                    ):
-                        opponent_name = player.name
-                        break
-
-                game_url = _build_game_url(player_name, opponent_name)
-
-                # Return HTMX redirect
-                return Response(
-                    status_code=status.HTTP_204_NO_CONTENT,
-                    headers={"HX-Redirect": game_url},
-                )
-
-        except ValueError:
-            pass
-
-        # Check for pending game request
-        pending_request = lobby_service.get_pending_request_for_player(player_name)
+        player_status: str = lobby_service.get_player_status(player_name).value
 
         return templates.TemplateResponse(
             request,
-            "components/players_list.html",
+            "components/lobby_dynamic_content.html",
             {
                 "player_name": player_name,
+                "game_mode": "Two Player",
                 "available_players": lobby_data,
+                "decline_confirmation_message": f"Game request from {sender} declined",
                 "player_status": player_status,
-                # "pending_request": pending_request,
             },
         )
-    except ValueError:
-        return templates.TemplateResponse(
-            request,
-            "components/players_list.html",
-            {
-                "player_name": player_name,
-                "available_players": [],
-                "player_status": PlayerStatus.AVAILABLE,
-            },
-        )
+
+    except ValueError as e:
+        # Handle validation errors (no pending request, etc.)
+        return _create_error_response(request, str(e))
+
+
+@app.post("/accept-game-request", response_model=None)
+async def accept_game_request(
+    request: Request,
+    player_name: str = Form(),
+    show_confirmation: str = Form(default=""),
+) -> Response | RedirectResponse:
+    """Accept a game request and redirect to game page"""
+
+    try:
+        # Accept the game request
+        sender: str
+        receiver: str
+        sender, receiver = lobby_service.accept_game_request(player_name)
+        # TODO: add event here
+
+        # The player_name is the receiver, sender is the opponent_name
+        opponent_name: str = sender
+        redirect_url: str = _build_game_url(player_name, opponent_name)
+
+        if request.headers.get("HX-Request"):
+            response: Response = Response(
+                status_code=status.HTTP_204_NO_CONTENT,
+                headers={"HX-Redirect": redirect_url},
+            )
+            return response
+        else:
+            # Normal flow: Redirect to game page
+            return RedirectResponse(url=redirect_url, status_code=status.HTTP_302_FOUND)
+
+    except ValueError as e:
+        # Handle validation errors (no pending request, etc.)
+        return _create_error_response(request, str(e))

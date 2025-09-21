@@ -16,7 +16,7 @@
         <input type="hidden" name="show_confirmation" value="true">
         <button type="submit" data-testid="accept-game-request">Accept</button>
     </form>
-    <form hx-post="/decline-game-request" hx-swap="innerHTML" style="display: inline;">
+    <form hx-post="/decline-game-request" hx-target="[data-testid='lobby-player-status']" hx-swap="innerHTML" style="display: inline;">
         <input type="hidden" name="player_name" value="{{ player_name }}">
         <input type="hidden" name="show_confirmation" value="true">
         <button type="submit" data-testid="decline-game-request">Decline</button>

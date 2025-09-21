@@ -70,20 +70,20 @@ def login_and_goto_lobby(
 
     # Submit login form with human opponent selection
     form_data = {"player_name": player_name, "game_mode": "human"}
-    try:
-        response = client.post("/", data=form_data)
-        context.update_response(response)
-    except Exception as e:
-        # If player already exists, try to navigate directly to lobby
-        if "already exists" in str(e):
-            redirect_url = f"/lobby?player_name={player_name}"
-            target_response = client.get(redirect_url)
-            context.update_response(target_response)
-            context.current_player_name = player_name
-            on_lobby_page(context)
-            return
-        else:
-            raise
+    # try:
+    response = client.post("/", data=form_data)
+    context.update_response(response)
+    # except Exception as e:
+    #     # If player already exists, try to navigate directly to lobby
+    #     if "already exists" in str(e):
+    #         redirect_url = f"/lobby?player_name={player_name}"
+    #         target_response = client.get(redirect_url)
+    #         context.update_response(target_response)
+    #         context.current_player_name = player_name
+    #         on_lobby_page(context)
+    #         return
+    #     else:
+    #         raise
 
     # Should be redirected to lobby
     assert context.response is not None
@@ -104,10 +104,13 @@ def login_and_goto_lobby(
 
 
 @given("the multiplayer lobby system is available")
-def multiplayer_lobby_system_available() -> None:
+def multiplayer_lobby_system_available(client: TestClient) -> None:
     """Verify the multiplayer lobby system is accessible"""
-    # This step ensures the backend supports multiplayer functionality
-    pass
+    # Reset lobby state via test endpoint
+    try:
+        client.post("/test/reset-lobby")
+    except:
+        pass  # Test endpoint may not exist yet, that's okay
 
 
 @given("there are no other players in the lobby")
@@ -163,18 +166,11 @@ def other_players_in_lobby(
 
 
 @when(parsers.parse('I login as "{player_name}" and select human opponent'))
+@given(parsers.parse('I\'ve logged in as "{player_name}" and selected human opponent'))
 def login_and_select_human_opponent(
     client: TestClient, lobby_context: LobbyTestContext, player_name: str
 ) -> None:
     """Navigate to login page, enter player name, and select human opponent"""
-    login_and_goto_lobby(client, lobby_context, player_name)
-
-
-@given(parsers.parse('I\'ve logged in as "{player_name}" and selected human opponent'))
-def logged_in_and_selected_human_opponent(
-    client: TestClient, lobby_context: LobbyTestContext, player_name: str
-) -> None:
-    """Complete login flow and select human opponent (given state)"""
     login_and_goto_lobby(client, lobby_context, player_name)
 
 

@@ -123,6 +123,11 @@ class LobbyService:
         # Use the lobby method to decline the request
         return self.lobby.decline_game_request(receiver_clean)
 
+    def get_decline_notification(self, player_name: str) -> str | None:
+        """Get and clear decline notification for a player"""
+        clean_name = self._validate_and_clean_player_name(player_name)
+        return self.lobby.get_decline_notification(clean_name)
+
     def get_lobby_version(self) -> int:
         """Get the current version of the lobby state"""
         return self.lobby.get_version()

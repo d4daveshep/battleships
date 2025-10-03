@@ -8,6 +8,7 @@ class Lobby:
         self.players: dict[str, Player] = {}
         self.game_requests: dict[str, GameRequest] = {}
         self.active_games: dict[str, str] = {}  # player_name -> opponent_name
+        self.decline_notifications: dict[str, str] = {}  # sender -> decliner (who declined their request)
         self.version: int = 0
         self.change_event: asyncio.Event = asyncio.Event()
 
@@ -126,6 +127,9 @@ class Lobby:
         self.players[sender].status = PlayerStatus.AVAILABLE
         self.players[receiver].status = PlayerStatus.AVAILABLE
 
+        # Store decline notification for sender
+        self.decline_notifications[sender] = receiver
+
         # Remove the request
         del self.game_requests[receiver]
 
@@ -143,6 +147,17 @@ class Lobby:
             The opponent's name if the player is in an active game, None otherwise
         """
         return self.active_games.get(player_name)
+
+    def get_decline_notification(self, player_name: str) -> str | None:
+        """Get and clear decline notification for a player.
+
+        Args:
+            player_name: The name of the player to get notification for
+
+        Returns:
+            The name of the player who declined, or None if no notification
+        """
+        return self.decline_notifications.pop(player_name, None)
 
     def get_version(self) -> int:
         """Return the current version of the lobby state"""

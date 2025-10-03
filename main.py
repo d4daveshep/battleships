@@ -336,6 +336,13 @@ async def _render_lobby_status(
         except ValueError:
             template_context["player_status"] = f"Unknown player: {player_name}"
 
+        # Check for decline notification (this consumes/clears the notification)
+        decliner: str | None = lobby_service.get_decline_notification(player_name)
+        if decliner is not None:
+            template_context["decline_confirmation_message"] = (
+                f"Game request from {decliner} declined"
+            )
+
         # Check for pending game request sent
         pending_request_sent: GameRequest | None = (
             lobby_service.get_pending_request_by_sender(player_name)

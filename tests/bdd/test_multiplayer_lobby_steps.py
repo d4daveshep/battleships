@@ -294,18 +294,25 @@ def see_message(page: Page, expected_message: str) -> None:
         '[data-testid="waiting-message"]',
         '[data-testid="decline-confirmation-message"]'
     ]
-    
+
     message_found = False
     actual_message_text = ""
-    
+
+    # Wait for any message element to appear (up to 5 seconds)
+    # This allows time for HTMX to complete the request and swap content
     for locator in message_locators:
-        message_element: Locator = page.locator(locator)
-        if message_element.is_visible():
+        try:
+            message_element: Locator = page.locator(locator)
+            # Wait for element to be visible (timeout 5s per locator)
+            message_element.wait_for(state="visible", timeout=5000)
             actual_message_text = message_element.inner_text()
             if expected_message in actual_message_text:
                 message_found = True
                 break
-    
+        except Exception:
+            # Element doesn't exist or didn't become visible, try next locator
+            continue
+
     assert message_found, (
         f"Expected message '{expected_message}' not found. Last checked text: '{actual_message_text}'"
     )

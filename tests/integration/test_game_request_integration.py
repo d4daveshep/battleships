@@ -83,10 +83,10 @@ class TestGameRequestEndpoints:
         # Step 4: Bob declines the game request
         response = client.post("/decline-game-request", data={"player_name": "Bob"})
 
-        # Should return lobby page with decline confirmation
+        # Should return lobby status component with decline confirmation
         assert response.status_code == status.HTTP_200_OK
         assert "Game request from Alice declined" in response.text
-        assert "Multiplayer Lobby" in response.text
+        assert "Available Players:" in response.text  # Component has this instead of "Multiplayer Lobby"
 
     def test_decline_game_request_no_pending_request(self, client: TestClient):
         # Test declining when there's no pending request
@@ -134,7 +134,7 @@ class TestGameRequestEndpoints:
         client.post("/accept-game-request", data={"player_name": "Bob"})
 
         # Step 4: Charlie's lobby view should not show Alice or Bob
-        response = client.get("/lobby/players/Charlie")
+        response = client.get("/lobby/status/Charlie")
         assert response.status_code == status.HTTP_200_OK
         assert "Alice" not in response.text
         assert "Bob" not in response.text
@@ -161,7 +161,7 @@ class TestGameRequestEndpoints:
         client.post("/decline-game-request", data={"player_name": "Bob"})
 
         # Step 4: Charlie's lobby view should show both Alice and Bob as Available
-        response = client.get("/lobby/players/Charlie")
+        response = client.get("/lobby/status/Charlie")
         assert response.status_code == status.HTTP_200_OK
         assert "Alice" in response.text
         assert "Bob" in response.text
@@ -190,11 +190,11 @@ class TestSelectOpponentEndpointUpdates:
         assert "Game request sent to Bob" in response.text
 
         # Step 3: Check that Alice shows "Requesting Game" status
-        alice_response = client.get("/lobby/players/Alice")
+        alice_response = client.get("/lobby/status/Alice")
         assert "Requesting Game" in alice_response.text
 
         # Step 4: Check that Bob shows "Pending Response" status and has game request notification
-        bob_response = client.get("/lobby/players/Bob")
+        bob_response = client.get("/lobby/status/Bob")
         assert "Pending Response" in bob_response.text
 
     def test_select_opponent_prevents_multiple_concurrent_requests_from_same_sender(

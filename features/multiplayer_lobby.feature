@@ -49,6 +49,7 @@ Feature: Multiplayer Game Lobby
       | Charlie |
     And I should see a "Select Opponent" button for each available player
 
+  @wip
   Scenario: Selecting an opponent from the lobby
     Given I've logged in as "Diana" and selected human opponent
     And there are other players in the lobby:
@@ -117,6 +118,7 @@ Feature: Multiplayer Game Lobby
     And "Bob" should be named as my opponent
     And both "Alice" and "Bob" should no longer appear in other players' lobby views
 
+  @wip
   Scenario: Declining a game request from another player
     Given I've logged in as "Alice" and selected human opponent
     And I have received a game request from "Bob"

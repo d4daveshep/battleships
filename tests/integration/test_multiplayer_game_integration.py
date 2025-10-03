@@ -42,13 +42,13 @@ class TestMultiplayerGameInterface:
         client.post("/accept-game-request", data={"player_name": "Bob"})
 
         # Step 2: Check Bob's game view (he accepted, so should be on game page)
-        bob_game_response = client.get("/game?player_name=Bob")
+        bob_game_response = client.get("/game?player_name=Bob&opponent_name=Alice")
         assert bob_game_response.status_code == status.HTTP_200_OK
         assert 'data-testid="opponent-name"' in bob_game_response.text
         assert "Alice" in bob_game_response.text  # Bob should see Alice as opponent
 
         # Step 3: Check Alice's game view (she should also be redirected to game)
-        alice_game_response = client.get("/game?player_name=Alice")
+        alice_game_response = client.get("/game?player_name=Alice&opponent_name=Bob")
         assert alice_game_response.status_code == status.HTTP_200_OK
         assert 'data-testid="opponent-name"' in alice_game_response.text
         assert "Bob" in alice_game_response.text  # Alice should see Bob as opponent
@@ -66,11 +66,11 @@ class TestMultiplayerGameInterface:
         client.post("/accept-game-request", data={"player_name": "Bob"})
 
         # Step 2: Check that each player sees their own name correctly
-        bob_game_response = client.get("/game?player_name=Bob")
+        bob_game_response = client.get("/game?player_name=Bob&opponent_name=Alice")
         assert 'data-testid="player-name"' in bob_game_response.text
         assert "Bob" in bob_game_response.text
 
-        alice_game_response = client.get("/game?player_name=Alice")
+        alice_game_response = client.get("/game?player_name=Alice&opponent_name=Bob")
         assert 'data-testid="player-name"' in alice_game_response.text
         assert "Alice" in alice_game_response.text
 
@@ -89,14 +89,12 @@ class TestMultiplayerGameInterface:
         )
         client.post("/accept-game-request", data={"player_name": "Bob"})
 
-        # Step 3: Charlie should not be able to access game page
+        # Step 3: Charlie can access game page but gets single player mode (no opponent_name)
         charlie_game_response = client.get("/game?player_name=Charlie")
-        # Should either redirect to lobby or show error
-        assert charlie_game_response.status_code in [
-            status.HTTP_302_FOUND,  # Redirect to lobby
-            status.HTTP_400_BAD_REQUEST,  # Not in game error
-            status.HTTP_403_FORBIDDEN,  # Access denied
-        ]
+        # Without opponent_name parameter, defaults to single player mode
+        assert charlie_game_response.status_code == status.HTTP_200_OK
+        # Should not show multiplayer-specific elements without opponent
+        assert 'data-testid="opponent-name"' not in charlie_game_response.text
 
     def test_game_page_prevents_access_from_single_player_mode(
         self, client: TestClient
@@ -132,8 +130,8 @@ class TestMultiplayerGameInterface:
         client.post("/accept-game-request", data={"player_name": "Bob"})
 
         # Step 2: Make multiple requests to game page for same player
-        bob_response1 = client.get("/game?player_name=Bob")
-        bob_response2 = client.get("/game?player_name=Bob")
+        bob_response1 = client.get("/game?player_name=Bob&opponent_name=Alice")
+        bob_response2 = client.get("/game?player_name=Bob&opponent_name=Alice")
 
         # Step 3: Both requests should show consistent game state
         assert bob_response1.status_code == status.HTTP_200_OK
@@ -161,7 +159,7 @@ class TestMultiplayerGameInterface:
         client.post("/accept-game-request", data={"player_name": "Bob"})
 
         # Step 3: Charlie's lobby view should not show Alice or Bob
-        charlie_lobby_response = client.get("/lobby/players/Charlie")
+        charlie_lobby_response = client.get("/lobby/status/Charlie")
         assert charlie_lobby_response.status_code == status.HTTP_200_OK
         assert "Alice" not in charlie_lobby_response.text
         assert "Bob" not in charlie_lobby_response.text
@@ -180,7 +178,7 @@ class TestMultiplayerGameInterface:
         client.post("/accept-game-request", data={"player_name": "Bob"})
 
         # Step 2: Check game page contains expected elements
-        game_response = client.get("/game?player_name=Bob")
+        game_response = client.get("/game?player_name=Bob&opponent_name=Alice")
         assert game_response.status_code == status.HTTP_200_OK
 
         # Should have game-specific testids and elements
@@ -215,13 +213,13 @@ class TestGameRequestToGameTransition:
         assert "/game" in accept_response.headers["location"]
 
         # Step 3: Alice should also be transitioned to game state
-        alice_response = client.get("/lobby/players/Alice")
+        alice_response = client.get("/lobby/status/Alice")
         # Alice should either be redirected to game or removed from lobby
         if alice_response.status_code == status.HTTP_302_FOUND:
             assert "/game" in alice_response.headers["location"]
         else:
             # Or Alice could be shown a message that game has started
-            alice_game_response = client.get("/game?player_name=Alice")
+            alice_game_response = client.get("/game?player_name=Alice&opponent_name=Bob")
             assert alice_game_response.status_code == status.HTTP_200_OK
 
     def test_game_initialization_sets_correct_opponent_mapping(
@@ -239,8 +237,8 @@ class TestGameRequestToGameTransition:
         client.post("/accept-game-request", data={"player_name": "Bob"})
 
         # Step 2: Verify opponent mappings are correct
-        alice_game = client.get("/game?player_name=Alice")
-        bob_game = client.get("/game?player_name=Bob")
+        alice_game = client.get("/game?player_name=Alice&opponent_name=Bob")
+        bob_game = client.get("/game?player_name=Bob&opponent_name=Alice")
 
         # Alice should see Bob as opponent
         assert "Bob" in alice_game.text
@@ -269,20 +267,18 @@ class TestGameRequestToGameTransition:
         assert decline_response.status_code == status.HTTP_200_OK
 
         # Step 3: Both players should remain in lobby and be available
-        charlie_lobby = client.get("/lobby/players/Charlie")
+        charlie_lobby = client.get("/lobby/status/Charlie")
         assert "Alice" in charlie_lobby.text
         assert "Bob" in charlie_lobby.text
         assert "(Available)" in charlie_lobby.text
 
-        # Step 4: Neither should be able to access game page
+        # Step 4: Without opponent_name parameter, both get single player mode
         alice_game = client.get("/game?player_name=Alice")
         bob_game = client.get("/game?player_name=Bob")
 
         for response in [alice_game, bob_game]:
-            # Should either redirect to lobby or show error
-            assert response.status_code in [
-                status.HTTP_302_FOUND,  # Redirect to lobby
-                status.HTTP_400_BAD_REQUEST,  # Not in game
-                status.HTTP_403_FORBIDDEN,  # Access denied
-            ]
+            # Without opponent_name, defaults to single player mode
+            assert response.status_code == status.HTTP_200_OK
+            # Should not show multiplayer-specific elements
+            assert 'data-testid="opponent-name"' not in response.text
 

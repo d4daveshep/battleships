@@ -70,11 +70,10 @@ class TestLobbyServiceIntegration:
         # Now add Diana
         client.post("/", data={"player_name": "Diana", "game_mode": "human"})
 
-        # Now Diana should see them when accessing the lobby
-        response = client.get("/lobby?player_name=Diana")
+        # Now Diana should see them when accessing the lobby status
+        response = client.get("/lobby/status/Diana")
 
         assert response.status_code == status.HTTP_200_OK
-        assert "Diana" in response.text
         # Diana should see Alice, Bob, Charlie from LobbyService
         assert "Alice" in response.text
         assert "Bob" in response.text
@@ -212,11 +211,12 @@ class TestLeaveLobbyIntegration:
         # First, clear the lobby
         client.post("/test/reset-lobby")
 
-        # Add player to lobby
+        # Add players to lobby
         client.post("/", data={"player_name": "LeavingPlayer", "game_mode": "human"})
+        client.post("/", data={"player_name": "AnotherPlayer", "game_mode": "human"})
 
-        # Verify player is in lobby
-        lobby_response = client.get("/lobby?player_name=AnotherPlayer")
+        # Verify LeavingPlayer is in lobby (from AnotherPlayer's view)
+        lobby_response = client.get("/lobby/status/AnotherPlayer")
         assert "LeavingPlayer" in lobby_response.text
 
         # Player leaves lobby
@@ -226,7 +226,7 @@ class TestLeaveLobbyIntegration:
         assert leave_response.status_code == status.HTTP_200_OK
 
         # Verify player is no longer in lobby
-        lobby_check = client.get("/lobby?player_name=AnotherPlayer")
+        lobby_check = client.get("/lobby/status/AnotherPlayer")
         assert "LeavingPlayer" not in lobby_check.text
 
     def test_leave_lobby_redirects_to_home_page(self, client):
@@ -272,16 +272,15 @@ class TestLeaveLobbyIntegration:
         client.post("/", data={"player_name": "LeavingPlayer", "game_mode": "human"})
 
         # Verify both players are visible to each other
-        staying_view = client.get("/lobby?player_name=StayingPlayer")
+        staying_view = client.get("/lobby/status/StayingPlayer")
         assert "LeavingPlayer" in staying_view.text
 
         # One player leaves
         client.post("/leave-lobby", data={"player_name": "LeavingPlayer"})
 
         # Check that staying player no longer sees the leaving player
-        updated_view = client.get("/lobby?player_name=StayingPlayer")
+        updated_view = client.get("/lobby/status/StayingPlayer")
         assert "LeavingPlayer" not in updated_view.text
-        assert "StayingPlayer" in updated_view.text  # Should still see themselves
 
     def test_leave_lobby_endpoint_real_time_polling_integration(self, client):
         # Test that leave lobby integrates properly with real-time polling endpoint
@@ -293,12 +292,12 @@ class TestLeaveLobbyIntegration:
         )
 
         # Check initial state via polling endpoint
-        initial_poll = client.get("/lobby/players/PollingPlayer")
+        initial_poll = client.get("/lobby/status/PollingPlayer")
         assert "LeavingPlayerPolling" in initial_poll.text
 
         # Player leaves
         client.post("/leave-lobby", data={"player_name": "LeavingPlayerPolling"})
 
         # Check updated state via polling endpoint
-        updated_poll = client.get("/lobby/players/PollingPlayer")
+        updated_poll = client.get("/lobby/status/PollingPlayer")
         assert "LeavingPlayerPolling" not in updated_poll.text

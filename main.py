@@ -326,8 +326,18 @@ async def _render_lobby_status(
 
             # If player is IN_GAME, redirect them to game page
             if player_status == PlayerStatus.IN_GAME:
-                # FIXME: Find their opponent from the lobby
-                opponent_name: str = "ABC"
+                # Find their opponent from the lobby
+                opponent_name: str | None = lobby_service.get_opponent(player_name)
+
+                if not opponent_name:
+                    # Edge case: player is IN_GAME but no opponent found
+                    # This shouldn't happen in normal flow, but handle gracefully
+                    template_context["error_message"] = "Game pairing error - opponent not found"
+                    return templates.TemplateResponse(
+                        request=request,
+                        name="lobby_status_component.html",
+                        context=template_context,
+                    )
 
                 game_url: str = _build_game_url(player_name, opponent_name)
 

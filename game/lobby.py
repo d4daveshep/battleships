@@ -7,19 +7,23 @@ class Lobby:
     def __init__(self):
         self.players: dict[str, Player] = {}
         self.game_requests: dict[str, GameRequest] = {}
+        self.active_games: dict[str, str] = {}  # player_name -> opponent_name
         self.version: int = 0
         self.change_event: asyncio.Event = asyncio.Event()
 
-    def add_player(self, name: str, status: PlayerStatus) -> None:
-        self.players[name] = Player(name, status)
+    def _notify_change(self) -> None:
+        """Increment version and notify all waiters of state change"""
         self.version += 1
         self.change_event.set()
+
+    def add_player(self, name: str, status: PlayerStatus) -> None:
+        self.players[name] = Player(name, status)
+        self._notify_change()
 
     def remove_player(self, name: str) -> None:
         if name in self.players:
             del self.players[name]
-            self.version += 1
-            self.change_event.set()
+            self._notify_change()
         else:
             raise ValueError(f"Player '{name}' not found in lobby")
 
@@ -43,8 +47,7 @@ class Lobby:
         if name not in self.players:
             raise ValueError(f"Player '{name}' not found in lobby")
         self.players[name].status = status
-        self.version += 1
-        self.change_event.set()
+        self._notify_change()
 
     def get_player_status(self, name: str) -> PlayerStatus:
         if name not in self.players:
@@ -77,8 +80,7 @@ class Lobby:
         # Update player statuses
         self.players[sender].status = PlayerStatus.REQUESTING_GAME
         self.players[receiver].status = PlayerStatus.PENDING_RESPONSE
-        self.version += 1
-        self.change_event.set()
+        self._notify_change()
 
     def get_pending_request(self, receiver: str) -> GameRequest | None:
         return self.game_requests.get(receiver)
@@ -101,11 +103,14 @@ class Lobby:
         self.players[sender].status = PlayerStatus.IN_GAME
         self.players[receiver].status = PlayerStatus.IN_GAME
 
+        # Create bidirectional pairing
+        self.active_games[sender] = receiver
+        self.active_games[receiver] = sender
+
         # Remove the request
         del self.game_requests[receiver]
 
-        self.version += 1
-        self.change_event.set()
+        self._notify_change()
 
         return sender, receiver
 
@@ -124,10 +129,20 @@ class Lobby:
         # Remove the request
         del self.game_requests[receiver]
 
-        self.version += 1
-        self.change_event.set()
+        self._notify_change()
 
         return sender
+
+    def get_opponent(self, player_name: str) -> str | None:
+        """Get the opponent for a player in an active game.
+
+        Args:
+            player_name: The name of the player to get opponent for
+
+        Returns:
+            The opponent's name if the player is in an active game, None otherwise
+        """
+        return self.active_games.get(player_name)
 
     def get_version(self) -> int:
         """Return the current version of the lobby state"""

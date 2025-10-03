@@ -2,6 +2,8 @@ from fastapi import FastAPI, Form, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from typing import Any
+import asyncio
+import time
 
 from starlette.responses import Response
 
@@ -168,6 +170,8 @@ async def health_check() -> dict[str, str]:
 async def reset_lobby_for_testing() -> dict[str, str]:
     """Reset lobby state - for testing only"""
     _game_lobby.players.clear()
+    _game_lobby.game_requests.clear()
+    _game_lobby.version = 0
 
     return {"status": "lobby cleared"}
 
@@ -270,6 +274,124 @@ async def lobby_status_component(
             template_context["player_status"] = player_status.value
 
             # TODO: I think this logic won't be necessary when we move to SSE event driven pages
+
+            # If player is IN_GAME, redirect them to game page
+            if player_status == PlayerStatus.IN_GAME:
+                # FIXME: Find their opponent from the lobby
+                opponent_name: str = "ABC"
+
+                game_url: str = _build_game_url(player_name, opponent_name)
+
+                # Return HTMX redirect
+                return Response(
+                    status_code=status.HTTP_204_NO_CONTENT,
+                    headers={"HX-Redirect": game_url},
+                )
+
+        except ValueError:
+            template_context["player_status"] = f"Unknown player: {player_name}"
+
+        # Check for pending game request sent
+        pending_request_sent: GameRequest | None = (
+            lobby_service.get_pending_request_by_sender(player_name)
+        )
+        if pending_request_sent is not None:
+            template_context["confirmation_message"] = (
+                f"Game request sent to {pending_request_sent.receiver}"
+            )
+
+        # Check for pending game request
+        pending_request: GameRequest | None = (
+            lobby_service.get_pending_request_for_player(player_name)
+        )
+        template_context["pending_request"] = pending_request
+
+        all_players: list[Player] = lobby_service.get_lobby_players_for_player(
+            player_name
+        )
+        # Filter out IN_GAME players for lobby view
+        lobby_data: list[Player] = [
+            player for player in all_players if player.status != PlayerStatus.IN_GAME
+        ]
+        template_context["available_players"] = lobby_data
+
+    except ValueError as e:
+        template_context["player_name"] = ""
+        template_context["error_message"] = str(e)
+
+    return templates.TemplateResponse(
+        request, "components/lobby_dynamic_content.html", template_context
+    )
+
+
+@app.get("/lobby/status/{player_name}/long-poll", response_model=None)
+async def lobby_status_long_poll(
+    request: Request, player_name: str, timeout: int = 30, version: int | None = None
+) -> HTMLResponse | Response:
+    """Long polling endpoint for lobby status updates.
+
+    Returns immediately if:
+    - This is the first call (version is None)
+    - The lobby version has changed since the provided version
+
+    Otherwise waits up to `timeout` seconds for a state change.
+    """
+
+    # Validate player exists
+    try:
+        lobby_service.get_player_status(player_name)
+    except ValueError:
+        return Response(
+            content=f"Player '{player_name}' not found in lobby",
+            status_code=status.HTTP_404_NOT_FOUND,
+        )
+
+    # Get current lobby version
+    current_version = lobby_service.get_lobby_version()
+
+    # If no version provided or version has changed, return immediately
+    if version is None or current_version != version:
+        # Return current state immediately
+        return await _render_lobby_status(request, player_name)
+
+    # Version matches - wait for changes or timeout
+    start_time = time.time()
+    end_time = start_time + timeout
+
+    while time.time() < end_time:
+        # Sleep briefly to avoid busy-waiting
+        await asyncio.sleep(0.1)
+
+        # Check if version changed
+        new_version = lobby_service.get_lobby_version()
+        if new_version != version:
+            # State changed, return new state
+            return await _render_lobby_status(request, player_name)
+
+    # Timeout reached, return current state
+    return await _render_lobby_status(request, player_name)
+
+
+async def _render_lobby_status(
+    request: Request, player_name: str
+) -> HTMLResponse | Response:
+    """Helper function to render lobby status (shared by both endpoints)"""
+
+    template_context: dict[str, Any] = {
+        "player_name": player_name,
+        "player_status": "",
+        "confirmation_message": "",
+        "pending_request": None,
+        "decline_confirmation_message": "",
+        "available_players": [],
+        "error_message": "",
+    }
+
+    try:
+        # Get current player status
+        try:
+            player_status: PlayerStatus = lobby_service.get_player_status(player_name)
+            template_context["player_status"] = player_status.value
 
             # If player is IN_GAME, redirect them to game page
             if player_status == PlayerStatus.IN_GAME:

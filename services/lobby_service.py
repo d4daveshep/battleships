@@ -122,3 +122,7 @@ class LobbyService:
 
         # Use the lobby method to decline the request
         return self.lobby.decline_game_request(receiver_clean)
+
+    def get_lobby_version(self) -> int:
+        """Get the current version of the lobby state"""
+        return self.lobby.get_version()

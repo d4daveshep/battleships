@@ -388,3 +388,9 @@ async def accept_game_request(
     except ValueError as e:
         # Handle validation errors (no pending request, etc.)
         return _create_error_response(request, str(e))
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(app, host="0.0.0.0", port=8000)

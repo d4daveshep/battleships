@@ -2,6 +2,86 @@ from game.player import GameRequest, Player, PlayerStatus
 import pytest
 
 
+class TestLobbyVersionTracking:
+    """Test version tracking for change detection in long polling"""
+
+    def test_lobby_has_initial_version(self, empty_lobby):
+        """Lobby should have an initial version number starting at 0"""
+        assert hasattr(empty_lobby, "version")
+        assert empty_lobby.version == 0
+
+    def test_version_increments_when_player_added(self, empty_lobby):
+        """Version should increment when a player is added"""
+        initial_version = empty_lobby.version
+        empty_lobby.add_player("Alice", PlayerStatus.AVAILABLE)
+        assert empty_lobby.version == initial_version + 1
+
+    def test_version_increments_when_player_removed(self, empty_lobby):
+        """Version should increment when a player is removed"""
+        empty_lobby.add_player("Alice", PlayerStatus.AVAILABLE)
+        version_before_remove = empty_lobby.version
+        empty_lobby.remove_player("Alice")
+        assert empty_lobby.version == version_before_remove + 1
+
+    def test_version_increments_when_player_status_updated(self, empty_lobby):
+        """Version should increment when a player's status changes"""
+        empty_lobby.add_player("Alice", PlayerStatus.AVAILABLE)
+        version_before_update = empty_lobby.version
+        empty_lobby.update_player_status("Alice", PlayerStatus.REQUESTING_GAME)
+        assert empty_lobby.version == version_before_update + 1
+
+    def test_version_increments_when_game_request_sent(self, empty_lobby):
+        """Version should increment when a game request is sent"""
+        empty_lobby.add_player("Alice", PlayerStatus.AVAILABLE)
+        empty_lobby.add_player("Bob", PlayerStatus.AVAILABLE)
+        version_before_request = empty_lobby.version
+        empty_lobby.send_game_request("Alice", "Bob")
+        assert empty_lobby.version == version_before_request + 1
+
+    def test_version_increments_when_game_request_accepted(self, empty_lobby):
+        """Version should increment when a game request is accepted"""
+        empty_lobby.add_player("Alice", PlayerStatus.AVAILABLE)
+        empty_lobby.add_player("Bob", PlayerStatus.AVAILABLE)
+        empty_lobby.send_game_request("Alice", "Bob")
+        version_before_accept = empty_lobby.version
+        empty_lobby.accept_game_request("Bob")
+        assert empty_lobby.version == version_before_accept + 1
+
+    def test_version_increments_when_game_request_declined(self, empty_lobby):
+        """Version should increment when a game request is declined"""
+        empty_lobby.add_player("Alice", PlayerStatus.AVAILABLE)
+        empty_lobby.add_player("Bob", PlayerStatus.AVAILABLE)
+        empty_lobby.send_game_request("Alice", "Bob")
+        version_before_decline = empty_lobby.version
+        empty_lobby.decline_game_request("Bob")
+        assert empty_lobby.version == version_before_decline + 1
+
+    def test_version_increments_multiple_operations(self, empty_lobby):
+        """Version should increment correctly across multiple operations"""
+        assert empty_lobby.version == 0
+
+        empty_lobby.add_player("Alice", PlayerStatus.AVAILABLE)
+        assert empty_lobby.version == 1
+
+        empty_lobby.add_player("Bob", PlayerStatus.AVAILABLE)
+        assert empty_lobby.version == 2
+
+        empty_lobby.update_player_status("Alice", PlayerStatus.REQUESTING_GAME)
+        assert empty_lobby.version == 3
+
+        empty_lobby.remove_player("Bob")
+        assert empty_lobby.version == 4
+
+    def test_get_version_method(self, empty_lobby):
+        """Lobby should have a get_version() method"""
+        assert hasattr(empty_lobby, "get_version")
+        assert callable(empty_lobby.get_version)
+        assert empty_lobby.get_version() == 0
+
+        empty_lobby.add_player("Alice", PlayerStatus.AVAILABLE)
+        assert empty_lobby.get_version() == 1
+
+
 class TestLobby:
     def test_lobby_creation(self, empty_lobby):
         assert empty_lobby

@@ -6,13 +6,16 @@ class Lobby:
     def __init__(self):
         self.players: dict[str, Player] = {}
         self.game_requests: dict[str, GameRequest] = {}
+        self.version: int = 0
 
     def add_player(self, name: str, status: PlayerStatus) -> None:
         self.players[name] = Player(name, status)
+        self.version += 1
 
     def remove_player(self, name: str) -> None:
         if name in self.players:
             del self.players[name]
+            self.version += 1
         else:
             raise ValueError(f"Player '{name}' not found in lobby")
 
@@ -36,6 +39,7 @@ class Lobby:
         if name not in self.players:
             raise ValueError(f"Player '{name}' not found in lobby")
         self.players[name].status = status
+        self.version += 1
 
     def get_player_status(self, name: str) -> PlayerStatus:
         if name not in self.players:
@@ -68,6 +72,7 @@ class Lobby:
         # Update player statuses
         self.players[sender].status = PlayerStatus.REQUESTING_GAME
         self.players[receiver].status = PlayerStatus.PENDING_RESPONSE
+        self.version += 1
 
     def get_pending_request(self, receiver: str) -> GameRequest | None:
         return self.game_requests.get(receiver)
@@ -93,6 +98,8 @@ class Lobby:
         # Remove the request
         del self.game_requests[receiver]
 
+        self.version += 1
+
         return sender, receiver
 
     def decline_game_request(self, receiver: str) -> str:
@@ -110,4 +117,10 @@ class Lobby:
         # Remove the request
         del self.game_requests[receiver]
 
+        self.version += 1
+
         return sender
+
+    def get_version(self) -> int:
+        """Return the current version of the lobby state"""
+        return self.version

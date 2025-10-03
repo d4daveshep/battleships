@@ -1,3 +1,8 @@
+<div data-testid="lobby-player-status"
+     hx-get="/lobby/status/{{ player_name }}/long-poll?version={{ lobby_version }}"
+     hx-trigger="load delay:100ms"
+     hx-swap="outerHTML">
+
 <div data-testid="player-status">
     Your Status: {{ player_status }}
 </div>
@@ -36,7 +41,10 @@
     <div data-testid="player-{{ player.name }}">
         {{ player.name }}
         <span data-testid="player-{{ player.name }}-status">({{ player.status }})</span>
-        <form method="post" action="/select-opponent" style="display: inline;">
+        <form hx-post="/select-opponent"
+              hx-target="[data-testid='lobby-player-status']"
+              hx-swap="outerHTML"
+              style="display: inline;">
             <input type="hidden" name="player_name" value="{{ player_name }}">
             <input type="hidden" name="opponent_name" value="{{ player.name }}">
             <button type="submit" data-testid="select-opponent-{{ player.name }}"
@@ -54,3 +62,5 @@
         Waiting for other players to join...
     </div>
 {% endif %}
+
+</div><!-- Close lobby-player-status wrapper -->

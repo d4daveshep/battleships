@@ -185,27 +185,9 @@ async def select_opponent(
 
     try:
         lobby_service.send_game_request(player_name, opponent_name)
-        # TODO: add event here
 
-        context: dict[str, str] = {
-            "player_name": player_name,
-        }
-        print(f"Lobby.html context: {context}")
-
-        # If this is an HTMX request, return just the lobby content div
-        if request.headers.get("HX-Request"):
-            return templates.TemplateResponse(
-                request=request,
-                name="lobby.html",
-                context=context,
-            )
-        else:
-            # For non-HTMX requests, return the full lobby page
-            return templates.TemplateResponse(
-                request=request,
-                name="lobby.html",
-                context=context,
-            )
+        # Return updated lobby status (same as long poll endpoint)
+        return await _render_lobby_status(request, player_name)
 
     except ValueError as e:
         # Handle validation errors (player not available, etc.)
@@ -308,6 +290,9 @@ async def _render_lobby_status(
 ) -> HTMLResponse | Response:
     """Helper function to render lobby status (shared by both endpoints)"""
 
+    # Get current lobby version for long polling
+    lobby_version = lobby_service.get_lobby_version()
+
     template_context: dict[str, Any] = {
         "player_name": player_name,
         "player_status": "",
@@ -316,6 +301,7 @@ async def _render_lobby_status(
         "decline_confirmation_message": "",
         "available_players": [],
         "error_message": "",
+        "lobby_version": lobby_version,
     }
 
     try:

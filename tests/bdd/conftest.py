@@ -71,7 +71,7 @@ def browser():
 def page(browser: Browser, fastapi_server):
     """Page fixture that depends on running server"""
     page: Page = browser.new_page()
-    page.set_default_timeout(5000)  # 5 seconds
+    page.set_default_timeout(40000)  # 40 seconds (to accommodate 35s long poll timeout)
     yield page
     page.close()
 

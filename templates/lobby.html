@@ -11,7 +11,8 @@
     </div>
     
     <!-- Lobby dynamic content section -->
-    <div data-testid="lobby-player-status"
+    <!-- The component will include its own HTMX attributes for long polling -->
+    <div id="lobby-status-container"
          hx-get="/lobby/status/{{ player_name }}/long-poll"
          hx-trigger="load"
          hx-swap="innerHTML">

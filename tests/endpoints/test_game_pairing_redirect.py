@@ -34,14 +34,14 @@ class TestGamePairingRedirect:
     def test_sender_redirected_with_correct_opponent_after_acceptance(self, client):
         """Test that game requester is redirected with correct opponent name"""
         # Alice and Bob join lobby
-        client.post("/", data={"player_name": "Alice", "game_mode": "Two Player"})
-        client.post("/", data={"player_name": "Bob", "game_mode": "Two Player"})
+        client.post("/", data={"player_name": "Alice", "game_mode": "human"})
+        client.post("/", data={"player_name": "Bob", "game_mode": "human"})
 
         # Alice sends game request to Bob
         client.post("/select-opponent", data={"player_name": "Alice", "opponent_name": "Bob"})
 
         # Bob accepts the request (Bob gets immediate redirect with opponent)
-        response = client.post("/accept-game-request", data={"player_name": "Bob"})
+        response = client.post("/accept-game-request", data={"player_name": "Bob"}, follow_redirects=False)
         assert response.status_code == 302
         assert "opponent_name=Alice" in response.headers["location"]
 
@@ -60,14 +60,14 @@ class TestGamePairingRedirect:
     def test_receiver_redirected_with_correct_opponent_immediately(self, client):
         """Test that game receiver gets correct opponent in immediate redirect"""
         # Alice and Bob join lobby
-        client.post("/", data={"player_name": "Alice", "game_mode": "Two Player"})
-        client.post("/", data={"player_name": "Bob", "game_mode": "Two Player"})
+        client.post("/", data={"player_name": "Alice", "game_mode": "human"})
+        client.post("/", data={"player_name": "Bob", "game_mode": "human"})
 
         # Alice sends game request to Bob
         client.post("/select-opponent", data={"player_name": "Alice", "opponent_name": "Bob"})
 
         # Bob accepts the request
-        response = client.post("/accept-game-request", data={"player_name": "Bob"})
+        response = client.post("/accept-game-request", data={"player_name": "Bob"}, follow_redirects=False)
 
         assert response.status_code == 302
         redirect_url = response.headers["location"]
@@ -77,8 +77,8 @@ class TestGamePairingRedirect:
     def test_both_players_can_discover_each_other_as_opponents(self, client):
         """Test that both players in a matched game can find their opponent"""
         # Alice and Bob join lobby
-        client.post("/", data={"player_name": "Alice", "game_mode": "Two Player"})
-        client.post("/", data={"player_name": "Bob", "game_mode": "Two Player"})
+        client.post("/", data={"player_name": "Alice", "game_mode": "human"})
+        client.post("/", data={"player_name": "Bob", "game_mode": "human"})
 
         # Alice sends game request to Bob
         client.post("/select-opponent", data={"player_name": "Alice", "opponent_name": "Bob"})
@@ -101,10 +101,10 @@ class TestGamePairingRedirect:
     def test_multiple_concurrent_games_have_correct_pairings(self, client):
         """Test that multiple simultaneous games maintain correct opponent pairings"""
         # Four players join
-        client.post("/", data={"player_name": "Alice", "game_mode": "Two Player"})
-        client.post("/", data={"player_name": "Bob", "game_mode": "Two Player"})
-        client.post("/", data={"player_name": "Charlie", "game_mode": "Two Player"})
-        client.post("/", data={"player_name": "Diana", "game_mode": "Two Player"})
+        client.post("/", data={"player_name": "Alice", "game_mode": "human"})
+        client.post("/", data={"player_name": "Bob", "game_mode": "human"})
+        client.post("/", data={"player_name": "Charlie", "game_mode": "human"})
+        client.post("/", data={"player_name": "Diana", "game_mode": "human"})
 
         # Two separate game requests
         client.post("/select-opponent", data={"player_name": "Alice", "opponent_name": "Bob"})
@@ -147,8 +147,8 @@ class TestGamePairingRedirect:
     def test_long_poll_endpoint_also_uses_correct_opponent(self, client):
         """Test that long polling endpoint also redirects with correct opponent"""
         # Alice and Bob join lobby
-        client.post("/", data={"player_name": "Alice", "game_mode": "Two Player"})
-        client.post("/", data={"player_name": "Bob", "game_mode": "Two Player"})
+        client.post("/", data={"player_name": "Alice", "game_mode": "human"})
+        client.post("/", data={"player_name": "Bob", "game_mode": "human"})
 
         # Alice sends game request to Bob
         client.post("/select-opponent", data={"player_name": "Alice", "opponent_name": "Bob"})
@@ -171,8 +171,8 @@ class TestGamePairingEdgeCases:
     def test_declined_request_does_not_create_pairing(self, client):
         """Test that declined requests don't create opponent pairings"""
         # Alice and Bob join lobby
-        client.post("/", data={"player_name": "Alice", "game_mode": "Two Player"})
-        client.post("/", data={"player_name": "Bob", "game_mode": "Two Player"})
+        client.post("/", data={"player_name": "Alice", "game_mode": "human"})
+        client.post("/", data={"player_name": "Bob", "game_mode": "human"})
 
         # Alice sends game request to Bob
         client.post("/select-opponent", data={"player_name": "Alice", "opponent_name": "Bob"})
@@ -192,8 +192,8 @@ class TestGamePairingEdgeCases:
     def test_pairing_persists_across_multiple_status_checks(self, client):
         """Test that opponent pairing persists across multiple polls"""
         # Set up game
-        client.post("/", data={"player_name": "Alice", "game_mode": "Two Player"})
-        client.post("/", data={"player_name": "Bob", "game_mode": "Two Player"})
+        client.post("/", data={"player_name": "Alice", "game_mode": "human"})
+        client.post("/", data={"player_name": "Bob", "game_mode": "human"})
         client.post("/select-opponent", data={"player_name": "Alice", "opponent_name": "Bob"})
         client.post("/accept-game-request", data={"player_name": "Bob"})
 

@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime
 from game.player import GameRequest, Player, PlayerStatus
 
@@ -7,15 +8,18 @@ class Lobby:
         self.players: dict[str, Player] = {}
         self.game_requests: dict[str, GameRequest] = {}
         self.version: int = 0
+        self.change_event: asyncio.Event = asyncio.Event()
 
     def add_player(self, name: str, status: PlayerStatus) -> None:
         self.players[name] = Player(name, status)
         self.version += 1
+        self.change_event.set()
 
     def remove_player(self, name: str) -> None:
         if name in self.players:
             del self.players[name]
             self.version += 1
+            self.change_event.set()
         else:
             raise ValueError(f"Player '{name}' not found in lobby")
 
@@ -40,6 +44,7 @@ class Lobby:
             raise ValueError(f"Player '{name}' not found in lobby")
         self.players[name].status = status
         self.version += 1
+        self.change_event.set()
 
     def get_player_status(self, name: str) -> PlayerStatus:
         if name not in self.players:
@@ -73,6 +78,7 @@ class Lobby:
         self.players[sender].status = PlayerStatus.REQUESTING_GAME
         self.players[receiver].status = PlayerStatus.PENDING_RESPONSE
         self.version += 1
+        self.change_event.set()
 
     def get_pending_request(self, receiver: str) -> GameRequest | None:
         return self.game_requests.get(receiver)
@@ -99,6 +105,7 @@ class Lobby:
         del self.game_requests[receiver]
 
         self.version += 1
+        self.change_event.set()
 
         return sender, receiver
 
@@ -118,9 +125,33 @@ class Lobby:
         del self.game_requests[receiver]
 
         self.version += 1
+        self.change_event.set()
 
         return sender
 
     def get_version(self) -> int:
         """Return the current version of the lobby state"""
         return self.version
+
+    async def wait_for_change(self, since_version: int) -> None:
+        """Wait for lobby state to change from the given version.
+
+        Args:
+            since_version: The version to wait for changes from
+
+        Returns immediately if the current version is different from since_version.
+        Otherwise, waits for the change_event to be set.
+        """
+        # If version already changed, return immediately
+        if self.get_version() != since_version:
+            return
+
+        # Clear the event for this wait cycle
+        self.change_event.clear()
+
+        # Check version again after clearing (in case it changed)
+        if self.get_version() != since_version:
+            return
+
+        # Wait for the event to be set
+        await self.change_event.wait()

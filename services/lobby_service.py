@@ -126,3 +126,7 @@ class LobbyService:
     def get_lobby_version(self) -> int:
         """Get the current version of the lobby state"""
         return self.lobby.get_version()
+
+    async def wait_for_lobby_change(self, since_version: int) -> None:
+        """Wait for lobby state to change from the given version"""
+        await self.lobby.wait_for_change(since_version)

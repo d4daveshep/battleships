@@ -172,6 +172,7 @@ async def reset_lobby_for_testing() -> dict[str, str]:
     _game_lobby.players.clear()
     _game_lobby.game_requests.clear()
     _game_lobby.version = 0
+    _game_lobby.change_event = asyncio.Event()
 
     return {"status": "lobby cleared"}
 
@@ -290,21 +291,16 @@ async def lobby_status_long_poll(
         return await _render_lobby_status(request, player_name)
 
     # Version matches - wait for changes or timeout
-    start_time = time.time()
-    end_time = start_time + timeout
-
-    while time.time() < end_time:
-        # Sleep briefly to avoid busy-waiting
-        await asyncio.sleep(0.1)
-
-        # Check if version changed
-        new_version = lobby_service.get_lobby_version()
-        if new_version != version:
-            # State changed, return new state
-            return await _render_lobby_status(request, player_name)
-
-    # Timeout reached, return current state
-    return await _render_lobby_status(request, player_name)
+    try:
+        # Wait for change event with timeout
+        await asyncio.wait_for(
+            lobby_service.wait_for_lobby_change(version), timeout=timeout
+        )
+        # State changed, return new state
+        return await _render_lobby_status(request, player_name)
+    except asyncio.TimeoutError:
+        # Timeout reached, return current state
+        return await _render_lobby_status(request, player_name)
 
 
 async def _render_lobby_status(

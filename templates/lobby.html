@@ -12,8 +12,8 @@
     
     <!-- Lobby dynamic content section -->
     <div data-testid="lobby-player-status"
-         hx-get="/lobby/status/{{ player_name }}"
-         hx-trigger="load, every 1s"
+         hx-get="/lobby/status/{{ player_name }}/long-poll"
+         hx-trigger="load"
          hx-swap="innerHTML">
 
     </div>

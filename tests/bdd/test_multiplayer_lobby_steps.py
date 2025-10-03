@@ -424,8 +424,9 @@ def target_player_receives_game_request(
     setattr(page, "game_request_sender", sender_player)
     setattr(page, "game_request_target", target_player)
 
-    # Wait for polling cycle to complete (polling every 1s + buffer)
-    page.wait_for_timeout(1500)  # 1.5s wait for updates
+    # Wait for long polling to update (up to 35s timeout)
+    # Using a short timeout since long poll returns immediately on state change
+    page.wait_for_timeout(2000)  # Brief wait for long poll event trigger
 
 
 @then(
@@ -615,8 +616,8 @@ def player_leaves_lobby(page: Page, player_name: str) -> None:
     # Store the player who left for verification
     setattr(page, "player_who_left", player_name)
 
-    # Wait for polling cycle to complete (polling every 1s + buffer)
-    page.wait_for_timeout(1500)  # 1.5s wait for real-time updates
+    # Wait for long polling to update (returns immediately on state change)
+    page.wait_for_timeout(2000)  # Brief wait for long poll event trigger
 
 
 @then(
@@ -662,8 +663,8 @@ def sender_selects_me_as_opponent(page: Page, sender_player: str) -> None:
     setattr(page, "game_request_sender", sender_player)
     setattr(page, "game_request_receiver", current_player)
 
-    # Wait for polling cycle to update the UI
-    page.wait_for_timeout(1500)
+    # Wait for long polling to update the UI
+    page.wait_for_timeout(2000)  # Brief wait for long poll event trigger
 
 
 @then(
@@ -762,8 +763,8 @@ def have_received_game_request(page: Page, sender_player: str) -> None:
     setattr(page, "game_request_sender", sender_player)
     setattr(page, "game_request_receiver", current_player)
 
-    # Wait for the UI to update and show the request
-    page.wait_for_timeout(1500)
+    # Wait for long poll UI to update and show the request
+    page.wait_for_timeout(2000)  # Brief wait for long poll event trigger
 
     # Verify the request is visible
     notification: Locator = page.locator('[data-testid="game-request-notification"]')
@@ -887,8 +888,8 @@ def sender_status_returns_to_available(page: Page, sender_name: str) -> None:
     # Verify that the sender's status returns to Available after decline
     # This tests the real-time status updates in the lobby
 
-    # Wait for status update polling cycle
-    page.wait_for_timeout(1500)
+    # Wait for status update long polling
+    page.wait_for_timeout(2000)  # Brief wait for long poll event trigger
 
     # Check the sender's status in the lobby
     sender_status: Locator = page.locator(
@@ -967,7 +968,7 @@ def opponent_accepts_my_game_request(page: Page, opponent_name: str) -> None:
     # Store the acceptance details for verification
     setattr(page, "game_request_accepted_by", opponent_name)
     
-    # Wait for the UI to update with the acceptance
-    page.wait_for_timeout(1500)
+    # Wait for the long poll UI to update with the acceptance
+    page.wait_for_timeout(2000)  # Brief wait for long poll event trigger
 
 

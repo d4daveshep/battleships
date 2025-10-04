@@ -138,6 +138,17 @@ Feature: Multiplayer Game Lobby
     Then I should be redirected to the game interface
     And "Bob" should be named as my opponent
 
+  Scenario: Other players accept game requests
+    Given I've logged in as "Alice" and selected human opponent
+    And there are other players in the lobby:
+      | Player Name | Status    |
+      | Bob         | Available |
+      | Charlie     | Available |
+    And "Bob" selects "Charlie" as his opponent
+    When "Charlie" accepts the game request from "Bob"
+    Then I should remain in the lobby
+    And I should not see any selectable players
+
   # Scenario: Multiple players joining the lobby simultaneously
   #   Given I am in the lobby as "Henry"
   #   And there is one other player "Iris" in the lobby

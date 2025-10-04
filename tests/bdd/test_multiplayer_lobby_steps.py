@@ -961,9 +961,9 @@ def ive_selected_opponent_as_my_opponent(page: Page, opponent_name: str) -> None
 def opponent_accepts_my_game_request(page: Page, opponent_name: str) -> None:
     # Simulate the opponent accepting the current player's game request
     # This would typically involve the opponent clicking "Accept" in their browser session
-    
+
     current_player = getattr(page, "current_player_name", "TestPlayer")
-    
+
     # Simulate the opponent accepting the request via HTTP client
     # In a real implementation, this would involve WebSocket messaging or API calls
     with httpx.Client() as client:
@@ -971,11 +971,56 @@ def opponent_accepts_my_game_request(page: Page, opponent_name: str) -> None:
             "http://localhost:8000/accept-game-request",
             data={"player_name": opponent_name, "sender_name": current_player},
         )
-    
+
     # Store the acceptance details for verification
     setattr(page, "game_request_accepted_by", opponent_name)
-    
+
     # Wait for the long poll UI to update with the acceptance
     page.wait_for_timeout(2000)  # Brief wait for long poll event trigger
+
+
+@given(parsers.parse('"{sender_player}" selects "{opponent_player}" as his opponent'))
+def player_selects_another_as_opponent(page: Page, sender_player: str, opponent_player: str) -> None:
+    """Simulate one player selecting another player as opponent"""
+    # Use HTTP client to simulate the selection
+    with httpx.Client() as client:
+        response = client.post(
+            "http://localhost:8000/select-opponent",
+            data={"player_name": sender_player, "opponent_name": opponent_player},
+        )
+
+    # Store the request details
+    setattr(page, "other_game_request_sender", sender_player)
+    setattr(page, "other_game_request_receiver", opponent_player)
+
+    # Wait for UI update
+    page.wait_for_timeout(1000)
+
+
+@when(parsers.parse('"{receiver_player}" accepts the game request from "{sender_player}"'))
+def receiver_accepts_game_request_from_sender(page: Page, receiver_player: str, sender_player: str) -> None:
+    """Simulate a player accepting a game request from another player"""
+    # Use HTTP client to simulate the acceptance
+    with httpx.Client() as client:
+        response = client.post(
+            "http://localhost:8000/accept-game-request",
+            data={"player_name": receiver_player, "sender_name": sender_player},
+        )
+
+    # Wait for long poll UI to update
+    page.wait_for_timeout(2000)
+
+
+@then("I should remain in the lobby")
+def should_remain_in_lobby(page: Page) -> None:
+    """Verify that the current player is still in the lobby"""
+    # Check that we're still on the lobby page, not redirected to game
+    current_url = page.url
+    assert "lobby" in current_url, f"Expected to be in lobby, but URL is: {current_url}"
+    assert "game" not in current_url, f"Should not be on game page, but URL is: {current_url}"
+
+    # Verify lobby interface elements are present
+    lobby_container: Locator = page.locator('[data-testid="lobby-container"]')
+    assert lobby_container.is_visible(), "Lobby container should be visible"
 
 

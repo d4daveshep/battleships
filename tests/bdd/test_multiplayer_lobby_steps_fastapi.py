@@ -1088,3 +1088,68 @@ def opponent_accepts_my_game_request(
         game_response = client.get(game_url)
         lobby_context.update_response(game_response)
 
+
+@given(parsers.parse('"{sender_player}" selects "{opponent_player}" as his opponent'))
+def player_selects_another_as_opponent(
+    client: TestClient, lobby_context: LobbyTestContext, sender_player: str, opponent_player: str
+) -> None:
+    """Simulate one player selecting another player as opponent"""
+    # Store current player to restore later
+    current_player = lobby_context.current_player_name
+
+    # Simulate sender selecting opponent
+    form_data = {"player_name": sender_player, "opponent_name": opponent_player}
+    response = client.post("/select-opponent", data=form_data)
+
+    # Store the request details
+    lobby_context.game_request_sender = sender_player
+    lobby_context.game_request_target = opponent_player
+
+    # Restore current player's perspective
+    if current_player:
+        lobby_response = client.get(f"/lobby?player_name={current_player}")
+        lobby_context.update_response(lobby_response)
+        lobby_context.current_player_name = current_player
+
+
+@when(parsers.parse('"{receiver_player}" accepts the game request from "{sender_player}"'))
+def receiver_accepts_game_request_from_sender(
+    client: TestClient, lobby_context: LobbyTestContext, receiver_player: str, sender_player: str
+) -> None:
+    """Simulate a player accepting a game request from another player"""
+    # Store current player to restore later
+    current_player = lobby_context.current_player_name
+
+    # Simulate receiver accepting the request
+    form_data = {"player_name": receiver_player, "sender_name": sender_player}
+    response = client.post("/accept-game-request", data=form_data)
+
+    # Restore current player's perspective
+    if current_player:
+        lobby_response = client.get(f"/lobby?player_name={current_player}")
+        lobby_context.update_response(lobby_response)
+        lobby_context.current_player_name = current_player
+
+
+@then("I should remain in the lobby")
+def should_remain_in_lobby(lobby_context: LobbyTestContext) -> None:
+    """Verify that the current player is still in the lobby"""
+    assert lobby_context.response is not None
+    assert lobby_context.soup is not None
+
+    # Should be on lobby page (status 200)
+    assert lobby_context.response.status_code == 200
+
+    # Verify we're on the lobby page by checking for lobby elements
+    h1_element = lobby_context.soup.find("h1")
+    if h1_element:
+        assert "lobby" in h1_element.get_text().lower(), "Should be on lobby page"
+
+    # Verify NOT on game page
+    if h1_element:
+        assert "game" not in h1_element.get_text().lower(), "Should not be on game page"
+
+    # Verify lobby container exists
+    lobby_container = lobby_context.soup.find(attrs={"data-testid": "lobby-container"})
+    assert lobby_container is not None, "Lobby container should be present"
+

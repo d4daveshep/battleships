@@ -1,17 +1,15 @@
+import asyncio
+from typing import Any
+
 from fastapi import FastAPI, Form, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from typing import Any
-import asyncio
-import time
-
 from starlette.responses import Response
 
 from game.lobby import Lobby
 from game.player import GameRequest, Player, PlayerStatus
 from services.auth_service import AuthService, PlayerNameValidation
 from services.lobby_service import LobbyService
-
 
 app: FastAPI = FastAPI()
 templates: Jinja2Templates = Jinja2Templates(directory="templates")
@@ -150,9 +148,9 @@ async def validate_player_name(
     )
 
     return templates.TemplateResponse(
-        request,
-        "components/player_name_input.html",
-        {
+        request=request,
+        name="components/player_name_input.html",
+        context={
             "player_name": player_name,
             "error_message": validation.error_message,
             "css_class": validation.css_class,
@@ -201,7 +199,11 @@ async def lobby_page(request: Request, player_name: str = "") -> HTMLResponse:
         "player_name": player_name,
     }
 
-    return templates.TemplateResponse(request, "lobby.html", template_context)
+    return templates.TemplateResponse(
+        request=request,
+        name="lobby.html",
+        context=template_context,
+    )
 
 
 @app.post("/leave-lobby", response_model=None)
@@ -318,7 +320,9 @@ async def _render_lobby_status(
                 if not opponent_name:
                     # Edge case: player is IN_GAME but no opponent found
                     # This shouldn't happen in normal flow, but handle gracefully
-                    template_context["error_message"] = "Game pairing error - opponent not found"
+                    template_context["error_message"] = (
+                        "Game pairing error - opponent not found"
+                    )
                     return templates.TemplateResponse(
                         request=request,
                         name="lobby_status_component.html",
@@ -396,9 +400,9 @@ async def decline_game_request(
         player_status: str = lobby_service.get_player_status(player_name).value
 
         return templates.TemplateResponse(
-            request,
-            "components/lobby_dynamic_content.html",
-            {
+            request=request,
+            name="components/lobby_dynamic_content.html",
+            context={
                 "player_name": player_name,
                 "game_mode": "Two Player",
                 "available_players": lobby_data,

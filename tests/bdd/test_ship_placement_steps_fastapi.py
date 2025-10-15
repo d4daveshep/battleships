@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 from bs4 import BeautifulSoup, Tag
 from httpx import Response
 from dataclasses import dataclass, field
+from typing import Any
 import pytest
 
 
@@ -22,20 +23,20 @@ class ShipPlacementContext:
     last_placement_error: str | None = None
     game_mode: str = "computer"  # Default to single player mode
 
-    def update_response(self, response: Response):
+    def update_response(self, response: Response) -> None:
         """Update context with new response and parse HTML"""
         self.response = response
         self.soup = BeautifulSoup(response.text, "html.parser")
 
 
 @pytest.fixture
-def ship_context():
+def ship_context() -> ShipPlacementContext:
     """Provide a test context for maintaining state between BDD steps"""
     return ShipPlacementContext()
 
 
 @pytest.fixture
-def client():
+def client() -> TestClient:
     """FastAPI TestClient fixture"""
     from main import app
 
@@ -63,11 +64,11 @@ def logged_in_and_selected_game_mode(
 ) -> None:
     """Login and select a game mode"""
     # First get the login page
-    response = client.get("/")
+    response: Response = client.get("/")
     ship_context.update_response(response)
 
     # Submit login form with game mode selection
-    form_data = {"player_name": "TestPlayer", "game_mode": ship_context.game_mode}
+    form_data: dict[str, str] = {"player_name": "TestPlayer", "game_mode": ship_context.game_mode}
     response = client.post("/", data=form_data)
     ship_context.update_response(response)
 
@@ -82,9 +83,9 @@ def on_ship_placement_screen(
     # After login, should be redirected to ship placement or game setup
     # Follow any redirects to get to ship placement screen
     if ship_context.response and ship_context.response.status_code in [302, 303]:
-        redirect_url = ship_context.response.headers.get("location")
+        redirect_url: str | None = ship_context.response.headers.get("location")
         if redirect_url:
-            target_response = client.get(redirect_url)
+            target_response: Response = client.get(redirect_url)
             ship_context.update_response(target_response)
 
     on_ship_placement_page(ship_context)
@@ -94,7 +95,7 @@ def on_ship_placement_screen(
 def my_ships_board_displayed(ship_context: ShipPlacementContext) -> None:
     """Verify the player's board is displayed"""
     assert ship_context.soup is not None
-    board = ship_context.soup.find(attrs={"data-testid": "my-ships-board"})
+    board: Tag | None = ship_context.soup.find(attrs={"data-testid": "my-ships-board"})
     assert board is not None
 
 
@@ -127,14 +128,14 @@ def place_ship_horizontally(
     assert ship_context.current_player_name is not None
     assert ship_context.selected_ship is not None
 
-    form_data = {
+    form_data: dict[str, str] = {
         "player_name": ship_context.current_player_name,
         "ship_name": ship_context.selected_ship,
         "start_coordinate": start,
         "end_coordinate": end,
         "orientation": "horizontal",
     }
-    response = client.post("/place-ship", data=form_data)
+    response: Response = client.post("/place-ship", data=form_data)
     ship_context.update_response(response)
 
     # If successful, store the placed ship
@@ -153,14 +154,14 @@ def place_ship_vertically(
     assert ship_context.current_player_name is not None
     assert ship_context.selected_ship is not None
 
-    form_data = {
+    form_data: dict[str, str] = {
         "player_name": ship_context.current_player_name,
         "ship_name": ship_context.selected_ship,
         "start_coordinate": start,
         "end_coordinate": end,
         "orientation": "vertical",
     }
-    response = client.post("/place-ship", data=form_data)
+    response: Response = client.post("/place-ship", data=form_data)
     ship_context.update_response(response)
 
     # If successful, store the placed ship
@@ -179,14 +180,14 @@ def place_ship_diagonally(
     assert ship_context.current_player_name is not None
     assert ship_context.selected_ship is not None
 
-    form_data = {
+    form_data: dict[str, str] = {
         "player_name": ship_context.current_player_name,
         "ship_name": ship_context.selected_ship,
         "start_coordinate": start,
         "end_coordinate": end,
         "orientation": "diagonal",
     }
-    response = client.post("/place-ship", data=form_data)
+    response: Response = client.post("/place-ship", data=form_data)
     ship_context.update_response(response)
 
     # If successful, store the placed ship
@@ -207,14 +208,14 @@ def attempt_place_ship_horizontally(
     assert ship_context.current_player_name is not None
     assert ship_context.selected_ship is not None
 
-    form_data = {
+    form_data: dict[str, str] = {
         "player_name": ship_context.current_player_name,
         "ship_name": ship_context.selected_ship,
         "start_coordinate": start,
         "end_coordinate": end,
         "orientation": "horizontal",
     }
-    response = client.post("/place-ship", data=form_data)
+    response: Response = client.post("/place-ship", data=form_data)
     ship_context.update_response(response)
 
 
@@ -228,14 +229,14 @@ def attempt_place_ship_vertically(
     assert ship_context.current_player_name is not None
     assert ship_context.selected_ship is not None
 
-    form_data = {
+    form_data: dict[str, str] = {
         "player_name": ship_context.current_player_name,
         "ship_name": ship_context.selected_ship,
         "start_coordinate": start,
         "end_coordinate": end,
         "orientation": "vertical",
     }
-    response = client.post("/place-ship", data=form_data)
+    response: Response = client.post("/place-ship", data=form_data)
     ship_context.update_response(response)
 
 
@@ -249,14 +250,14 @@ def attempt_place_ship_diagonally(
     assert ship_context.current_player_name is not None
     assert ship_context.selected_ship is not None
 
-    form_data = {
+    form_data: dict[str, str] = {
         "player_name": ship_context.current_player_name,
         "ship_name": ship_context.selected_ship,
         "start_coordinate": start,
         "end_coordinate": end,
         "orientation": "diagonal",
     }
-    response = client.post("/place-ship", data=form_data)
+    response: Response = client.post("/place-ship", data=form_data)
     ship_context.update_response(response)
 
 
@@ -268,13 +269,13 @@ def attempt_place_ship_at_coordinates(
     assert ship_context.current_player_name is not None
     assert ship_context.selected_ship is not None
 
-    form_data = {
+    form_data: dict[str, str] = {
         "player_name": ship_context.current_player_name,
         "ship_name": ship_context.selected_ship,
         "start_coordinate": start,
         "end_coordinate": end,
     }
-    response = client.post("/place-ship", data=form_data)
+    response: Response = client.post("/place-ship", data=form_data)
     ship_context.update_response(response)
 
 
@@ -285,7 +286,7 @@ def attempt_place_ship_at_coordinates(
 def ship_placed_on_board(ship_context: ShipPlacementContext, ship_name: str) -> None:
     """Verify ship is placed on the board"""
     assert ship_context.soup is not None
-    ship_element = ship_context.soup.find(
+    ship_element: Tag | None = ship_context.soup.find(
         attrs={"data-testid": f"placed-ship-{ship_name.lower()}"}
     )
     assert ship_element is not None
@@ -306,15 +307,15 @@ def ship_placed_on_board(ship_context: ShipPlacementContext, ship_name: str) -> 
     )
 )
 @then(parsers.parse('the {ship_name} should occupy cells "{cell1}" and "{cell2}"'))
-def ship_occupies_cells(ship_context: ShipPlacementContext, ship_name: str, **kwargs) -> None:
+def ship_occupies_cells(ship_context: ShipPlacementContext, ship_name: str, **kwargs: Any) -> None:
     """Verify ship occupies the correct cells"""
     assert ship_context.soup is not None
     # Extract all cell values from kwargs
-    cells = [v for k, v in kwargs.items() if k.startswith("cell")]
+    cells: list[str] = [v for k, v in kwargs.items() if k.startswith("cell")]
 
     # Verify each cell is marked as occupied by the ship
     for cell in cells:
-        cell_element = ship_context.soup.find(
+        cell_element: Tag | None = ship_context.soup.find(
             attrs={"data-testid": f"cell-{cell}", "data-ship": ship_name.lower()}
         )
         assert cell_element is not None, f"Cell {cell} should be occupied by {ship_name}"
@@ -324,7 +325,7 @@ def ship_occupies_cells(ship_context: ShipPlacementContext, ship_name: str, **kw
 def ship_marked_as_placed(ship_context: ShipPlacementContext, ship_name: str) -> None:
     """Verify ship is marked as placed in the UI"""
     assert ship_context.soup is not None
-    ship_status = ship_context.soup.find(
+    ship_status: Tag | None = ship_context.soup.find(
         attrs={"data-testid": f"ship-status-{ship_name.lower()}"}
     )
     assert ship_status is not None
@@ -348,7 +349,7 @@ def should_see_error_message(
 ) -> None:
     """Verify error message is displayed"""
     assert ship_context.soup is not None
-    error_element = ship_context.soup.find(attrs={"data-testid": "placement-error"})
+    error_element: Tag | None = ship_context.soup.find(attrs={"data-testid": "placement-error"})
     assert error_element is not None
     assert error_message in error_element.get_text()
     ship_context.last_placement_error = error_message
@@ -367,7 +368,7 @@ def ship_should_not_be_placed(
 def no_error_message_displayed(ship_context: ShipPlacementContext) -> None:
     """Verify no error message is shown"""
     assert ship_context.soup is not None
-    error_element = ship_context.soup.find(attrs={"data-testid": "placement-error"})
+    error_element: Tag | None = ship_context.soup.find(attrs={"data-testid": "placement-error"})
     assert error_element is None
 
 
@@ -407,8 +408,8 @@ def click_random_placement_button(
 ) -> None:
     """Click the Random Placement button"""
     assert ship_context.current_player_name is not None
-    form_data = {"player_name": ship_context.current_player_name}
-    response = client.post("/random-ship-placement", data=form_data)
+    form_data: dict[str, str] = {"player_name": ship_context.current_player_name}
+    response: Response = client.post("/random-ship-placement", data=form_data)
     ship_context.update_response(response)
 
 
@@ -416,9 +417,9 @@ def click_random_placement_button(
 def all_ships_placed_automatically(ship_context: ShipPlacementContext) -> None:
     """Verify all 5 ships are placed"""
     assert ship_context.soup is not None
-    ship_names = ["carrier", "battleship", "cruiser", "submarine", "destroyer"]
+    ship_names: list[str] = ["carrier", "battleship", "cruiser", "submarine", "destroyer"]
     for ship_name in ship_names:
-        ship_element = ship_context.soup.find(
+        ship_element: Tag | None = ship_context.soup.find(
             attrs={"data-testid": f"placed-ship-{ship_name}"}
         )
         assert ship_element is not None, f"{ship_name} should be placed"
@@ -498,13 +499,15 @@ def place_the_ship(
     """Place a ship (using default coordinates for testing)"""
     ship_context.selected_ship = ship_name
     # Use some default coordinates for each ship
-    coordinates = {
+    coordinates: dict[str, tuple[str, str]] = {
         "Destroyer": ("A1", "A2"),
         "Submarine": ("C3", "C5"),
         "Cruiser": ("E5", "E7"),
         "Battleship": ("G1", "G4"),
         "Carrier": ("I1", "I5"),
     }
+    start: str
+    end: str
     start, end = coordinates.get(ship_name, ("A1", "A2"))
     place_ship_horizontally(client, ship_context, start, end)
 
@@ -533,7 +536,7 @@ def place_5th_ship(client: TestClient, ship_context: ShipPlacementContext) -> No
 def start_game_button_disabled(ship_context: ShipPlacementContext) -> None:
     """Verify Start Game button is disabled"""
     assert ship_context.soup is not None
-    start_button = ship_context.soup.find(attrs={"data-testid": "start-game-button"})
+    start_button: Tag | None = ship_context.soup.find(attrs={"data-testid": "start-game-button"})
     assert start_button is not None
     if isinstance(start_button, Tag):
         assert start_button.get("disabled") is not None
@@ -543,7 +546,7 @@ def start_game_button_disabled(ship_context: ShipPlacementContext) -> None:
 def start_game_button_enabled(ship_context: ShipPlacementContext) -> None:
     """Verify Start Game button is enabled"""
     assert ship_context.soup is not None
-    start_button = ship_context.soup.find(attrs={"data-testid": "start-game-button"})
+    start_button: Tag | None = ship_context.soup.find(attrs={"data-testid": "start-game-button"})
     assert start_button is not None
     if isinstance(start_button, Tag):
         assert start_button.get("disabled") is None
@@ -558,11 +561,11 @@ def click_ship_to_remove(
 ) -> None:
     """Click on a placed ship to remove it"""
     assert ship_context.current_player_name is not None
-    form_data = {
+    form_data: dict[str, str] = {
         "player_name": ship_context.current_player_name,
         "ship_name": ship_name,
     }
-    response = client.post("/remove-ship", data=form_data)
+    response: Response = client.post("/remove-ship", data=form_data)
     ship_context.update_response(response)
     # Remove from placed ships
     if ship_name in ship_context.placed_ships:
@@ -573,7 +576,7 @@ def click_ship_to_remove(
 def ship_removed_from_board(ship_context: ShipPlacementContext, ship_name: str) -> None:
     """Verify ship is removed from the board"""
     assert ship_context.soup is not None
-    ship_element = ship_context.soup.find(
+    ship_element: Tag | None = ship_context.soup.find(
         attrs={"data-testid": f"placed-ship-{ship_name.lower()}"}
     )
     assert ship_element is None
@@ -585,7 +588,7 @@ def ship_available_to_place_again(
 ) -> None:
     """Verify ship is available for placement"""
     assert ship_context.soup is not None
-    ship_selector = ship_context.soup.find(
+    ship_selector: Tag | None = ship_context.soup.find(
         attrs={"data-testid": f"select-ship-{ship_name.lower()}"}
     )
     assert ship_selector is not None
@@ -597,7 +600,7 @@ def ship_count_should_show(
 ) -> None:
     """Verify ship count is displayed correctly"""
     assert ship_context.soup is not None
-    count_element = ship_context.soup.find(
+    count_element: Tag | None = ship_context.soup.find(
         attrs={"data-testid": "ship-placement-count"}
     )
     assert count_element is not None
@@ -623,8 +626,8 @@ def click_reset_all_ships_button(
 ) -> None:
     """Click the Reset All Ships button"""
     assert ship_context.current_player_name is not None
-    form_data = {"player_name": ship_context.current_player_name}
-    response = client.post("/reset-all-ships", data=form_data)
+    form_data: dict[str, str] = {"player_name": ship_context.current_player_name}
+    response: Response = client.post("/reset-all-ships", data=form_data)
     ship_context.update_response(response)
     ship_context.placed_ships = {}
 
@@ -633,9 +636,9 @@ def click_reset_all_ships_button(
 def all_ships_removed_from_board(ship_context: ShipPlacementContext) -> None:
     """Verify all ships are removed"""
     assert ship_context.soup is not None
-    ship_names = ["carrier", "battleship", "cruiser", "submarine", "destroyer"]
+    ship_names: list[str] = ["carrier", "battleship", "cruiser", "submarine", "destroyer"]
     for ship_name in ship_names:
-        ship_element = ship_context.soup.find(
+        ship_element: Tag | None = ship_context.soup.find(
             attrs={"data-testid": f"placed-ship-{ship_name}"}
         )
         assert ship_element is None, f"{ship_name} should be removed"
@@ -645,9 +648,9 @@ def all_ships_removed_from_board(ship_context: ShipPlacementContext) -> None:
 def all_ships_available_to_place_again(ship_context: ShipPlacementContext) -> None:
     """Verify all ships are available for placement"""
     assert ship_context.soup is not None
-    ship_names = ["carrier", "battleship", "cruiser", "submarine", "destroyer"]
+    ship_names: list[str] = ["carrier", "battleship", "cruiser", "submarine", "destroyer"]
     for ship_name in ship_names:
-        ship_selector = ship_context.soup.find(
+        ship_selector: Tag | None = ship_context.soup.find(
             attrs={"data-testid": f"select-ship-{ship_name}"}
         )
         assert ship_selector is not None, f"{ship_name} should be available"
@@ -680,8 +683,8 @@ def click_start_game_button(
 ) -> None:
     """Click the Start Game button"""
     assert ship_context.current_player_name is not None
-    form_data = {"player_name": ship_context.current_player_name}
-    response = client.post("/start-game", data=form_data)
+    form_data: dict[str, str] = {"player_name": ship_context.current_player_name}
+    response: Response = client.post("/start-game", data=form_data)
     ship_context.update_response(response)
 
 
@@ -707,7 +710,7 @@ def game_starts_immediately(ship_context: ShipPlacementContext) -> None:
     assert ship_context.response is not None
     # Should redirect to game screen or already be on game screen
     if ship_context.response.status_code in [302, 303]:
-        redirect_url = ship_context.response.headers.get("location")
+        redirect_url: str | None = ship_context.response.headers.get("location")
         assert redirect_url is not None
         assert "game" in redirect_url or "round" in redirect_url
 
@@ -727,8 +730,8 @@ def click_ready_button(
 ) -> None:
     """Click the Ready button"""
     assert ship_context.current_player_name is not None
-    form_data = {"player_name": ship_context.current_player_name}
-    response = client.post("/ready-for-game", data=form_data)
+    form_data: dict[str, str] = {"player_name": ship_context.current_player_name}
+    response: Response = client.post("/ready-for-game", data=form_data)
     ship_context.update_response(response)
 
 
@@ -736,7 +739,7 @@ def click_ready_button(
 def should_see_message(ship_context: ShipPlacementContext, message: str) -> None:
     """Verify message is displayed"""
     assert ship_context.soup is not None
-    message_element = ship_context.soup.find(attrs={"data-testid": "status-message"})
+    message_element: Tag | None = ship_context.soup.find(attrs={"data-testid": "status-message"})
     assert message_element is not None
     assert message in message_element.get_text()
 
@@ -746,9 +749,9 @@ def cannot_modify_ship_placement(ship_context: ShipPlacementContext) -> None:
     """Verify ship placement is locked"""
     assert ship_context.soup is not None
     # Ship selection buttons should be disabled
-    ship_names = ["carrier", "battleship", "cruiser", "submarine", "destroyer"]
+    ship_names: list[str] = ["carrier", "battleship", "cruiser", "submarine", "destroyer"]
     for ship_name in ship_names:
-        ship_selector = ship_context.soup.find(
+        ship_selector: Tag | None = ship_context.soup.find(
             attrs={"data-testid": f"select-ship-{ship_name}"}
         )
         if ship_selector and isinstance(ship_selector, Tag):
@@ -777,7 +780,7 @@ def game_should_start(ship_context: ShipPlacementContext) -> None:
     assert ship_context.response is not None
     # Should redirect to game or be on game page
     if ship_context.response.status_code in [302, 303]:
-        redirect_url = ship_context.response.headers.get("location")
+        redirect_url: str | None = ship_context.response.headers.get("location")
         assert redirect_url is not None
         assert "game" in redirect_url or "round" in redirect_url
 

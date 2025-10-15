@@ -16,6 +16,18 @@ This is a variation of the Battleships game used to learn and practice BDD and T
 - **Browser Testing**: Playwright for end-to-end testing
 - **Package Management**: UV (modern Python package manager)
 
+## Code Style Requirements
+
+### Type Hints
+All Python code must include comprehensive type hints:
+- All function parameters and return types
+- Internal variables, especially for complex types (Response, Tag, dict, list, etc.)
+- Class attributes and methods
+- Fixture return types in tests
+- Use modern Python 3.10+ union syntax: `str | None` instead of `Optional[str]`
+- Use generic types: `dict[str, str]`, `list[int]`, etc.
+- Use `typing.Any` for **kwargs and other dynamic types when needed
+
 ## Development Commands
 
 ### Package Management

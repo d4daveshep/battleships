@@ -1,9 +1,11 @@
 # BDD Features Implementation Plan
 
 ## Overview
+
 This document outlines the feature files needed to implement the Battleships game following strict BDD/TDD principles.
 
 ## Existing Features
+
 ✓ `login.feature` - Player authentication and game mode selection
 ✓ `multiplayer_lobby.feature` - Matchmaking and opponent selection
 ✓ `long_polling_updates.feature` - Real-time lobby updates
@@ -11,9 +13,11 @@ This document outlines the feature files needed to implement the Battleships gam
 ## Proposed New Features
 
 ### 1. **ship_placement.feature**
+
 **As a player, I want to place my ships on the board, so I can prepare for battle**
 
 **Scenarios:**
+
 - Manual ship placement (horizontal orientation)
 - Manual ship placement (vertical orientation)
 - Manual ship placement (diagonal orientation)
@@ -28,9 +32,11 @@ This document outlines the feature files needed to implement the Battleships gam
 - Ship placement cancellation/reset
 
 ### 2. **game_initialization.feature**
+
 **As a player, I want the game to be properly set up, so both players can begin playing**
 
 **Scenarios:**
+
 - Game starts after both players place ships
 - Initial game state (Round 1, all ships afloat)
 - Board display shows correct grids and labels (A-J, 1-10)
@@ -40,9 +46,11 @@ This document outlines the feature files needed to implement the Battleships gam
 - Multiplayer: waiting for opponent to place ships
 
 ### 3. **firing_shots.feature**
+
 **As a player, I want to fire shots at my opponent, so I can sink their ships**
 
 **Scenarios:**
+
 - Aiming shots on the Shots Fired board
 - Firing available number of shots (based on unsunk ships)
 - Cannot fire at same location twice across the game
@@ -54,9 +62,11 @@ This document outlines the feature files needed to implement the Battleships gam
 - Computer opponent fires shots automatically
 
 ### 4. **round_processing.feature**
+
 **As a player, I want each round to be processed correctly, so hits are recorded accurately**
 
 **Scenarios:**
+
 - Round 1 complete processing (both players fire, results calculated)
 - Shots recorded on both players' boards with round numbers
 - Hit detection - shot hits opponent's ship
@@ -68,9 +78,11 @@ This document outlines the feature files needed to implement the Battleships gam
 - Simultaneous round processing (both players fire)
 
 ### 5. **hit_tracking.feature**
+
 **As a player, I want to track my hits, so I can identify where opponent's ships are located**
 
 **Scenarios:**
+
 - Recording hit on opponent's Carrier in Hits Made area
 - Recording hit on opponent's Battleship in Hits Made area
 - Recording hit on opponent's Cruiser in Hits Made area
@@ -82,9 +94,11 @@ This document outlines the feature files needed to implement the Battleships gam
 - Recording shots received on own ships
 
 ### 6. **ship_sinking.feature**
+
 **As a player, I want ships to sink when fully hit, so the game progresses**
 
 **Scenarios:**
+
 - Destroyer sinks after 2 hits
 - Submarine sinks after 3 hits
 - Cruiser sinks after 3 hits
@@ -97,9 +111,11 @@ This document outlines the feature files needed to implement the Battleships gam
 - Available shots recalculated after ship sinks
 
 ### 7. **game_progression.feature**
+
 **As a player, I want the game to progress smoothly through rounds, so I can play until completion**
 
 **Scenarios:**
+
 - Progressing from Round 1 to Round 2
 - Round history maintained (all previous shots visible)
 - Both players synchronized on round number
@@ -109,9 +125,11 @@ This document outlines the feature files needed to implement the Battleships gam
 - Shot count decreases as ships are sunk
 
 ### 8. **game_completion.feature**
+
 **As a player, I want to know when the game ends, so I can see the outcome**
 
 **Scenarios:**
+
 - Player wins by sinking all opponent's ships first
 - Game drawn when both sink last ships in same round
 - Player wins when opponent surrenders/abandons
@@ -122,9 +140,11 @@ This document outlines the feature files needed to implement the Battleships gam
 - Return to lobby/login after game ends
 
 ### 9. **computer_opponent_strategy.feature**
+
 **As a player facing a computer, I want the AI to play intelligently, so the game is challenging**
 
 **Scenarios:**
+
 - Computer places ships randomly following all rules
 - Computer fires random shots when hunting
 - Computer fires adjacent shots after scoring a hit
@@ -134,9 +154,11 @@ This document outlines the feature files needed to implement the Battleships gam
 - Computer follows all game rules
 
 ### 10. **game_board_ui.feature**
+
 **As a player, I want a clear visual interface, so I can understand the game state**
 
 **Scenarios:**
+
 - "My Ships and Shots Received" board displays correctly
 - "Shots Fired" board displays correctly
 - Grid labels (A-J vertically, 1-10 horizontally) visible

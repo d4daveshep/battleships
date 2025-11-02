@@ -1,9 +1,11 @@
 # Agent Guidelines for Battleships Codebase
 
 ## Project Overview
+
 Battleships game for learning BDD/TDD. Supports single-player (vs computer) and multiplayer (vs human) with real-time updates.
 
 ## Technology Stack
+
 - **Python**: 3.13+ (managed via uv)
 - **Backend**: FastAPI with Uvicorn
 - **Templates**: Jinja2
@@ -13,12 +15,14 @@ Battleships game for learning BDD/TDD. Supports single-player (vs computer) and 
 ## Development Commands
 
 ### Package Management
+
 - `uv sync` - Install/sync dependencies
 - `uv add <package>` - Add dependency
 - `uv add --dev <package>` - Add dev dependency
 - `uv remove <package>` - Remove dependency
 
 ### Test Commands
+
 - `uv run pytest` - Run all tests
 - `uv run pytest --cov` - Run with coverage
 - `uv run pytest -v` - Verbose output
@@ -31,18 +35,21 @@ Battleships game for learning BDD/TDD. Supports single-player (vs computer) and 
 - No separate lint/typecheck commands configured
 
 ### Development Server
+
 - `uv run uvicorn main:app --reload` - Start dev server
 - `uv run python main.py` - Alternative start
 
 ## Project Structure
 
 ### Core Application
+
 - `main.py` - FastAPI entry point with all routes
 - `game/` - Core game logic (lobby.py, player.py)
 - `services/` - Business logic (auth_service.py, lobby_service.py)
 - `templates/` - Jinja2 templates and components
 
 ### Testing
+
 - `features/` - BDD feature files (Gherkin)
 - `tests/bdd/` - BDD step definitions
 - `tests/unit/` - Unit tests
@@ -50,7 +57,7 @@ Battleships game for learning BDD/TDD. Supports single-player (vs computer) and 
 
 ## Code Style
 
-**Type Hints**: Required everywhere - params, returns, variables (especially `Response`, `Tag`, `dict`, `list`). Use modern syntax: `str | None` not `Optional[str]`, `dict[str, str]`, `list[int]`. Use `typing.Any` for **kwargs.
+**Type Hints**: Required everywhere - params, returns, variables (especially `Response`, `Tag`, `dict`, `list`). Use modern syntax: `str | None` not `Optional[str]`, `dict[str, str]`, `list[int]`. Use `typing.Any` for \*\*kwargs.
 
 **Imports**: Separate standard library, third-party, local (game/, services/) with blank lines. Type-only imports from typing.
 
@@ -69,18 +76,21 @@ Battleships game for learning BDD/TDD. Supports single-player (vs computer) and 
 ## Architecture
 
 ### Web Application
+
 - FastAPI backend (single main.py)
 - Service layer (auth_service, lobby_service)
 - Long-polling for real-time updates
 - Server-side rendering with Jinja2 and HTMX
 
 ### Game State
+
 - Global lobby for multiplayer coordination
 - Player status tracking (Available, Busy, In-Game)
 - Async request/accept/decline workflow
 - Version-based updates for efficient long-polling
 
 ### Key Features
+
 - Player login with name validation
 - Dual modes: single-player vs computer, multiplayer vs humans
 - Real-time lobby with live updates

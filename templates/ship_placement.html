@@ -5,4 +5,18 @@
 {% block content %}
 <h1>Ship Placement</h1>
 <p>Player: {{ player_name }}</p>
+
+<div data-testid="my-ships-board">
+    <!-- Placeholder for "My Ships and Shots Received" board -->
+    
+    {% for ship_name, ship_data in placed_ships.items() %}
+    <div data-testid="placed-ship-{{ ship_name.lower() }}">
+        <span data-testid="ship-status-{{ ship_name.lower() }}">{{ ship_name }} - Placed</span>
+        <!-- Display cells occupied by the ship -->
+        {% for cell in ship_data.cells %}
+        <span data-testid="cell-{{ cell }}" data-ship="{{ ship_name.lower() }}">{{ cell }}</span>
+        {% endfor %}
+    </div>
+    {% endfor %}
+</div>
 {% endblock %}

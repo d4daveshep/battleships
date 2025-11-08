@@ -36,6 +36,35 @@ def _build_game_url(player_name: str, opponent_name: str = "") -> str:
         return f"/game?player_name={player_name.strip()}&opponent_name={opponent_name.strip()}"
 
 
+def _calculate_ship_cells(start: str, end: str, orientation: str) -> list[str]:
+    """Calculate all cells occupied by a ship between start and end coordinates"""
+    # Parse coordinates (e.g., "A1" -> row='A', col=1)
+    start_row: str = start[0]
+    start_col: int = int(start[1:])
+    end_row: str = end[0]
+    end_col: int = int(end[1:])
+    
+    cells: list[str] = []
+    
+    if orientation == "horizontal":
+        # Same row, different columns
+        row: str = start_row
+        for col in range(start_col, end_col + 1):
+            cells.append(f"{row}{col}")
+    elif orientation == "vertical":
+        # Same column, different rows
+        col: int = start_col
+        start_ord: int = ord(start_row)
+        end_ord: int = ord(end_row)
+        for row_ord in range(start_ord, end_ord + 1):
+            cells.append(f"{chr(row_ord)}{col}")
+    else:
+        # For now, just return start and end
+        cells = [start, end]
+    
+    return cells
+
+
 def _create_error_response(
     request: Request,
     error_message: str,
@@ -131,6 +160,41 @@ async def ship_placement_page(
         "ship_placement.html",
         {
             "player_name": player_name,
+            "placed_ships": {},
+        },
+    )
+
+
+@app.post("/place-ship", response_class=HTMLResponse)
+async def place_ship(
+    request: Request,
+    player_name: str = Form(),
+    ship_name: str = Form(),
+    start_coordinate: str = Form(),
+    end_coordinate: str = Form(),
+    orientation: str = Form(),
+) -> HTMLResponse:
+    """Handle ship placement on the board"""
+    # Calculate which cells the ship occupies
+    cells: list[str] = _calculate_ship_cells(start_coordinate, end_coordinate, orientation)
+    
+    # For now, just accept the placement and return the updated page
+    # TODO: Add validation logic
+    placed_ships: dict[str, dict[str, Any]] = {
+        ship_name: {
+            "start": start_coordinate,
+            "end": end_coordinate,
+            "orientation": orientation,
+            "cells": cells,
+        }
+    }
+    
+    return templates.TemplateResponse(
+        request,
+        "ship_placement.html",
+        {
+            "player_name": player_name,
+            "placed_ships": placed_ships,
         },
     )
 

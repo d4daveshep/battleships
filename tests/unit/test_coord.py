@@ -31,10 +31,11 @@ class TestCoordCreation:
         assert coord.row == "B"
         assert coord.col == 3
 
-    def test_coord_is_dataclass(self) -> None:
-        """Coord is a dataclass"""
+    def test_coord_is_namedtuple(self) -> None:
+        """Coord is a NamedTuple"""
         coord = Coord(row="A", col=1)
-        assert hasattr(Coord, "__dataclass_fields__")
+        assert hasattr(Coord, "_fields")
+        assert Coord._fields == ("row", "col")
 
 
 class TestCoordValidation:

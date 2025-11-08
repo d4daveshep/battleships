@@ -98,7 +98,7 @@ async def login_submit(
             redirect_url = _build_lobby_url(player_name)
 
         elif game_mode == "computer":
-            redirect_url = _build_game_url(player_name)
+            redirect_url = f"/ship-placement?player_name={player_name.strip()}"
         else:
             raise ValueError(f"Invalid game mode: {game_mode}")
 
@@ -120,6 +120,19 @@ async def login_submit(
             css_class="error",
             status_code=status.HTTP_400_BAD_REQUEST,
         )
+
+
+@app.get("/ship-placement", response_class=HTMLResponse)
+async def ship_placement_page(
+    request: Request, player_name: str = ""
+) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "ship_placement.html",
+        {
+            "player_name": player_name,
+        },
+    )
 
 
 @app.get("/game", response_class=HTMLResponse)

@@ -1,6 +1,6 @@
 from pytest_bdd import scenarios, given, when, then, parsers
 from fastapi.testclient import TestClient
-from bs4 import BeautifulSoup, Tag
+from bs4 import BeautifulSoup, NavigableString, Tag
 from httpx import Response
 from dataclasses import dataclass, field
 from typing import Any
@@ -47,11 +47,10 @@ def on_ship_placement_page(context: ShipPlacementContext) -> None:
     """Helper function to verify we're on the ship placement screen"""
     assert context.soup is not None
     assert context.response is not None
-    # Look for ship placement screen elements
-    ship_placement_container = context.soup.find(
-        attrs={"data-testid": "ship-placement-container"}
-    )
-    assert ship_placement_container is not None
+    # Look for page title or H1 heading with "Ship Placement"
+    h1_element: Tag | NavigableString | None = context.soup.find("h1")
+    assert h1_element is not None
+    assert "Ship Placement" in h1_element.get_text()
     assert context.response.status_code == 200
 
 
@@ -98,9 +97,7 @@ def on_ship_placement_screen(
 def my_ships_board_displayed(ship_context: ShipPlacementContext) -> None:
     """Verify the player's board is displayed"""
     assert ship_context.soup is not None
-    board: Tag | None = ship_context.soup.find(
-        attrs={"data-testid": "my-ships-board"}
-    )
+    board: Tag | None = ship_context.soup.find(attrs={"data-testid": "my-ships-board"})
     assert board is not None
 
 

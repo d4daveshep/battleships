@@ -36,6 +36,35 @@ def _build_game_url(player_name: str, opponent_name: str = "") -> str:
         return f"/game?player_name={player_name.strip()}&opponent_name={opponent_name.strip()}"
 
 
+def _calculate_end_coordinate(start: str, orientation: str, length: int) -> str:
+    """Calculate end coordinate based on start, orientation, and ship length"""
+    # Parse start coordinate (e.g., "A1" -> row='A', col=1)
+    start_row: str = start[0]
+    start_col: int = int(start[1:])
+    
+    if orientation == "horizontal":
+        # Same row, increment column
+        end_col: int = start_col + length - 1
+        return f"{start_row}{end_col}"
+    elif orientation == "vertical":
+        # Same column, increment row
+        end_row_ord: int = ord(start_row) + length - 1
+        return f"{chr(end_row_ord)}{start_col}"
+    elif orientation == "diagonal-down":
+        # Diagonal down-right: increment both row and column
+        end_row_ord: int = ord(start_row) + length - 1
+        end_col: int = start_col + length - 1
+        return f"{chr(end_row_ord)}{end_col}"
+    elif orientation == "diagonal-up":
+        # Diagonal up-right: decrement row, increment column
+        end_row_ord: int = ord(start_row) - length + 1
+        end_col: int = start_col + length - 1
+        return f"{chr(end_row_ord)}{end_col}"
+    else:
+        # Invalid orientation, return start as fallback
+        return start
+
+
 def _calculate_ship_cells(start: str, end: str, orientation: str) -> list[str]:
     """Calculate all cells occupied by a ship between start and end coordinates"""
     # Parse coordinates (e.g., "A1" -> row='A', col=1)
@@ -58,8 +87,27 @@ def _calculate_ship_cells(start: str, end: str, orientation: str) -> list[str]:
         end_ord: int = ord(end_row)
         for row_ord in range(start_ord, end_ord + 1):
             cells.append(f"{chr(row_ord)}{col}")
+    elif orientation in ["diagonal-down", "diagonal-up"]:
+        # Diagonal: increment/decrement both row and column
+        row_ord: int = ord(start_row)
+        end_row_ord: int = ord(end_row)
+        col: int = start_col
+        
+        # Determine direction
+        row_step: int = 1 if end_row_ord >= row_ord else -1
+        col_step: int = 1 if end_col >= start_col else -1
+        
+        # Generate cells along diagonal
+        current_row: int = row_ord
+        current_col: int = col
+        while True:
+            cells.append(f"{chr(current_row)}{current_col}")
+            if current_row == end_row_ord and current_col == end_col:
+                break
+            current_row += row_step
+            current_col += col_step
     else:
-        # For now, just return start and end
+        # For unknown orientation, just return start and end
         cells = [start, end]
     
     return cells
@@ -171,10 +219,24 @@ async def place_ship(
     player_name: str = Form(),
     ship_name: str = Form(),
     start_coordinate: str = Form(),
-    end_coordinate: str = Form(),
     orientation: str = Form(),
 ) -> HTMLResponse:
     """Handle ship placement on the board"""
+    # Ship lengths
+    ship_lengths: dict[str, int] = {
+        "Carrier": 5,
+        "Battleship": 4,
+        "Cruiser": 3,
+        "Submarine": 3,
+        "Destroyer": 2,
+    }
+    
+    # Get ship length
+    ship_length: int = ship_lengths.get(ship_name, 0)
+    
+    # Calculate end coordinate based on start, orientation, and ship length
+    end_coordinate: str = _calculate_end_coordinate(start_coordinate, orientation, ship_length)
+    
     # Calculate which cells the ship occupies
     cells: list[str] = _calculate_ship_cells(start_coordinate, end_coordinate, orientation)
     

@@ -5,7 +5,6 @@
 {% block content %}
 <h1>Ship Placement</h1>
 <p>Player: {{ player_name }}</p>
-K it looks like the ship placement tests pass but I can't test from the browser since there's no form fields to post and submit the ship placement details with.  Can you create failing playwright tests in a file called tests/bdd/test_ship_placement_steps_browser to match the @tests/bdd/test_ship_placement_steps_fastapi.py .  I only expect the same ship placement browser tests to pass.
 
 {% if placement_error %}
 <div data-testid="placement-error" style="color: red; margin: 10px 0;">
@@ -61,17 +60,13 @@ K it looks like the ship placement tests pass but I can't test from the browser 
     </div>
     
     <div>
-        <label for="end_coordinate">End Coordinate:</label>
-        <input type="text" id="end_coordinate" name="end_coordinate" required placeholder="e.g., A5">
-    </div>
-    
-    <div>
         <label for="orientation">Orientation:</label>
         <select id="orientation" name="orientation" required>
             <option value="">Select orientation</option>
             <option value="horizontal">Horizontal</option>
             <option value="vertical">Vertical</option>
-            <option value="diagonal">Diagonal</option>
+            <option value="diagonal-down">Diagonal Down</option>
+            <option value="diagonal-up">Diagonal Up</option>
         </select>
     </div>
     

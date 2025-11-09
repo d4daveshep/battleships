@@ -64,6 +64,7 @@ def my_ships_board_displayed(page: Page) -> None:
 
 
 @given("I have not placed any ships yet")
+@given("I have not placed any ships")
 def no_ships_placed_yet(ship_context: ShipPlacementContext) -> None:
     """Verify no ships have been placed"""
     ship_context.placed_ships = {}
@@ -83,168 +84,71 @@ def select_ship_to_place(
     # For now, just track it in context
 
 
-# === Horizontal Placement ===
+# === Ship Placement (New Syntax) ===
 
 
-@when(parsers.parse('I place it horizontally at coordinates "{start}" to "{end}"'))
-def place_ship_horizontally(
-    page: Page, ship_context: ShipPlacementContext, start: str, end: str
+def place_ship_with_direction(
+    page: Page,
+    ship_context: ShipPlacementContext,
+    start: str,
+    direction: str,
+    is_attempt: bool = False,
 ) -> None:
-    """Place a ship horizontally on the board"""
+    """Helper to place a ship using start coordinate and orientation"""
     assert ship_context.current_player_name is not None
     assert ship_context.selected_ship is not None
-
+    
+    # Map direction to orientation
+    orientation_map: dict[str, str] = {
+        "horizontally": "horizontal",
+        "vertically": "vertical",
+        "diagonally-down": "diagonal-down",
+        "diagonally-up": "diagonal-up",
+    }
+    orientation: str = orientation_map.get(direction, direction)
+    
     # Fill in the form fields
     page.locator('input[name="ship_name"]').fill(ship_context.selected_ship)
     page.locator('input[name="start_coordinate"]').fill(start)
-    page.locator('input[name="end_coordinate"]').fill(end)
-    page.locator('select[name="orientation"]').select_option("horizontal")
+    page.locator('select[name="orientation"]').select_option(orientation)
     
     # Submit the form
     page.locator('button[type="submit"][data-testid="place-ship-button"]').click()
     page.wait_for_load_state("networkidle")
-
+    
     # If successful, store the placed ship
-    if not page.locator('[data-testid="placement-error"]').is_visible():
-        ship_context.placed_ships[ship_context.selected_ship] = [start, end]
+    if not is_attempt and not page.locator('[data-testid="placement-error"]').is_visible():
+        ship_context.placed_ships[ship_context.selected_ship] = [start, orientation]
 
 
-# === Vertical Placement ===
-
-
-@when(parsers.parse('I place it vertically at coordinates "{start}" to "{end}"'))
-def place_ship_vertically(
-    page: Page, ship_context: ShipPlacementContext, start: str, end: str
+@when(parsers.parse('I place it {direction} starting at "{start}"'))
+def place_ship_direction_starting_at(
+    page: Page, ship_context: ShipPlacementContext, direction: str, start: str
 ) -> None:
-    """Place a ship vertically on the board"""
+    """Place a ship using direction and starting coordinate"""
+    place_ship_with_direction(page, ship_context, start, direction, is_attempt=False)
+
+
+@when(parsers.parse('I attempt to place it {direction} starting at "{start}"'))
+def attempt_place_ship_direction_starting_at(
+    page: Page, ship_context: ShipPlacementContext, direction: str, start: str
+) -> None:
+    """Attempt to place a ship using direction and starting coordinate"""
+    place_ship_with_direction(page, ship_context, start, direction, is_attempt=True)
+
+
+@when(parsers.parse('I attempt to place it with invalid direction starting at "{start}"'))
+def attempt_place_ship_invalid_direction(
+    page: Page, ship_context: ShipPlacementContext, start: str
+) -> None:
+    """Attempt to place a ship with invalid direction"""
     assert ship_context.current_player_name is not None
     assert ship_context.selected_ship is not None
-
-    # Fill in the form fields
-    page.locator('input[name="ship_name"]').fill(ship_context.selected_ship)
-    page.locator('input[name="start_coordinate"]').fill(start)
-    page.locator('input[name="end_coordinate"]').fill(end)
-    page.locator('select[name="orientation"]').select_option("vertical")
     
-    # Submit the form
-    page.locator('button[type="submit"][data-testid="place-ship-button"]').click()
-    page.wait_for_load_state("networkidle")
-
-    # If successful, store the placed ship
-    if not page.locator('[data-testid="placement-error"]').is_visible():
-        ship_context.placed_ships[ship_context.selected_ship] = [start, end]
-
-
-# === Diagonal Placement ===
-
-
-@when(parsers.parse('I place it diagonally at coordinates "{start}" to "{end}"'))
-def place_ship_diagonally(
-    page: Page, ship_context: ShipPlacementContext, start: str, end: str
-) -> None:
-    """Place a ship diagonally on the board"""
-    assert ship_context.current_player_name is not None
-    assert ship_context.selected_ship is not None
-
-    # Fill in the form fields
+    # Fill in the form fields with invalid values
     page.locator('input[name="ship_name"]').fill(ship_context.selected_ship)
     page.locator('input[name="start_coordinate"]').fill(start)
-    page.locator('input[name="end_coordinate"]').fill(end)
-    page.locator('select[name="orientation"]').select_option("diagonal")
-    
-    # Submit the form
-    page.locator('button[type="submit"][data-testid="place-ship-button"]').click()
-    page.wait_for_load_state("networkidle")
-
-    # If successful, store the placed ship
-    if not page.locator('[data-testid="placement-error"]').is_visible():
-        ship_context.placed_ships[ship_context.selected_ship] = [start, end]
-
-
-# === Invalid Placement Attempts ===
-
-
-@when(
-    parsers.parse(
-        'I attempt to place it horizontally at coordinates "{start}" to "{end}"'
-    )
-)
-def attempt_place_ship_horizontally(
-    page: Page, ship_context: ShipPlacementContext, start: str, end: str
-) -> None:
-    """Attempt to place a ship horizontally (expecting failure)"""
-    assert ship_context.current_player_name is not None
-    assert ship_context.selected_ship is not None
-
-    # Fill in the form fields
-    page.locator('input[name="ship_name"]').fill(ship_context.selected_ship)
-    page.locator('input[name="start_coordinate"]').fill(start)
-    page.locator('input[name="end_coordinate"]').fill(end)
-    page.locator('select[name="orientation"]').select_option("horizontal")
-    
-    # Submit the form
-    page.locator('button[type="submit"][data-testid="place-ship-button"]').click()
-    page.wait_for_load_state("networkidle")
-
-
-@when(
-    parsers.parse(
-        'I attempt to place it vertically at coordinates "{start}" to "{end}"'
-    )
-)
-def attempt_place_ship_vertically(
-    page: Page, ship_context: ShipPlacementContext, start: str, end: str
-) -> None:
-    """Attempt to place a ship vertically (expecting failure)"""
-    assert ship_context.current_player_name is not None
-    assert ship_context.selected_ship is not None
-
-    # Fill in the form fields
-    page.locator('input[name="ship_name"]').fill(ship_context.selected_ship)
-    page.locator('input[name="start_coordinate"]').fill(start)
-    page.locator('input[name="end_coordinate"]').fill(end)
-    page.locator('select[name="orientation"]').select_option("vertical")
-    
-    # Submit the form
-    page.locator('button[type="submit"][data-testid="place-ship-button"]').click()
-    page.wait_for_load_state("networkidle")
-
-
-@when(
-    parsers.parse(
-        'I attempt to place it diagonally at coordinates "{start}" to "{end}"'
-    )
-)
-def attempt_place_ship_diagonally(
-    page: Page, ship_context: ShipPlacementContext, start: str, end: str
-) -> None:
-    """Attempt to place a ship diagonally (expecting failure)"""
-    assert ship_context.current_player_name is not None
-    assert ship_context.selected_ship is not None
-
-    # Fill in the form fields
-    page.locator('input[name="ship_name"]').fill(ship_context.selected_ship)
-    page.locator('input[name="start_coordinate"]').fill(start)
-    page.locator('input[name="end_coordinate"]').fill(end)
-    page.locator('select[name="orientation"]').select_option("diagonal")
-    
-    # Submit the form
-    page.locator('button[type="submit"][data-testid="place-ship-button"]').click()
-    page.wait_for_load_state("networkidle")
-
-
-@when(parsers.parse('I attempt to place it at coordinates "{start}" to "{end}"'))
-def attempt_place_ship_at_coordinates(
-    page: Page, ship_context: ShipPlacementContext, start: str, end: str
-) -> None:
-    """Attempt to place a ship at given coordinates (auto-detect orientation)"""
-    assert ship_context.current_player_name is not None
-    assert ship_context.selected_ship is not None
-
-    # Fill in the form fields (no orientation specified)
-    page.locator('input[name="ship_name"]').fill(ship_context.selected_ship)
-    page.locator('input[name="start_coordinate"]').fill(start)
-    page.locator('input[name="end_coordinate"]').fill(end)
+    page.locator('select[name="orientation"]').select_option("")  # Empty/invalid
     
     # Submit the form
     page.locator('button[type="submit"][data-testid="place-ship-button"]').click()
@@ -353,36 +257,17 @@ def no_error_message_displayed(page: Page) -> None:
 # === Pre-placed Ships Setup ===
 
 
-@given(
-    parsers.parse('I have placed a "{ship_name}" horizontally at "{start}" to "{end}"')
-)
-def have_placed_ship_horizontally(
+@given(parsers.parse('I have placed a "{ship_name}" {direction} starting at "{start}"'))
+def have_placed_ship_direction_starting_at(
     page: Page,
     ship_context: ShipPlacementContext,
     ship_name: str,
+    direction: str,
     start: str,
-    end: str,
 ) -> None:
-    """Setup: Pre-place a ship horizontally"""
+    """Setup: Pre-place a ship with direction"""
     ship_context.selected_ship = ship_name
-    place_ship_horizontally(page, ship_context, start, end)
-    # Verify it was placed successfully
-    assert ship_name in ship_context.placed_ships
-
-
-@given(
-    parsers.parse('I have placed a "{ship_name}" vertically at "{start}" to "{end}"')
-)
-def have_placed_ship_vertically(
-    page: Page,
-    ship_context: ShipPlacementContext,
-    ship_name: str,
-    start: str,
-    end: str,
-) -> None:
-    """Setup: Pre-place a ship vertically"""
-    ship_context.selected_ship = ship_name
-    place_ship_vertically(page, ship_context, start, end)
+    place_ship_with_direction(page, ship_context, start, direction, is_attempt=False)
     # Verify it was placed successfully
     assert ship_name in ship_context.placed_ships
 
@@ -449,8 +334,8 @@ def all_ships_within_boundaries(page: Page) -> None:
 def have_placed_some_ships_manually(ship_context: ShipPlacementContext) -> None:
     """Setup: Some ships have been placed"""
     # Mark a few ships as placed
-    ship_context.placed_ships["Destroyer"] = ["A1", "A2"]
-    ship_context.placed_ships["Submarine"] = ["C3", "C5"]
+    ship_context.placed_ships["Destroyer"] = ["A1", "horizontal"]
+    ship_context.placed_ships["Submarine"] = ["C3", "vertical"]
 
 
 @when("my manually placed ships should be removed")
@@ -486,18 +371,16 @@ def place_the_ship(
 ) -> None:
     """Place a ship (using default coordinates for testing)"""
     ship_context.selected_ship = ship_name
-    # Use some default coordinates for each ship
-    coordinates: dict[str, tuple[str, str]] = {
-        "Destroyer": ("A1", "A2"),
-        "Submarine": ("C3", "C5"),
-        "Cruiser": ("E5", "E7"),
-        "Battleship": ("G1", "G4"),
-        "Carrier": ("I1", "I5"),
+    # Use some default starting coordinates for each ship (place horizontally)
+    start_coordinates: dict[str, str] = {
+        "Destroyer": "A1",
+        "Submarine": "C3",
+        "Cruiser": "E5",
+        "Battleship": "G1",
+        "Carrier": "I1",
     }
-    start: str
-    end: str
-    start, end = coordinates.get(ship_name, ("A1", "A2"))
-    place_ship_horizontally(page, ship_context, start, end)
+    start: str = start_coordinates.get(ship_name, "A1")
+    place_ship_with_direction(page, ship_context, start, "horizontally", is_attempt=False)
 
 
 # === Start Game Button ===
@@ -507,10 +390,10 @@ def place_the_ship(
 def have_placed_4_ships(ship_context: ShipPlacementContext) -> None:
     """Setup: 4 ships placed"""
     ship_context.placed_ships = {
-        "Destroyer": ["A1", "A2"],
-        "Submarine": ["C3", "C5"],
-        "Cruiser": ["E5", "E7"],
-        "Battleship": ["G1", "G4"],
+        "Destroyer": ["A1", "horizontal"],
+        "Submarine": ["C3", "vertical"],
+        "Cruiser": ["E5", "horizontal"],
+        "Battleship": ["G1", "horizontal"],
     }
 
 
@@ -586,9 +469,9 @@ def ship_count_should_show(page: Page, count_text: str) -> None:
 def have_placed_3_ships(ship_context: ShipPlacementContext) -> None:
     """Setup: 3 ships placed"""
     ship_context.placed_ships = {
-        "Destroyer": ["A1", "A2"],
-        "Submarine": ["C3", "C5"],
-        "Cruiser": ["E5", "E7"],
+        "Destroyer": ["A1", "horizontal"],
+        "Submarine": ["C3", "vertical"],
+        "Cruiser": ["E5", "horizontal"],
     }
 
 
@@ -647,11 +530,11 @@ def playing_against_computer(ship_context: ShipPlacementContext) -> None:
 def have_placed_all_ships(ship_context: ShipPlacementContext) -> None:
     """Setup: All 5 ships placed"""
     ship_context.placed_ships = {
-        "Carrier": ["A1", "A5"],
-        "Battleship": ["C1", "C4"],
-        "Cruiser": ["E1", "E3"],
-        "Submarine": ["G1", "G3"],
-        "Destroyer": ["I1", "I2"],
+        "Carrier": ["A1", "horizontal"],
+        "Battleship": ["C1", "horizontal"],
+        "Cruiser": ["E1", "horizontal"],
+        "Submarine": ["G1", "horizontal"],
+        "Destroyer": ["I1", "horizontal"],
     }
 
 

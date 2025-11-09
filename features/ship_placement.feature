@@ -51,21 +51,14 @@ Feature: Ship Placement
 
   # === Diagonal Placement ===
 
-  Scenario: Successfully place Cruiser diagonally (down-right)
+  Scenario: Successfully place Cruiser diagonally down
     Given I select the "Cruiser" ship to place
     When I place it diagonally-down starting at "A1"
     Then the Cruiser should be placed on the board
     And the Cruiser should occupy cells "A1", "B2", and "C3"
     And the Cruiser should be marked as placed
 
-  Scenario: Successfully place Destroyer diagonally (down-left)
-    Given I select the "Destroyer" ship to place
-    When I place it diagonally-down starting at "A10"
-    Then the Destroyer should be placed on the board
-    And the Destroyer should occupy cells "A10" and "B9"
-    And the Destroyer should be marked as placed
-
-  Scenario: Successfully place Submarine diagonally (up-right)
+  Scenario: Successfully place Submarine diagonally up
     Given I select the "Submarine" ship to place
     When I place it diagonally-up starting at "H3"
     Then the Submarine should be placed on the board

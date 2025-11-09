@@ -2,8 +2,17 @@ import pytest
 from game.model import Coord
 
 validation_test_data: list[tuple[str, bool]] = [
+    # Valid coords
     ("A1", True),
+    ("a1", True),
+    ("E5", True),
+    ("J10", True),
+    # Invalid coords
     ("1A", False),
+    ("A0", False),
+    ("A11", False),
+    ("K1", False),
+    ("@#", False),
 ]
 
 

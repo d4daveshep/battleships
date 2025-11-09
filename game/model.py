@@ -39,7 +39,7 @@ class GameBoard:
 
 @dataclass(frozen=True)
 class Coord:
-    PATTERN: ClassVar[str] = r"^[a-jA-J](10|[1-9])$"
+    PATTERN: ClassVar[str] = r"^[a-jA-J](10|[1-9])$"  # 10x10 grid from A1 to J10
 
     _str: str
 

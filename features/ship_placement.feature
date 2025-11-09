@@ -21,14 +21,14 @@ Feature: Ship Placement
 
   Scenario: Successfully place Destroyer horizontally
     Given I select the "Destroyer" ship to place
-    When I place it horizontally at coordinates "A1" to "A2"
+    When I place it horizontally starting at "A1"
     Then the Destroyer should be placed on the board
     And the Destroyer should occupy cells "A1" and "A2"
     And the Destroyer should be marked as placed
 
   Scenario: Successfully place Carrier horizontally
     Given I select the "Carrier" ship to place
-    When I place it horizontally at coordinates "E3" to "E7"
+    When I place it horizontally starting at "E3"
     Then the Carrier should be placed on the board
     And the Carrier should occupy cells "E3", "E4", "E5", "E6", and "E7"
     And the Carrier should be marked as placed
@@ -37,14 +37,14 @@ Feature: Ship Placement
 
   Scenario: Successfully place Battleship vertically
     Given I select the "Battleship" ship to place
-    When I place it vertically at coordinates "B2" to "E2"
+    When I place it vertically starting at "B2"
     Then the Battleship should be placed on the board
     And the Battleship should occupy cells "B2", "C2", "D2", and "E2"
     And the Battleship should be marked as placed
 
   Scenario: Successfully place Submarine vertically
     Given I select the "Submarine" ship to place
-    When I place it vertically at coordinates "F8" to "H8"
+    When I place it vertically starting at "F8"
     Then the Submarine should be placed on the board
     And the Submarine should occupy cells "F8", "G8", and "H8"
     And the Submarine should be marked as placed
@@ -53,21 +53,21 @@ Feature: Ship Placement
 
   Scenario: Successfully place Cruiser diagonally (down-right)
     Given I select the "Cruiser" ship to place
-    When I place it diagonally at coordinates "A1" to "C3"
+    When I place it diagonally-down starting at "A1"
     Then the Cruiser should be placed on the board
     And the Cruiser should occupy cells "A1", "B2", and "C3"
     And the Cruiser should be marked as placed
 
   Scenario: Successfully place Destroyer diagonally (down-left)
     Given I select the "Destroyer" ship to place
-    When I place it diagonally at coordinates "A10" to "B9"
+    When I place it diagonally-down starting at "A10"
     Then the Destroyer should be placed on the board
     And the Destroyer should occupy cells "A10" and "B9"
     And the Destroyer should be marked as placed
 
   Scenario: Successfully place Submarine diagonally (up-right)
     Given I select the "Submarine" ship to place
-    When I place it diagonally at coordinates "H3" to "F5"
+    When I place it diagonally-up starting at "H3"
     Then the Submarine should be placed on the board
     And the Submarine should occupy cells "H3", "G4", and "F5"
     And the Submarine should be marked as placed
@@ -76,25 +76,25 @@ Feature: Ship Placement
 
   Scenario: Place ship touching top edge of board
     Given I select the "Destroyer" ship to place
-    When I place it horizontally at coordinates "A1" to "A2"
+    When I place it horizontally starting at "A1"
     Then the Destroyer should be placed on the board
     And no error message should be displayed
 
   Scenario: Place ship touching bottom edge of board
     Given I select the "Destroyer" ship to place
-    When I place it horizontally at coordinates "J5" to "J6"
+    When I place it horizontally starting at "J5"
     Then the Destroyer should be placed on the board
     And no error message should be displayed
 
   Scenario: Place ship touching left edge of board
     Given I select the "Cruiser" ship to place
-    When I place it vertically at coordinates "D1" to "F1"
+    When I place it vertically starting at "D1"
     Then the Cruiser should be placed on the board
     And no error message should be displayed
 
   Scenario: Place ship touching right edge of board
     Given I select the "Cruiser" ship to place
-    When I place it vertically at coordinates "D10" to "F10"
+    When I place it vertically starting at "D10"
     Then the Cruiser should be placed on the board
     And no error message should be displayed
 
@@ -102,21 +102,21 @@ Feature: Ship Placement
 
   Scenario: Attempt to place ship outside board (horizontal)
     Given I select the "Battleship" ship to place
-    When I attempt to place it horizontally at coordinates "A9" to "A12"
+    When I attempt to place it horizontally starting at "A9"
     Then the placement should be rejected
     And I should see an error message "Ship placement goes outside the board"
     And the Battleship should not be placed
 
   Scenario: Attempt to place ship outside board (vertical)
     Given I select the "Carrier" ship to place
-    When I attempt to place it vertically at coordinates "H5" to "L5"
+    When I attempt to place it vertically starting at "H5"
     Then the placement should be rejected
     And I should see an error message "Ship placement goes outside the board"
     And the Carrier should not be placed
 
   Scenario: Attempt to place ship outside board (diagonal)
     Given I select the "Cruiser" ship to place
-    When I attempt to place it diagonally at coordinates "J10" to "L12"
+    When I attempt to place it diagonally-down starting at "J10"
     Then the placement should be rejected
     And I should see an error message "Ship placement goes outside the board"
     And the Cruiser should not be placed
@@ -124,17 +124,17 @@ Feature: Ship Placement
   # === Invalid Placement - Ships Overlapping ===
 
   Scenario: Attempt to place ship overlapping another ship
-    Given I have placed a "Destroyer" horizontally at "E5" to "E6"
+    Given I have placed a "Destroyer" horizontally starting at "E5"
     And I select the "Cruiser" ship to place
-    When I attempt to place it vertically at coordinates "D5" to "F5"
+    When I attempt to place it vertically starting at "D5"
     Then the placement should be rejected
     And I should see an error message "Ships cannot overlap"
     And the Cruiser should not be placed
 
   Scenario: Attempt to place ship with complete overlap
-    Given I have placed a "Battleship" horizontally at "C3" to "C6"
+    Given I have placed a "Battleship" horizontally starting at "C3"
     And I select the "Submarine" ship to place
-    When I attempt to place it horizontally at coordinates "C4" to "C6"
+    When I attempt to place it horizontally starting at "C4"
     Then the placement should be rejected
     And I should see an error message "Ships cannot overlap"
     And the Submarine should not be placed
@@ -142,56 +142,56 @@ Feature: Ship Placement
   # === Invalid Placement - Ships Touching (Adjacent) ===
 
   Scenario: Attempt to place ship directly adjacent horizontally
-    Given I have placed a "Destroyer" horizontally at "E5" to "E6"
+    Given I have placed a "Destroyer" horizontally starting at "E5"
     And I select the "Cruiser" ship to place
-    When I attempt to place it horizontally at coordinates "E7" to "E9"
+    When I attempt to place it horizontally starting at "E7"
     Then the placement should be rejected
     And I should see an error message "Ships must have empty space around them"
     And the Cruiser should not be placed
 
   Scenario: Attempt to place ship directly adjacent vertically
-    Given I have placed a "Cruiser" vertically at "B3" to "D3"
+    Given I have placed a "Cruiser" vertically starting at "B3"
     And I select the "Destroyer" ship to place
-    When I attempt to place it vertically at coordinates "B4" to "C4"
+    When I attempt to place it vertically starting at "B4"
     Then the placement should be rejected
     And I should see an error message "Ships must have empty space around them"
     And the Destroyer should not be placed
 
   Scenario: Attempt to place ship diagonally adjacent
-    Given I have placed a "Destroyer" horizontally at "D4" to "D5"
+    Given I have placed a "Destroyer" horizontally starting at "D4"
     And I select the "Submarine" ship to place
-    When I attempt to place it diagonally at coordinates "E5" to "G7"
+    When I attempt to place it diagonally-down starting at "E5"
     Then the placement should be rejected
     And I should see an error message "Ships must have empty space around them"
     And the Submarine should not be placed
 
   Scenario: Attempt to place ship adjacent at corners
-    Given I have placed a "Destroyer" horizontally at "C3" to "C4"
+    Given I have placed a "Destroyer" horizontally starting at "C3"
     And I select the "Destroyer" ship to place
-    When I attempt to place it horizontally at coordinates "D4" to "D5"
+    When I attempt to place it horizontally starting at "D4"
     Then the placement should be rejected
     And I should see an error message "Ships must have empty space around them"
 
   # === Valid Placement - Ships with Spacing ===
 
   Scenario: Place ships with proper spacing (horizontal)
-    Given I have placed a "Destroyer" horizontally at "E5" to "E6"
+    Given I have placed a "Destroyer" horizontally starting at "E5"
     And I select the "Cruiser" ship to place
-    When I place it horizontally at coordinates "E8" to "E10"
+    When I place it horizontally starting at "E8"
     Then the Cruiser should be placed on the board
     And no error message should be displayed
 
   Scenario: Place ships with proper spacing (vertical)
-    Given I have placed a "Cruiser" vertically at "B3" to "D3"
+    Given I have placed a "Cruiser" vertically starting at "B3"
     And I select the "Destroyer" ship to place
-    When I place it vertically at coordinates "B5" to "C5"
+    When I place it vertically starting at "B5"
     Then the Destroyer should be placed on the board
     And no error message should be displayed
 
   Scenario: Place ships with diagonal spacing
-    Given I have placed a "Destroyer" horizontally at "C3" to "C4"
+    Given I have placed a "Destroyer" horizontally starting at "C3"
     And I select the "Submarine" ship to place
-    When I place it vertically at coordinates "E5" to "G5"
+    When I place it vertically starting at "E5"
     Then the Submarine should be placed on the board
     And no error message should be displayed
 
@@ -231,7 +231,7 @@ Feature: Ship Placement
   # === Ship Removal/Reset ===
 
   Scenario: Remove a placed ship
-    Given I have placed a "Carrier" horizontally at "A1" to "A5"
+    Given I have placed a "Carrier" horizontally starting at "A1"
     When I click on the "Carrier" to remove it
     Then the Carrier should be removed from the board
     And the Carrier should be available to place again
@@ -272,14 +272,8 @@ Feature: Ship Placement
 
   # === Invalid Ship Placement Patterns ===
 
-  Scenario: Attempt to place ship at invalid angle
+  Scenario: Attempt to place ship with invalid direction
     Given I select the "Destroyer" ship to place
-    When I attempt to place it at coordinates "A1" to "B3"
+    When I attempt to place it with invalid direction starting at "A1"
     Then the placement should be rejected
-    And I should see an error message "Ship must be placed horizontally, vertically, or diagonally"
-
-  Scenario: Attempt to place ship with wrong length
-    Given I select the "Carrier" ship to place (length 5)
-    When I attempt to place it at coordinates "A1" to "A3"
-    Then the placement should be rejected
-    And I should see an error message "Ship placement does not match Carrier length of 5"
+    And I should see an error message "Invalid direction"

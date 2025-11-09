@@ -8,3 +8,6 @@ class TestCoordCreation:
         assert coord.row == "A"
         assert coord.col == 1
         assert coord.row_index == 1
+
+    def test_coord_validation(self):
+        assert False

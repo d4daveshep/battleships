@@ -1,5 +1,7 @@
+import re
 from dataclasses import dataclass
 from enum import Enum
+from typing import ClassVar
 
 
 class ShipType(Enum):
@@ -35,5 +37,24 @@ class GameBoard:
         self.shots_fired: dict = {}
 
 
+@dataclass(frozen=True)
 class Coord:
-    pass
+    PATTERN: ClassVar[str] = r"^[a-jA-J](10|[1-9])$"
+
+    _str: str
+
+    def __post_init__(self):
+        if not re.match(self.PATTERN, self._str):
+            raise ValueError(f"Invalid coord string:{self._str}")
+
+    @property
+    def row(self) -> str:
+        return self._str[0]
+
+    @property
+    def row_index(self) -> int:
+        return ord(self._str[0]) - 64
+
+    @property
+    def col(self) -> int:
+        return int(self._str[1:])

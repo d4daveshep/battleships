@@ -1,6 +1,6 @@
 import pytest
 
-from game.model import Coord, GameBoard, Ship, ShipType
+from game.model import Coord, GameBoard, Ship, ShipType, Orientation
 
 
 class TestGameBoard:
@@ -12,10 +12,12 @@ class TestGameBoard:
 
     def test_place_ship_valid(self):
         board: GameBoard = GameBoard()
-        ship: Ship = Ship(ship_type=ShipType.DESTROYER)
+        destroyer: Ship = Ship(ship_type=ShipType.DESTROYER)
         result: bool = board.place_ship(
-            ship=ship, start=Coord("A1"), orientation=Orientation.HORIZONTAL
+            ship=destroyer, start=Coord("A1"), orientation=Orientation.HORIZONTAL
         )
         assert result is True
         assert len(board.ships) == 1
-        assert ship in board.ships
+        assert destroyer in board.ships
+
+        assert destroyer.positions == [Coord("A1"), Coord("A2")]

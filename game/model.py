@@ -1,7 +1,11 @@
 import re
-from dataclasses import dataclass
-from enum import Enum
+from dataclasses import dataclass, field
+from enum import Enum, StrEnum
 from typing import ClassVar
+
+
+class Orientation(StrEnum):
+    HORIZONTAL = "horizontal"
 
 
 class ShipType(Enum):
@@ -15,19 +19,6 @@ class ShipType(Enum):
         self.ship_name = ship_name
         self.length = length
         self.shots_available = shots_available
-
-
-@dataclass
-class Ship:
-    ship_type: ShipType
-
-    @property
-    def length(self) -> int:
-        return self.ship_type.length
-
-    @property
-    def shots_available(self) -> int:
-        return self.ship_type.shots_available
 
 
 @dataclass(frozen=True)
@@ -53,11 +44,30 @@ class Coord:
         return int(self._str[1:])
 
 
+@dataclass
+class Ship:
+    ship_type: ShipType
+    positions: list[Coord] = field(default_factory=list)
+
+    @property
+    def length(self) -> int:
+        return self.ship_type.length
+
+    @property
+    def shots_available(self) -> int:
+        return self.ship_type.shots_available
+
+
 class GameBoard:
     def __init__(self) -> None:
-        self.ships: dict = {}
+        self.ships: list[Ship] = []
         self.shots_received: dict = {}
         self.shots_fired: dict = {}
 
     def place_ship(self, ship: Ship, start: Coord, orientation: Orientation) -> bool:
-        return False
+        if ship not in self.ships:
+            self.ships.append(ship)
+        else:
+            raise ValueError(f"Ship: {ship} already placed on board")
+
+        return True

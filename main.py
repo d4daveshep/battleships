@@ -41,7 +41,7 @@ def _calculate_end_coordinate(start: str, orientation: str, length: int) -> str:
     # Parse start coordinate (e.g., "A1" -> row='A', col=1)
     start_row: str = start[0]
     start_col: int = int(start[1:])
-    
+
     if orientation == "horizontal":
         # Same row, increment column
         end_col: int = start_col + length - 1
@@ -72,9 +72,9 @@ def _calculate_ship_cells(start: str, end: str, orientation: str) -> list[str]:
     start_col: int = int(start[1:])
     end_row: str = end[0]
     end_col: int = int(end[1:])
-    
+
     cells: list[str] = []
-    
+
     if orientation == "horizontal":
         # Same row, different columns
         row: str = start_row
@@ -92,11 +92,11 @@ def _calculate_ship_cells(start: str, end: str, orientation: str) -> list[str]:
         row_ord: int = ord(start_row)
         end_row_ord: int = ord(end_row)
         col: int = start_col
-        
+
         # Determine direction
         row_step: int = 1 if end_row_ord >= row_ord else -1
         col_step: int = 1 if end_col >= start_col else -1
-        
+
         # Generate cells along diagonal
         current_row: int = row_ord
         current_col: int = col
@@ -109,7 +109,7 @@ def _calculate_ship_cells(start: str, end: str, orientation: str) -> list[str]:
     else:
         # For unknown orientation, just return start and end
         cells = [start, end]
-    
+
     return cells
 
 
@@ -200,9 +200,7 @@ async def login_submit(
 
 
 @app.get("/ship-placement", response_class=HTMLResponse)
-async def ship_placement_page(
-    request: Request, player_name: str = ""
-) -> HTMLResponse:
+async def ship_placement_page(request: Request, player_name: str = "") -> HTMLResponse:
     return templates.TemplateResponse(
         request,
         "ship_placement.html",
@@ -230,16 +228,21 @@ async def place_ship(
         "Submarine": 3,
         "Destroyer": 2,
     }
-    
+
+    assert False, "Delegate to model objects to place ship"
     # Get ship length
     ship_length: int = ship_lengths.get(ship_name, 0)
-    
+
     # Calculate end coordinate based on start, orientation, and ship length
-    end_coordinate: str = _calculate_end_coordinate(start_coordinate, orientation, ship_length)
-    
+    end_coordinate: str = _calculate_end_coordinate(
+        start_coordinate, orientation, ship_length
+    )
+
     # Calculate which cells the ship occupies
-    cells: list[str] = _calculate_ship_cells(start_coordinate, end_coordinate, orientation)
-    
+    cells: list[str] = _calculate_ship_cells(
+        start_coordinate, end_coordinate, orientation
+    )
+
     # For now, just accept the placement and return the updated page
     # TODO: Add validation logic
     placed_ships: dict[str, dict[str, Any]] = {
@@ -250,7 +253,7 @@ async def place_ship(
             "cells": cells,
         }
     }
-    
+
     return templates.TemplateResponse(
         request,
         "ship_placement.html",

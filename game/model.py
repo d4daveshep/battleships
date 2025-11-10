@@ -30,13 +30,6 @@ class Ship:
         return self.ship_type.shots_available
 
 
-class GameBoard:
-    def __init__(self) -> None:
-        self.ships: dict = {}
-        self.shots_received: dict = {}
-        self.shots_fired: dict = {}
-
-
 @dataclass(frozen=True)
 class Coord:
     PATTERN: ClassVar[str] = r"^[a-jA-J](10|[1-9])$"  # 10x10 grid from A1 to J10
@@ -58,3 +51,13 @@ class Coord:
     @property
     def col(self) -> int:
         return int(self._str[1:])
+
+
+class GameBoard:
+    def __init__(self) -> None:
+        self.ships: dict = {}
+        self.shots_received: dict = {}
+        self.shots_fired: dict = {}
+
+    def place_ship(self, ship: Ship, start: Coord, orientation: Orientation) -> bool:
+        return False

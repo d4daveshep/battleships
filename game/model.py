@@ -43,6 +43,24 @@ class Coord:
     def col(self) -> int:
         return int(self._str[1:])
 
+    @property
+    def col_index(self) -> int:
+        return self.col
+
+    def coords_for_length_and_orientation(
+        self, start: "Coord", length: int, orientation: Orientation
+    ) -> list["Coord"]:
+        coords: list["Coord"] = [start]
+
+        start_row = start.row_index
+        start_col = start.col_index
+
+        for i in range(1, length):
+            if orientation == Orientation.HORIZONTAL:
+                coords.append(Coord(f"{start.row}{start_col + i}"))
+
+        return coords
+
 
 @dataclass
 class Ship:
@@ -66,7 +84,10 @@ class GameBoard:
 
     def place_ship(self, ship: Ship, start: Coord, orientation: Orientation) -> bool:
         if ship not in self.ships:
+            # check placement is valid
+            # add positions to ship
             self.ships.append(ship)
+
         else:
             raise ValueError(f"Ship: {ship} already placed on board")
 

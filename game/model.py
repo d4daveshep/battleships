@@ -1,7 +1,7 @@
 import re
 from dataclasses import dataclass, field
 from enum import Enum, StrEnum
-from typing import ClassVar
+from typing import NamedTuple
 
 
 class Orientation(StrEnum):
@@ -21,43 +21,42 @@ class ShipType(Enum):
         self.shots_available = shots_available
 
 
-@dataclass(frozen=True)
-class Coord:
-    PATTERN: ClassVar[str] = r"^[a-jA-J](10|[1-9])$"  # 10x10 grid from A1 to J10
+class CoordDetails(NamedTuple):
+    row_index: int
+    col_index: int
 
-    _str: str
 
-    def __post_init__(self):
-        if not re.match(self.PATTERN, self._str):
-            raise ValueError(f"Invalid coord string:{self._str}")
+_coords: dict[str, CoordDetails] = {
+    f"{letter}{number}": CoordDetails(ord(letter) - 64, number)
+    for letter in "ABCDEFGHIJ"
+    for number in range(1, 11)
+}
 
-    @property
-    def row(self) -> str:
-        return self._str[0]
+Coord = Enum("Coord", _coords)
 
-    @property
-    def row_index(self) -> int:
-        return ord(self._str[0]) - 64
 
-    @property
-    def col(self) -> int:
-        return int(self._str[1:])
+class CoordHelper:
+    _coords_by_value: dict[CoordDetails, Coord] = {
+        coord.value: coord for coord in Coord
+    }
 
-    @property
-    def col_index(self) -> int:
-        return self.col
+    @classmethod
+    def lookup(cls, row_col_index: CoordDetails) -> Coord:
+        return cls._coords_by_value[row_col_index]
 
+    @classmethod
     def coords_for_length_and_orientation(
-        self, start: "Coord", length: int, orientation: Orientation
-    ) -> list["Coord"]:
-        coords: list["Coord"] = [start]
-
-        start_row = start.row_index
-        start_col = start.col_index
+        cls, start: Coord, length: int, orientation: Orientation
+    ) -> list[Coord]:
+        coords: list[Coord] = [start]
 
         for i in range(1, length):
             if orientation == Orientation.HORIZONTAL:
-                coords.append(Coord(f"{start.row}{start_col + i}"))
+                coords.append(
+                    cls.lookup(
+                        CoordDetails(start.value.row_index, start.value.col_index + i)
+                    )
+                )
 
         return coords
 

@@ -82,12 +82,27 @@ class GameBoard:
         self.shots_fired: dict = {}
 
     def place_ship(self, ship: Ship, start: Coord, orientation: Orientation) -> bool:
-        if ship not in self.ships:
+        ship_types_already_on_board: set[ShipType] = {
+            ship.ship_type for ship in self.ships
+        }
+
+        if ship.ship_type not in ship_types_already_on_board:
             # check placement is valid
+
             # add positions to ship
+            try:
+                ship.positions = CoordHelper.coords_for_length_and_orientation(
+                    start, ship.length, orientation
+                )
+            except KeyError as err:
+                raise ValueError(
+                    f"Ship placement out of bounds: {ship.ship_type.name} {orientation.name} at {start.name}"
+                )
             self.ships.append(ship)
 
         else:
-            raise ValueError(f"Ship: {ship} already placed on board")
+            raise ValueError(
+                f"Ship type: {ship.ship_type.name} already placed on board"
+            )
 
         return True

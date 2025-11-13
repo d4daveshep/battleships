@@ -61,7 +61,7 @@ class CoordHelper:
         return coords
 
     @classmethod
-    def adjacent_coords_to_a_coord(cls, centre: Coord) -> set[Coord]:
+    def coords_adjacent_to_a_coord(cls, centre: Coord) -> set[Coord]:
         adjacent_coords: set[Coord] = set()
         for row_delta in [-1, 0, 1]:
             for col_delta in [-1, 0, 1]:
@@ -80,8 +80,12 @@ class CoordHelper:
         return adjacent_coords
 
     @classmethod
-    def adjacent_coords_to_a_coords_list(cls, coords: list[Coord]) -> set[Coord]:
-        return set()
+    def coords_adjacent_to_a_coords_list(cls, coords: list[Coord]) -> set[Coord]:
+        adjacent_coords: set[Coord] = set()
+        for coord in coords:
+            adjacent_coords.update(cls.coords_adjacent_to_a_coord(coord))
+        adjacent_coords = adjacent_coords - set(coords)
+        return adjacent_coords
 
 
 @dataclass

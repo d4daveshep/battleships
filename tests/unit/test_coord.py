@@ -80,19 +80,19 @@ class TestCoordHelperFunctions:
             Coord.E4,
             Coord.E5,
         }
-        adjacent_coords: set[Coord] = CoordHelper.adjacent_coords_to_a_coord(centre)
+        adjacent_coords: set[Coord] = CoordHelper.coords_adjacent_to_a_coord(centre)
         assert adjacent_coords == expected
 
     def test_get_adjacent_coords_to_single_edge_coord(self):
         edge: Coord = Coord.D1
         expected: set[Coord] = {Coord.C1, Coord.C2, Coord.D2, Coord.E1, Coord.E2}
-        adjacent_coords: set[Coord] = CoordHelper.adjacent_coords_to_a_coord(edge)
+        adjacent_coords: set[Coord] = CoordHelper.coords_adjacent_to_a_coord(edge)
         assert adjacent_coords == expected
 
     def test_get_adjacent_coords_to_single_corner_coord(self):
         corner: Coord = Coord.A1
         expected: set[Coord] = {Coord.A2, Coord.B1, Coord.B2}
-        adjacent_coords: set[Coord] = CoordHelper.adjacent_coords_to_a_coord(corner)
+        adjacent_coords: set[Coord] = CoordHelper.coords_adjacent_to_a_coord(corner)
         assert adjacent_coords == expected
 
     def test_get_adjacent_coords_to_list_of_central_coords(self):
@@ -111,7 +111,48 @@ class TestCoordHelperFunctions:
             Coord.E6,
             Coord.E7,
         }
-        adjacent_coords: set[Coord] = CoordHelper.adjacent_coords_to_a_coords_list(
+        adjacent_coords: set[Coord] = CoordHelper.coords_adjacent_to_a_coords_list(
             centre
+        )
+        assert adjacent_coords == expected
+
+    def test_get_adjacent_coords_to_list_of_edge_coords(self):
+        centre: list[Coord] = [Coord.D1, Coord.E1, Coord.F1]
+        expected: set[Coord] = {
+            Coord.C1,
+            Coord.C2,
+            Coord.D2,
+            Coord.E2,
+            Coord.F2,
+            Coord.G1,
+            Coord.G2,
+        }
+        adjacent_coords: set[Coord] = CoordHelper.coords_adjacent_to_a_coords_list(
+            centre
+        )
+        assert adjacent_coords == expected
+
+    def test_get_adjacent_coords_to_diagonal_list_of_coords(self):
+        diagonal: list[Coord] = [Coord.D4, Coord.E5, Coord.F6]
+        expected: set[Coord] = {
+            Coord.C3,
+            Coord.C4,
+            Coord.C5,
+            Coord.D3,
+            Coord.D5,
+            Coord.D6,
+            Coord.E3,
+            Coord.E4,
+            Coord.E6,
+            Coord.E7,
+            Coord.F4,
+            Coord.F5,
+            Coord.F7,
+            Coord.G5,
+            Coord.G6,
+            Coord.G7,
+        }
+        adjacent_coords: set[Coord] = CoordHelper.coords_adjacent_to_a_coords_list(
+            diagonal
         )
         assert adjacent_coords == expected

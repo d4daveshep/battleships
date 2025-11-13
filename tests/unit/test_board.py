@@ -89,3 +89,12 @@ class TestGameBoard:
         # check duplicate ship is not added
         assert destroyer_2 not in board.ships
         assert destroyer_2.positions == []
+
+    def test_place_ships_with_valid_spacing(self):
+        assert False, "write this test"
+
+    def test_cant_place_ships_touching(self):
+        assert False, "write this test"
+
+    def test_cant_place_ships_overlapping(self):
+        assert False, "write this test"

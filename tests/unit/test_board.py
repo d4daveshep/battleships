@@ -40,24 +40,17 @@ class TestGameBoard:
         (ShipType.DESTROYER, Coord.I1, Orientation.HORIZONTAL, [Coord.I1, Coord.I2]),
     ]
 
-    @pytest.mark.parametrize(
-        "type,start,orientation,positions", valid_ship_placement_data
-    )
-    def test_place_all_ships_in_valid_positions(
-        self,
-        type: ShipType,
-        start: Coord,
-        orientation: Orientation,
-        positions: list[Coord],
-    ):
+    def test_place_all_ships_in_valid_positions(self):
         board: GameBoard = GameBoard()
-        ship: Ship = Ship(ship_type=type)
-        result: bool = board.place_ship(ship, start, orientation)
-        assert result is True
-        assert len(board.ships) == 1
-        assert ship in board.ships
+        for ship_data in self.valid_ship_placement_data:
+            ship_type, start, orientation, expected_coords = ship_data
+            ship: Ship = Ship(ship_type)
+            result: bool = board.place_ship(ship, start, orientation)
+            assert result is True
+            assert ship in board.ships
+            assert ship.positions == expected_coords
 
-        assert ship.positions == positions
+        assert len(board.ships) == 5
 
     def test_place_ship_invalid_position_out_of_bounds(self):
         board: GameBoard = GameBoard()

@@ -90,11 +90,35 @@ class TestGameBoard:
         assert destroyer_2 not in board.ships
         assert destroyer_2.positions == []
 
-    def test_place_ships_with_valid_spacing(self):
-        assert False, "write this test"
+    def test_place_ships_with_close_spacing(self):
+        board: GameBoard = GameBoard()
+        cruiser: Ship = Ship(ShipType.CRUISER)
+        sub: Ship = Ship(ShipType.SUBMARINE)
+        board.place_ship(cruiser, Coord.D4, Orientation.DIAGONAL_DOWN)
+        board.place_ship(sub, Coord.D7, Orientation.HORIZONTAL)
+
+        assert board.ships == [cruiser, sub]
 
     def test_cant_place_ships_touching(self):
-        assert False, "write this test"
+        board: GameBoard = GameBoard()
+        cruiser: Ship = Ship(ShipType.CRUISER)
+        sub: Ship = Ship(ShipType.SUBMARINE)
+        board.place_ship(cruiser, Coord.D4, Orientation.DIAGONAL_DOWN)
+        # try to place Sub touching Cruiser
+        with pytest.raises(ValueError) as err:
+            board.place_ship(sub, Coord.D6, Orientation.HORIZONTAL)
+
+        assert board.ships == [cruiser]
+        assert "can not touch" in str(err)
 
     def test_cant_place_ships_overlapping(self):
-        assert False, "write this test"
+        board: GameBoard = GameBoard()
+        cruiser: Ship = Ship(ShipType.CRUISER)
+        sub: Ship = Ship(ShipType.SUBMARINE)
+        board.place_ship(cruiser, Coord.D4, Orientation.DIAGONAL_DOWN)
+        # try to place Sub overlapping Cruiser
+        with pytest.raises(ValueError) as err:
+            board.place_ship(sub, Coord.E5, Orientation.HORIZONTAL)
+
+        assert board.ships == [cruiser]
+        assert "can not overlap" in str(err)

@@ -67,3 +67,51 @@ class TestCoordHelperFunctions:
             Coord.A4,
             Coord.A5,
         ]
+
+    def test_get_adjacent_coords_to_single_central_coord(self):
+        centre: Coord = Coord.D4
+        expected: set[Coord] = {
+            Coord.C3,
+            Coord.C4,
+            Coord.C5,
+            Coord.D3,
+            Coord.D5,
+            Coord.E3,
+            Coord.E4,
+            Coord.E5,
+        }
+        adjacent_coords: set[Coord] = CoordHelper.adjacent_coords_to_a_coord(centre)
+        assert adjacent_coords == expected
+
+    def test_get_adjacent_coords_to_single_edge_coord(self):
+        edge: Coord = Coord.D1
+        expected: set[Coord] = {Coord.C1, Coord.C2, Coord.D2, Coord.E1, Coord.E2}
+        adjacent_coords: set[Coord] = CoordHelper.adjacent_coords_to_a_coord(edge)
+        assert adjacent_coords == expected
+
+    def test_get_adjacent_coords_to_single_corner_coord(self):
+        corner: Coord = Coord.A1
+        expected: set[Coord] = {Coord.A2, Coord.B1, Coord.B2}
+        adjacent_coords: set[Coord] = CoordHelper.adjacent_coords_to_a_coord(corner)
+        assert adjacent_coords == expected
+
+    def test_get_adjacent_coords_to_list_of_central_coords(self):
+        centre: list[Coord] = [Coord.D4, Coord.D5, Coord.D6]
+        expected: set[Coord] = {
+            Coord.C3,
+            Coord.C4,
+            Coord.C5,
+            Coord.C6,
+            Coord.C7,
+            Coord.D3,
+            Coord.D7,
+            Coord.E3,
+            Coord.E4,
+            Coord.E5,
+            Coord.E6,
+            Coord.E7,
+        }
+        adjacent_coords: set[Coord] = CoordHelper.adjacent_coords_to_a_coords_list(
+            centre
+        )
+        assert adjacent_coords == expected

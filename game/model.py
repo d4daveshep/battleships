@@ -60,6 +60,29 @@ class CoordHelper:
 
         return coords
 
+    @classmethod
+    def adjacent_coords_to_a_coord(cls, centre: Coord) -> set[Coord]:
+        adjacent_coords: set[Coord] = set()
+        for row_delta in [-1, 0, 1]:
+            for col_delta in [-1, 0, 1]:
+                if row_delta == 0 and col_delta == 0:
+                    continue
+                try:
+                    adjacent_coord: Coord = cls.lookup(
+                        CoordDetails(
+                            centre.value.row_index + row_delta,
+                            centre.value.col_index + col_delta,
+                        )
+                    )
+                    adjacent_coords.add(adjacent_coord)
+                except KeyError:
+                    pass  # skip any coords that are out of bounds
+        return adjacent_coords
+
+    @classmethod
+    def adjacent_coords_to_a_coords_list(cls, coords: list[Coord]) -> set[Coord]:
+        return set()
+
 
 @dataclass
 class Ship:

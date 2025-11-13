@@ -6,6 +6,9 @@ from typing import NamedTuple
 
 class Orientation(StrEnum):
     HORIZONTAL = "horizontal"
+    VERTICAL = "vertical"
+    DIAGONAL_UP = "diagonal up"
+    DIAGONAL_DOWN = "diagonal down"
 
 
 class ShipType(Enum):

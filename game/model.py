@@ -117,18 +117,32 @@ class GameBoard:
         }
 
         if ship.ship_type not in ship_types_already_on_board:
-            # check placement is valid
+            # get all invalid positions
+            all_invalid_coords: set[Coord] = self._get_invalid_coords()
 
-            # add positions to ship
+            # get planned ship positions
             try:
-                ship.positions = CoordHelper.coords_for_length_and_orientation(
+                positions: list[Coord] = CoordHelper.coords_for_length_and_orientation(
                     start, ship.length, orientation
                 )
+
             except KeyError as err:
                 raise ValueError(
                     f"Ship placement out of bounds: {ship.ship_type.name} {orientation.name} at {start.name}"
                 )
+
+            # check ship positions don't include an invalid position
+            invalid_ship_positions: set[Coord] = set(positions).intersection(
+                all_invalid_coords
+            )
+            if len(invalid_ship_positions) > 0:
+                raise ValueError(
+                    f"Ship placement is too close to another ship: {ship.ship_type.name} {orientation.name} at {start.name}"
+                )
+
             self.ships.append(ship)
+            # add positions to ship
+            ship.positions = positions
 
         else:
             raise ValueError(

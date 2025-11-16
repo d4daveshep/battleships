@@ -51,7 +51,7 @@ class TestCoordHelperFunctions:
         with pytest.raises(KeyError):
             CoordHelper.lookup((11, 3))
 
-    def test_get_coords_by_length_and_orientation(self):
+    def test_get_coords_by_length_and_horizontal_orientation(self):
         start: Coord = Coord.A1
         length: int = 5
         orientation: Orientation = Orientation.HORIZONTAL
@@ -65,6 +65,57 @@ class TestCoordHelperFunctions:
             Coord.A2,
             Coord.A3,
             Coord.A4,
+            Coord.A5,
+        ]
+
+    def test_get_coords_by_length_and_vertical_orientation(self):
+        start: Coord = Coord.A1
+        length: int = 5
+        orientation: Orientation = Orientation.VERTICAL
+
+        coords: list[Coord] = CoordHelper.coords_for_length_and_orientation(
+            start=start, length=length, orientation=orientation
+        )
+        assert len(coords) == length
+        assert coords == [
+            Coord.A1,
+            Coord.B1,
+            Coord.C1,
+            Coord.D1,
+            Coord.E1,
+        ]
+
+    def test_get_coords_by_length_and_diagonal_down_orientation(self):
+        start: Coord = Coord.A1
+        length: int = 5
+        orientation: Orientation = Orientation.DIAGONAL_DOWN
+
+        coords: list[Coord] = CoordHelper.coords_for_length_and_orientation(
+            start=start, length=length, orientation=orientation
+        )
+        assert len(coords) == length
+        assert coords == [
+            Coord.A1,
+            Coord.B2,
+            Coord.C3,
+            Coord.D4,
+            Coord.E5,
+        ]
+
+    def test_get_coords_by_length_and_diagonal_up_orientation(self):
+        start: Coord = Coord.E1
+        length: int = 5
+        orientation: Orientation = Orientation.DIAGONAL_UP
+
+        coords: list[Coord] = CoordHelper.coords_for_length_and_orientation(
+            start=start, length=length, orientation=orientation
+        )
+        assert len(coords) == length
+        assert coords == [
+            Coord.E1,
+            Coord.D2,
+            Coord.C3,
+            Coord.B4,
             Coord.A5,
         ]
 

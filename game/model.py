@@ -53,13 +53,41 @@ class CoordHelper:
     ) -> list[Coord]:
         coords: list[Coord] = [start]
 
-        for i in range(1, length):
-            if orientation == Orientation.HORIZONTAL:
+        if orientation == Orientation.HORIZONTAL:
+            for i in range(1, length):
                 coords.append(
                     cls.lookup(
                         CoordDetails(start.value.row_index, start.value.col_index + i)
                     )
                 )
+        elif orientation == Orientation.VERTICAL:
+            for i in range(1, length):
+                coords.append(
+                    cls.lookup(
+                        CoordDetails(start.value.row_index + i, start.value.col_index)
+                    )
+                )
+        elif orientation == Orientation.DIAGONAL_DOWN:
+            for i in range(1, length):
+                coords.append(
+                    cls.lookup(
+                        CoordDetails(
+                            start.value.row_index + i, start.value.col_index + i
+                        )
+                    )
+                )
+
+        elif orientation == Orientation.DIAGONAL_UP:
+            for i in range(1, length):
+                coords.append(
+                    cls.lookup(
+                        CoordDetails(
+                            start.value.row_index - i, start.value.col_index + i
+                        )
+                    )
+                )
+        else:
+            raise ValueError(f"Invalid orientation: {orientation}")
 
         return coords
 
@@ -111,6 +139,15 @@ class GameBoard:
         self.shots_received: dict = {}
         self.shots_fired: dict = {}
 
+    def _invalid_coords(self) -> set[Coord]:
+        invalid_coords: set[Coord] = set()
+        for ship in self.ships:
+            invalid_coords.update(
+                CoordHelper.coords_adjacent_to_a_coords_list(ship.positions)
+            )
+            invalid_coords.update(ship.positions)
+        return invalid_coords
+
     def place_ship(self, ship: Ship, start: Coord, orientation: Orientation) -> bool:
         ship_types_already_on_board: set[ShipType] = {
             ship.ship_type for ship in self.ships
@@ -118,7 +155,7 @@ class GameBoard:
 
         if ship.ship_type not in ship_types_already_on_board:
             # get all invalid positions
-            all_invalid_coords: set[Coord] = self._get_invalid_coords()
+            all_invalid_coords: set[Coord] = self._invalid_coords()
 
             # get planned ship positions
             try:

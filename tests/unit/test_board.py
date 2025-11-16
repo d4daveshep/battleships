@@ -10,7 +10,7 @@ class TestGameBoard:
         assert len(board.shots_received) == 0
         assert len(board.shots_fired) == 0
 
-    valid_ship_placement_data: list[
+    valid_horizontal_ship_placement_data: list[
         tuple[ShipType, Coord, Orientation, list[Coord]]
     ] = [
         (
@@ -104,12 +104,13 @@ class TestGameBoard:
         cruiser: Ship = Ship(ShipType.CRUISER)
         sub: Ship = Ship(ShipType.SUBMARINE)
         board.place_ship(cruiser, Coord.D4, Orientation.DIAGONAL_DOWN)
+        assert Coord.D6 in board._invalid_coords()
         # try to place Sub touching Cruiser
         with pytest.raises(ValueError) as err:
             board.place_ship(sub, Coord.D6, Orientation.HORIZONTAL)
 
         assert board.ships == [cruiser]
-        assert "can not touch" in str(err)
+        assert "too close to another ship" in str(err)
 
     def test_cant_place_ships_overlapping(self):
         board: GameBoard = GameBoard()
@@ -121,4 +122,9 @@ class TestGameBoard:
             board.place_ship(sub, Coord.E5, Orientation.HORIZONTAL)
 
         assert board.ships == [cruiser]
-        assert "can not overlap" in str(err)
+        assert "too close to another ship" in str(err)
+
+    def test_no_invalid_coords_with_no_ships_placed(self):
+        board: GameBoard = GameBoard()
+        invalid_coords: set[Coord] = board._invalid_coords()
+        assert len(invalid_coords) == 0

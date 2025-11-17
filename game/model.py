@@ -1,3 +1,4 @@
+import enum
 import re
 from dataclasses import dataclass, field
 from enum import Enum, StrEnum
@@ -12,16 +13,17 @@ class Orientation(StrEnum):
 
 
 class ShipType(Enum):
-    CARRIER = ("Carrier", 5, 2)
-    BATTLESHIP = ("Battleship", 4, 1)
-    CRUISER = ("Cruiser", 3, 1)
-    SUBMARINE = ("Submarine", 3, 1)
-    DESTROYER = ("Destroyer", 2, 1)
+    CARRIER = ("Carrier", 5, 2, "A")
+    BATTLESHIP = ("Battleship", 4, 1, "B")
+    CRUISER = ("Cruiser", 3, 1, "C")
+    SUBMARINE = ("Submarine", 3, 1, "S")
+    DESTROYER = ("Destroyer", 2, 1, "D")
 
-    def __init__(self, ship_name: str, length: int, shots_available: int):
+    def __init__(self, ship_name: str, length: int, shots_available: int, code: str):
         self.ship_name = ship_name
         self.length = length
         self.shots_available = shots_available
+        self.code = code
 
 
 class CoordDetails(NamedTuple):
@@ -187,3 +189,34 @@ class GameBoard:
             )
 
         return True
+
+    def ship_type_at(self, coord: Coord) -> ShipType | None:
+        # TODO: Reimplement this using a cached map of Coords to Ship.code
+        for ship in self.ships:
+            if coord in ship.positions:
+                return ship.ship_type
+        return None
+
+
+class GameBoardHelper:
+    @classmethod
+    def print(cls, board: GameBoard, show_invalid: bool = False) -> list[str]:
+        invalid_coords: set[Coord] = board._invalid_coords() if show_invalid else set()
+
+        output: list[str] = []
+        output.append("  1 2 3 4 5 6 7 8 9 10")
+        output.append("-|--------------------")
+        for row_index, row_letter in enumerate("ABCDEFGHIJ", start=1):
+            row_output: str = f"{row_letter}|"
+            for col_index in range(1, 11):
+                coord: Coord = CoordHelper.lookup(CoordDetails(row_index, col_index))
+                ship_type: ShipType | None = board.ship_type_at(coord)
+                if ship_type:
+                    row_output += ship_type.code + " "
+                elif show_invalid and coord in invalid_coords:
+                    row_output += "x "
+                else:
+                    row_output += ". "
+
+            output.append(row_output)
+        return output

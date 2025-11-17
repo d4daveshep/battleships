@@ -1,6 +1,6 @@
 import pytest
 
-from game.model import Coord, GameBoard, Ship, ShipType, Orientation
+from game.model import Coord, GameBoard, Ship, ShipType, Orientation, GameBoardHelper
 
 
 class TestGameBoard:
@@ -40,9 +40,9 @@ class TestGameBoard:
         (ShipType.DESTROYER, Coord.I1, Orientation.HORIZONTAL, [Coord.I1, Coord.I2]),
     ]
 
-    def test_place_all_ships_in_valid_positions(self):
+    def test_place_all_ships_in_valid_horizontal_positions(self):
         board: GameBoard = GameBoard()
-        for ship_data in self.valid_ship_placement_data:
+        for ship_data in self.valid_horizontal_ship_placement_data:
             ship_type, start, orientation, expected_coords = ship_data
             ship: Ship = Ship(ship_type)
             result: bool = board.place_ship(ship, start, orientation)
@@ -51,6 +51,7 @@ class TestGameBoard:
             assert ship.positions == expected_coords
 
         assert len(board.ships) == 5
+        assert len(board._invalid_coords()) == 44
 
     def test_place_ship_invalid_position_out_of_bounds(self):
         board: GameBoard = GameBoard()
@@ -128,3 +129,65 @@ class TestGameBoard:
         board: GameBoard = GameBoard()
         invalid_coords: set[Coord] = board._invalid_coords()
         assert len(invalid_coords) == 0
+
+    def test_ship_type_at_empty_coord(self):
+        board: GameBoard = GameBoard()
+        assert board.ship_type_at(Coord.A1) is None
+
+    def test_ship_type_at_ship_coord(self):
+        board: GameBoard = GameBoard()
+        board.place_ship(Ship(ShipType.CRUISER), Coord.D4, Orientation.HORIZONTAL)
+        assert board.ship_type_at(Coord.D4) == ShipType.CRUISER
+        assert board.ship_type_at(Coord.D6) == ShipType.CRUISER
+
+
+class TestGameBoardHelper:
+    def test_print_empty_board(self):
+        board: GameBoard = GameBoard()
+        output: list[str] = GameBoardHelper.print(board)
+        assert len(output) == 12
+        assert output[0] == "  1 2 3 4 5 6 7 8 9 10"
+        assert output[1] == "-|--------------------"
+        assert output[2] == "A|. . . . . . . . . . "
+        assert output[9] == "H|. . . . . . . . . . "
+
+    def test_print_board_with_2_ships(self):
+        board: GameBoard = GameBoard()
+        carrier: Ship = Ship(ShipType.CARRIER)
+        sub: Ship = Ship(ShipType.SUBMARINE)
+        board.place_ship(carrier, Coord.B2, Orientation.DIAGONAL_DOWN)
+        board.place_ship(sub, Coord.H3, Orientation.HORIZONTAL)
+
+        output: list[str] = GameBoardHelper.print(board)
+        assert len(output) == 12
+        assert output[2] == "A|. . . . . . . . . . "
+        assert output[3] == "B|. A . . . . . . . . "
+        assert output[4] == "C|. . A . . . . . . . "
+        assert output[5] == "D|. . . A . . . . . . "
+        assert output[6] == "E|. . . . A . . . . . "
+        assert output[7] == "F|. . . . . A . . . . "
+        assert output[8] == "G|. . . . . . . . . . "
+        assert output[9] == "H|. . S S S . . . . . "
+        assert output[10] == "I|. . . . . . . . . . "
+        assert output[11] == "J|. . . . . . . . . . "
+
+        print()
+        for line in output:
+            print(line)
+
+        output: list[str] = GameBoardHelper.print(board, show_invalid=True)
+        assert len(output) == 12
+        assert output[2] == "A|x x x . . . . . . . "
+        assert output[3] == "B|x A x x . . . . . . "
+        assert output[4] == "C|x x A x x . . . . . "
+        assert output[5] == "D|. x x A x x . . . . "
+        assert output[6] == "E|. . x x A x x . . . "
+        assert output[7] == "F|. . . x x A x . . . "
+        assert output[8] == "G|. x x x x x x . . . "
+        assert output[9] == "H|. x S S S x . . . . "
+        assert output[10] == "I|. x x x x x . . . . "
+        assert output[11] == "J|. . . . . . . . . . "
+
+        print()
+        for line in output:
+            print(line)

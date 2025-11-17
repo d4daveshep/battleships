@@ -201,6 +201,14 @@ class GameBoard:
 class GameBoardHelper:
     @classmethod
     def print(cls, board: GameBoard, show_invalid: bool = False) -> list[str]:
+        """Generate ASCII visualization of game board with ships and optionally invalid placement zones.
+
+        Returns list of strings representing board rows with ship codes (A/B/C/S/D), empty cells (.),
+        and optionally invalid placement zones (x) if show_invalid=True.
+        """
+        ship_coords: dict[Coord, ShipType] = {
+            coord: ship.ship_type for ship in board.ships for coord in ship.positions
+        }
         invalid_coords: set[Coord] = board._invalid_coords() if show_invalid else set()
 
         output: list[str] = []
@@ -210,7 +218,7 @@ class GameBoardHelper:
             row_output: str = f"{row_letter}|"
             for col_index in range(1, 11):
                 coord: Coord = CoordHelper.lookup(CoordDetails(row_index, col_index))
-                ship_type: ShipType | None = board.ship_type_at(coord)
+                ship_type: ShipType | None = ship_coords.get(coord)
                 if ship_type:
                     row_output += ship_type.code + " "
                 elif show_invalid and coord in invalid_coords:

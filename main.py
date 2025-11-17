@@ -229,6 +229,7 @@ async def place_ship(
         "Destroyer": 2,
     }
 
+    # FIXME: implement this method using board.place_ship method
     assert False, "Delegate to model objects to place ship"
     # Get ship length
     ship_length: int = ship_lengths.get(ship_name, 0)

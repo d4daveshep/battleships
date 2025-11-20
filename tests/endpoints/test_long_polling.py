@@ -5,11 +5,8 @@ These tests follow the TDD RED phase for Step 2 of the long polling migration.
 Tests should fail initially as the endpoint is not yet implemented.
 """
 
-import asyncio
 import time
-from typing import Any
 
-import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 

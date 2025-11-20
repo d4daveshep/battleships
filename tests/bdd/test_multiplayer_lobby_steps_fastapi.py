@@ -109,7 +109,7 @@ def multiplayer_lobby_system_available(client: TestClient) -> None:
     # Reset lobby state via test endpoint
     try:
         client.post("/test/reset-lobby")
-    except:
+    except Exception:
         pass  # Test endpoint may not exist yet, that's okay
 
 
@@ -119,7 +119,7 @@ def no_other_players_in_lobby(client: TestClient) -> None:
     # Reset lobby state via test endpoint
     try:
         client.post("/test/reset-lobby")
-    except:
+    except Exception:
         pass  # Test endpoint may not exist yet, that's okay
 
 
@@ -135,7 +135,7 @@ def other_players_in_lobby(
     if current_player is None:
         try:
             client.post("/test/reset-lobby")
-        except:
+        except Exception:
             pass  # Test endpoint may not exist yet
 
     expected_players: list[dict[str, str]] = []
@@ -145,9 +145,9 @@ def other_players_in_lobby(
         if status == "Available":
             # Add player to lobby using individual login flow, handle duplicates
             try:
-                response = client.get("/")
+                client.get("/")
                 form_data = {"player_name": player_name, "game_mode": "human"}
-                response = client.post("/", data=form_data)
+                client.post("/", data=form_data)
                 expected_players.append({"name": player_name, "status": status})
             except Exception as e:
                 # If player already exists, that's okay for test setup
@@ -201,8 +201,8 @@ def another_player_logs_in_and_selects_human(
     current_player = lobby_context.current_player_name
 
     # Simulate the new player logging in and selecting human opponent
-    response = client.get("/")
-    response = client.post("/", data={"player_name": player_name, "game_mode": "human"})
+    client.get("/")
+    client.post("/", data={"player_name": player_name, "game_mode": "human"})
 
     # Store the expected new player for verification
     lobby_context.expected_new_player = player_name
@@ -810,25 +810,21 @@ def have_received_game_request(
     # Ensure lobby is clean before setting up scenario
     try:
         client.post("/test/reset-lobby")
-    except:
+    except Exception:
         pass
 
     # First ensure the sender player is in the lobby (handle duplicate player error)
     try:
-        response = client.get("/")
-        response = client.post(
-            "/", data={"player_name": sender_player, "game_mode": "human"}
-        )
+        client.get("/")
+        client.post("/", data={"player_name": sender_player, "game_mode": "human"})
     except Exception as e:
         if "already exists" not in str(e):
             raise
 
     # Then ensure current player is in lobby (handle duplicate player error)
     try:
-        response = client.get("/")
-        response = client.post(
-            "/", data={"player_name": current_player, "game_mode": "human"}
-        )
+        client.get("/")
+        client.post("/", data={"player_name": current_player, "game_mode": "human"})
     except Exception as e:
         if "already exists" not in str(e):
             raise
@@ -1068,7 +1064,7 @@ def opponent_accepts_my_game_request(
 
     # Simulate opponent accepting the request
     form_data = {"player_name": opponent_name, "sender_name": current_player}
-    response = client.post("/accept-game-request", data=form_data)
+    client.post("/accept-game-request", data=form_data)
 
     # Wait for processing
     # import time
@@ -1091,7 +1087,10 @@ def opponent_accepts_my_game_request(
 
 @given(parsers.parse('"{sender_player}" selects "{opponent_player}" as his opponent'))
 def player_selects_another_as_opponent(
-    client: TestClient, lobby_context: LobbyTestContext, sender_player: str, opponent_player: str
+    client: TestClient,
+    lobby_context: LobbyTestContext,
+    sender_player: str,
+    opponent_player: str,
 ) -> None:
     """Simulate one player selecting another player as opponent"""
     # Store current player to restore later
@@ -1099,7 +1098,7 @@ def player_selects_another_as_opponent(
 
     # Simulate sender selecting opponent
     form_data = {"player_name": sender_player, "opponent_name": opponent_player}
-    response = client.post("/select-opponent", data=form_data)
+    client.post("/select-opponent", data=form_data)
 
     # Store the request details
     lobby_context.game_request_sender = sender_player
@@ -1112,9 +1111,14 @@ def player_selects_another_as_opponent(
         lobby_context.current_player_name = current_player
 
 
-@when(parsers.parse('"{receiver_player}" accepts the game request from "{sender_player}"'))
+@when(
+    parsers.parse('"{receiver_player}" accepts the game request from "{sender_player}"')
+)
 def receiver_accepts_game_request_from_sender(
-    client: TestClient, lobby_context: LobbyTestContext, receiver_player: str, sender_player: str
+    client: TestClient,
+    lobby_context: LobbyTestContext,
+    receiver_player: str,
+    sender_player: str,
 ) -> None:
     """Simulate a player accepting a game request from another player"""
     # Store current player to restore later
@@ -1122,7 +1126,7 @@ def receiver_accepts_game_request_from_sender(
 
     # Simulate receiver accepting the request
     form_data = {"player_name": receiver_player, "sender_name": sender_player}
-    response = client.post("/accept-game-request", data=form_data)
+    client.post("/accept-game-request", data=form_data)
 
     # Restore current player's perspective
     if current_player:
@@ -1152,4 +1156,3 @@ def should_remain_in_lobby(lobby_context: LobbyTestContext) -> None:
     # Verify lobby container exists
     lobby_container = lobby_context.soup.find(attrs={"data-testid": "lobby-container"})
     assert lobby_container is not None, "Lobby container should be present"
-

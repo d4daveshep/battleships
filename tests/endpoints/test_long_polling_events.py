@@ -7,7 +7,6 @@ notifications instead of busy-wait polling for better performance.
 These tests follow the TDD RED phase for Step 3 of the long polling migration.
 """
 
-import asyncio
 import time
 from fastapi import status
 from fastapi.testclient import TestClient

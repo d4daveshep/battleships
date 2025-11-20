@@ -1,4 +1,3 @@
-from typing import NamedTuple, Type
 import pytest
 from game.model import Coord, CoordHelper, Orientation, CoordDetails
 

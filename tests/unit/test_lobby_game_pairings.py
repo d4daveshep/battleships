@@ -7,7 +7,6 @@ when a game request is accepted.
 Tests should fail initially as the pairing system is not yet implemented.
 """
 
-import pytest
 from game.lobby import Lobby
 from game.player import PlayerStatus
 

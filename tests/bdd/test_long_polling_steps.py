@@ -9,7 +9,7 @@ they test the complete integration of long polling behavior.
 from pytest_bdd import scenarios, given, when, then, parsers
 import httpx
 import time
-from playwright.sync_api import Page, Locator, Response
+from playwright.sync_api import Page
 from tests.bdd.conftest import login_and_select_multiplayer
 
 # Load scenarios from the feature file
@@ -69,7 +69,7 @@ def player_joins_within_time(page: Page, player_name: str) -> None:
     """Simulate another player joining the lobby"""
     # Use httpx to add player via API
     with httpx.Client() as client:
-        response = client.post(
+        client.post(
             "http://localhost:8000/",
             data={"player_name": player_name, "game_mode": "human"},
         )
@@ -121,7 +121,7 @@ def player_leaves_lobby(page: Page, player_name: str) -> None:
     """Simulate a player leaving the lobby"""
     # Use httpx to remove player via API
     with httpx.Client() as client:
-        response = client.post(
+        client.post(
             "http://localhost:8000/leave-lobby", data={"player_name": player_name}
         )
     setattr(page, "player_leave_time", time.time())
@@ -159,7 +159,7 @@ def player_sends_game_request(page: Page, sender: str) -> None:
 
     # Send game request via API
     with httpx.Client() as client:
-        response = client.post(
+        client.post(
             "http://localhost:8000/select-opponent",
             data={"player_name": sender, "opponent_name": current_player},
         )
@@ -202,7 +202,7 @@ def accept_and_decline_buttons_visible(page: Page) -> None:
 @given(parsers.parse('I have sent a game request to "{opponent}"'))
 def i_sent_game_request(page: Page, opponent: str) -> None:
     """Send a game request to an opponent"""
-    current_player = getattr(page, "current_player_name", "Alice")
+    getattr(page, "current_player_name", "Alice")
 
     # Click the select opponent button
     page.click(f'button[data-testid="select-opponent-{opponent}"]')
@@ -218,7 +218,7 @@ def opponent_accepts_request(page: Page, opponent: str) -> None:
 
     # Accept via API
     with httpx.Client() as client:
-        response = client.post(
+        client.post(
             "http://localhost:8000/accept-game-request",
             data={"player_name": opponent, "sender_name": current_player},
         )
@@ -255,7 +255,7 @@ def opponent_declines_request(page: Page, opponent: str) -> None:
     """Simulate opponent declining the game request"""
     # Decline via API
     with httpx.Client() as client:
-        response = client.post(
+        client.post(
             "http://localhost:8000/decline-game-request", data={"player_name": opponent}
         )
 
@@ -282,7 +282,7 @@ def decline_message_appears(page: Page) -> None:
         )
         elapsed = time.time() - start_time
         print(f"Request confirmation cleared in {elapsed}s (request was declined)")
-    except Exception as e:
+    except Exception:
         # If confirmation message doesn't exist, that's also fine (request is gone)
         elapsed = time.time() - start_time
         print(f"Status updated in {elapsed}s after decline")
@@ -451,7 +451,7 @@ def is_long_poll_request(page: Page) -> None:
 @then("the request should not complete until timeout or state change")
 def request_holds_connection(page: Page) -> None:
     """Verify request holds connection (doesn't complete quickly)"""
-    requests = getattr(page, "observed_requests", [])
+    getattr(page, "observed_requests", [])
 
     # This is hard to verify without tracking response timing
     # We can infer it from having only 1 request during 10s observation

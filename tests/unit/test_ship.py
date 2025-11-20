@@ -1,4 +1,3 @@
-import pytest
 
 from game.model import Ship, ShipType
 

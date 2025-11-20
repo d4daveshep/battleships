@@ -1,7 +1,6 @@
 from pytest_bdd import scenarios, given, when, then, parsers
 import httpx
 from playwright.sync_api import Page, Locator
-from tests.bdd.conftest import login_and_select_multiplayer
 
 
 scenarios("../../features/multiplayer_lobby.feature")
@@ -213,10 +212,10 @@ def another_player_logs_in_and_selects_human(page: Page, player_name: str) -> No
 
     with httpx.Client() as client:
         # First get the login page
-        response = client.get("http://localhost:8000/")
+        client.get("http://localhost:8000/")
 
         # Then submit the login form with human opponent selection
-        response = client.post(
+        client.post(
             "http://localhost:8000/",
             data={"player_name": player_name, "game_mode": "human"},
         )
@@ -422,7 +421,7 @@ def target_player_receives_game_request(
 
     with httpx.Client() as client:
         # Simulate sender selecting target as opponent
-        response = client.post(
+        client.post(
             "http://localhost:8000/select-opponent",
             data={"player_name": sender_player, "opponent_name": target_player},
         )
@@ -616,7 +615,7 @@ def player_leaves_lobby(page: Page, player_name: str) -> None:
 
     with httpx.Client() as client:
         # Simulate the player leaving the lobby
-        response = client.post(
+        client.post(
             "http://localhost:8000/leave-lobby", data={"player_name": player_name}
         )
 
@@ -661,7 +660,7 @@ def sender_selects_me_as_opponent(page: Page, sender_player: str) -> None:
 
     # Simulate the sender making a request via HTTP client
     with httpx.Client() as client:
-        response = client.post(
+        client.post(
             "http://localhost:8000/select-opponent",
             data={"player_name": sender_player, "opponent_name": current_player},
         )
@@ -762,7 +761,7 @@ def have_received_game_request(page: Page, sender_player: str) -> None:
 
     # Simulate the sender selecting current player as opponent
     with httpx.Client() as client:
-        response = client.post(
+        client.post(
             "http://localhost:8000/select-opponent",
             data={"player_name": sender_player, "opponent_name": current_player},
         )
@@ -967,7 +966,7 @@ def opponent_accepts_my_game_request(page: Page, opponent_name: str) -> None:
     # Simulate the opponent accepting the request via HTTP client
     # In a real implementation, this would involve WebSocket messaging or API calls
     with httpx.Client() as client:
-        response = client.post(
+        client.post(
             "http://localhost:8000/accept-game-request",
             data={"player_name": opponent_name, "sender_name": current_player},
         )
@@ -984,7 +983,7 @@ def player_selects_another_as_opponent(page: Page, sender_player: str, opponent_
     """Simulate one player selecting another player as opponent"""
     # Use HTTP client to simulate the selection
     with httpx.Client() as client:
-        response = client.post(
+        client.post(
             "http://localhost:8000/select-opponent",
             data={"player_name": sender_player, "opponent_name": opponent_player},
         )
@@ -1002,7 +1001,7 @@ def receiver_accepts_game_request_from_sender(page: Page, receiver_player: str, 
     """Simulate a player accepting a game request from another player"""
     # Use HTTP client to simulate the acceptance
     with httpx.Client() as client:
-        response = client.post(
+        client.post(
             "http://localhost:8000/accept-game-request",
             data={"player_name": receiver_player, "sender_name": sender_player},
         )

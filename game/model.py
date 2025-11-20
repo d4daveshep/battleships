@@ -1,5 +1,3 @@
-import enum
-import re
 from dataclasses import dataclass, field
 from enum import Enum, StrEnum
 from typing import NamedTuple
@@ -165,7 +163,7 @@ class GameBoard:
                     start, ship.length, orientation
                 )
 
-            except KeyError as err:
+            except KeyError:
                 raise ValueError(
                     f"Ship placement out of bounds: {ship.ship_type.name} {orientation.name} at {start.name}"
                 )

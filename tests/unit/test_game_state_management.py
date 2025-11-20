@@ -3,7 +3,6 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Optional
 
-from game.player import Player, PlayerStatus
 
 
 class GameMode(StrEnum):

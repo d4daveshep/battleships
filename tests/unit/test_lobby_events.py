@@ -221,7 +221,7 @@ class TestLobbyEventNotifications:
         await lobby.wait_for_change(initial_version)
 
         # Make another change
-        current_version = lobby.get_version()
+        lobby.get_version()
         lobby.add_player("Bob", PlayerStatus.AVAILABLE)
 
         # Event should be set again for the new change

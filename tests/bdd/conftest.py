@@ -30,7 +30,7 @@ def reset_lobby(fastapi_server):
     try:
         with httpx.Client() as client:
             client.post(f"{BASE_URL}test/reset-lobby", timeout=5)
-    except:
+    except Exception:
         pass  # Ignore cleanup failures
 
 
@@ -48,7 +48,7 @@ def fastapi_server():
                 response = client.get(f"{BASE_URL}health", timeout=1)
                 if response.status_code == 200:
                     break
-        except:
+        except Exception:
             time.sleep(1)
     else:
         process.kill()

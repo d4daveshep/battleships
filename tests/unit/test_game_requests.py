@@ -1,6 +1,5 @@
 from datetime import datetime
 
-import pytest
 
 from game.player import GameRequest, Player, PlayerStatus
 

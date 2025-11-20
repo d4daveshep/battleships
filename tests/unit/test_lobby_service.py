@@ -1,7 +1,4 @@
-from pytest_bdd import when
-from game import lobby, player
 import pytest
-import game
 from game.player import GameRequest, Player, PlayerStatus
 from services.lobby_service import LobbyService
 

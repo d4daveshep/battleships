@@ -2,7 +2,6 @@
 name = "battleships"
 version = "0.1.0"
 description = "Battleships - A naval battle game implementation"
-readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
   "fastapi>=0.115.0",
@@ -27,12 +26,18 @@ dev = [
   "pytest-bdd>=8.1.0",
   "bs4",
   "types-beautifulsoup4>=4.12.0.20250516",
+  "ruff",
 ]
+
+[tool.setuptools.packages.find]
+include = ["game*", "services*"]
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
-markers = [
-  "wip: Work in progress - feature not yet fully implemented"
-]
+markers = ["wip: Work in progress - feature not yet fully implemented"]
 # Skip WIP scenarios by default (run with -m wip to include them)
 addopts = "-m 'not wip'"

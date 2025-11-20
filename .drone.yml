@@ -1,0 +1,46 @@
+kind: pipeline
+type: docker
+name: default
+
+steps:
+  - name: lint
+    image: battleships:latest
+    pull: if-not-exists
+    commands:
+      - ruff check .
+
+  - name: unit-test
+    image: battleships:latest
+    pull: if-not-exists
+    commands:
+      # Install code
+      - uv pip install --system -e . --no-deps
+      # Run unit tests
+      - pytest -v ./tests/unit/
+
+  - name: endpoint-test
+    image: battleships:latest
+    pull: if-not-exists
+    commands:
+      # Run fastapi tests
+      - pytest -v ./tests/bdd/test_*fastapi.py
+
+  - name: browser-test
+    image: battleships:latest
+    pull: if-not-exists
+    commands:
+      # Run playwright tests
+      - playwright install chromium
+      - pytest -v ./tests/bdd/test_multiplayer_lobby_steps_browser.py
+
+  - name: cleanup
+    image: battleships:latest
+    pull: if-not-exists
+    when:
+      status:
+        - success
+        - failure
+    commands:
+      # Clean up build artifacts regardless of test outcome
+      - rm -rf build/ *.egg-info/
+      - find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true

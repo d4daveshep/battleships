@@ -1,0 +1,52 @@
+# Dockerfile for CI
+FROM python:3.13-slim
+
+# Install system dependencies for Playwright
+RUN apt-get update && apt-get install -y \
+    libnss3 \
+    libnspr4 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libcups2 \
+    libdrm2 \
+    libdbus-1-3 \
+    libxkbcommon0 \
+    libatspi2.0-0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxrandr2 \
+    libgbm1 \
+    libasound2 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python packages
+RUN pip install --no-cache-dir \
+    playwright \
+    pytest \
+    pytest-playwright
+
+# Install Playwright browsers
+RUN playwright install chromium firefox webkit
+
+# Install browser dependencies
+RUN playwright install-deps
+
+# Install uv
+RUN pip install --quiet uv
+
+# Copy dependency files
+COPY pyproject.toml ./
+COPY uv.lock* ./
+#COPY requirements.txt ./
+
+# Export dependencies to requirements.txt and install
+RUN uv export --format requirements-txt --no-emit-project --no-editable --no-hashes > requirements.txt
+    # uv pip install --system -r requirements.txt && \
+RUN pip install -v -r requirements.txt
+RUN rm requirements.txt
+
+# Clean up cache
+RUN rm -rf /root/.cache pyproject.toml uv.lock
+
+WORKDIR /drone/src

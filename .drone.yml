@@ -13,8 +13,6 @@ steps:
     image: battleships:latest
     pull: if-not-exists
     commands:
-      # Install code
-      - uv pip install --system -e . --no-deps
       # Run unit tests
       - pytest -v ./tests/unit/
 
@@ -22,10 +20,17 @@ steps:
     image: battleships:latest
     pull: if-not-exists
     commands:
+      # Run endpoint tests
+      - pytest -v ./tests/endpoint/
+
+  - name: fastapi-bdd-test
+    image: battleships:latest
+    pull: if-not-exists
+    commands:
       # Run fastapi tests
       - pytest -v ./tests/bdd/test_*fastapi.py
 
-  - name: browser-test
+  - name: browser-bdd-test
     image: battleships:latest
     pull: if-not-exists
     commands:

@@ -149,6 +149,13 @@ class GameBoard:
         return invalid_coords
 
     def place_ship(self, ship: Ship, start: Coord, orientation: Orientation) -> bool:
+        """Place a ship on the board with spacing validation.
+
+        Validates that the ship type hasn't been placed yet, fits within board boundaries,
+        and maintains required spacing (no touching or overlapping with other ships).
+
+        Raises ValueError if placement is invalid (duplicate type, out of bounds, or too close to another ship).
+        """
         ship_types_already_on_board: set[ShipType] = {
             ship.ship_type for ship in self.ships
         }

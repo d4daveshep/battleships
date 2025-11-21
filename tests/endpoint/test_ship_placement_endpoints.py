@@ -24,7 +24,6 @@ class TestShipPlacementPageEndpoint:
         response = client.get("/ship-placement", params={"player_name": "TestPlayer"})
 
         assert response.status_code == status.HTTP_200_OK
-        soup = BeautifulSoup(response.text, "html.parser")
 
         # Check that player name is displayed
         assert "TestPlayer" in response.text

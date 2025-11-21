@@ -10,7 +10,7 @@ These tests follow the TDD RED phase for Step 3 of the long polling migration.
 import time
 from fastapi import status
 from fastapi.testclient import TestClient
-from tests.endpoints.conftest import create_player
+from tests.endpoint.conftest import create_player
 
 
 class TestLongPollingWithEvents:
@@ -57,9 +57,9 @@ class TestLongPollingWithEvents:
 
         # Verify: Should still timeout properly (1 second ± 0.5s)
         assert response.status_code == status.HTTP_200_OK
-        assert (
-            0.5 < elapsed_time < 1.5
-        ), f"Expected ~1s timeout, got {elapsed_time:.2f}s"
+        assert 0.5 < elapsed_time < 1.5, (
+            f"Expected ~1s timeout, got {elapsed_time:.2f}s"
+        )
 
     def test_long_poll_multiple_concurrent_requests_with_events(
         self, client: TestClient

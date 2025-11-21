@@ -152,9 +152,7 @@ class TestGamePageIntegration:
     def test_game_page_accessible_after_login_computer_mode(self, client: TestClient):
         """Test that game page is accessible after single player login flow"""
         # Login with computer mode redirects to ship placement first
-        login_response = client.post(
-            "/", data={"player_name": "Alice", "game_mode": "computer"}
-        )
+        client.post("/", data={"player_name": "Alice", "game_mode": "computer"})
 
         # Eventually would redirect to game after ship placement
         # For now, just verify game page works independently

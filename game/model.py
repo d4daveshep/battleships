@@ -3,6 +3,24 @@ from enum import Enum, StrEnum
 from typing import NamedTuple
 
 
+class ShipAlreadyPlacedError(Exception):
+    """Raised when attempting to place a ship type that has already been placed on the board."""
+
+    pass
+
+
+class ShipPlacementOutOfBoundsError(Exception):
+    """Raised when attempting to place a ship that would extend beyond the board boundaries."""
+
+    pass
+
+
+class ShipPlacementTooCloseError(Exception):
+    """Raised when attempting to place a ship too close to (touching or overlapping) another ship."""
+
+    pass
+
+
 class Orientation(StrEnum):
     HORIZONTAL = "horizontal"
     VERTICAL = "vertical"
@@ -22,6 +40,13 @@ class ShipType(Enum):
         self.length = length
         self.shots_available = shots_available
         self.code = code
+
+    @classmethod
+    def from_ship_name(cls, ship_name: str) -> "ShipType":
+        for ship_type in cls:
+            if ship_type.ship_name == ship_name:
+                return ship_type
+        raise ValueError(f"No ShipType with ship_name: {ship_name}")
 
 
 class CoordDetails(NamedTuple):
@@ -171,7 +196,7 @@ class GameBoard:
                 )
 
             except KeyError:
-                raise ValueError(
+                raise ShipPlacementOutOfBoundsError(
                     f"Ship placement out of bounds: {ship.ship_type.name} {orientation.name} at {start.name}"
                 )
 
@@ -180,7 +205,7 @@ class GameBoard:
                 all_invalid_coords
             )
             if len(invalid_ship_positions) > 0:
-                raise ValueError(
+                raise ShipPlacementTooCloseError(
                     f"Ship placement is too close to another ship: {ship.ship_type.name} {orientation.name} at {start.name}"
                 )
 
@@ -189,7 +214,7 @@ class GameBoard:
             ship.positions = positions
 
         else:
-            raise ValueError(
+            raise ShipAlreadyPlacedError(
                 f"Ship type: {ship.ship_type.name} already placed on board"
             )
 

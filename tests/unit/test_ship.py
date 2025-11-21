@@ -1,4 +1,3 @@
-
 from game.model import Ship, ShipType
 
 
@@ -42,6 +41,13 @@ class TestShipType:
         assert ShipType.DESTROYER.length == 2
         assert ShipType.DESTROYER.shots_available == 1
         assert ShipType.DESTROYER.code == "D"
+
+    def test_get_ship_type_from_name(self):
+        assert ShipType.from_ship_name("Carrier") == ShipType.CARRIER
+        assert ShipType.from_ship_name("Battleship") == ShipType.BATTLESHIP
+        assert ShipType.from_ship_name("Cruiser") == ShipType.CRUISER
+        assert ShipType.from_ship_name("Submarine") == ShipType.SUBMARINE
+        assert ShipType.from_ship_name("Destroyer") == ShipType.DESTROYER
 
 
 class TestShip:

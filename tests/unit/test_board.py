@@ -1,6 +1,16 @@
 import pytest
 
-from game.model import Coord, GameBoard, Ship, ShipType, Orientation, GameBoardHelper
+from game.model import (
+    Coord,
+    GameBoard,
+    Ship,
+    ShipType,
+    Orientation,
+    GameBoardHelper,
+    ShipAlreadyPlacedError,
+    ShipPlacementOutOfBoundsError,
+    ShipPlacementTooCloseError,
+)
 
 
 class TestGameBoard:
@@ -56,7 +66,7 @@ class TestGameBoard:
     def test_place_ship_invalid_position_out_of_bounds(self):
         board: GameBoard = GameBoard()
         destroyer: Ship = Ship(ship_type=ShipType.DESTROYER)
-        with pytest.raises(ValueError):
+        with pytest.raises(ShipPlacementOutOfBoundsError):
             board.place_ship(
                 ship=destroyer, start=Coord.J10, orientation=Orientation.HORIZONTAL
             )
@@ -78,7 +88,7 @@ class TestGameBoard:
 
         # place duplicate ship typeat different location
         destroyer_2: Ship = Ship(ShipType.DESTROYER)
-        with pytest.raises(ValueError):
+        with pytest.raises(ShipAlreadyPlacedError):
             board.place_ship(
                 ship=destroyer_2, start=Coord.C1, orientation=Orientation.HORIZONTAL
             )
@@ -107,11 +117,11 @@ class TestGameBoard:
         board.place_ship(cruiser, Coord.D4, Orientation.DIAGONAL_DOWN)
         assert Coord.D6 in board._invalid_coords()
         # try to place Sub touching Cruiser
-        with pytest.raises(ValueError) as err:
+        with pytest.raises(ShipPlacementTooCloseError) as err:
             board.place_ship(sub, Coord.D6, Orientation.HORIZONTAL)
 
         assert board.ships == [cruiser]
-        assert "too close to another ship" in str(err)
+        assert "too close to another ship" in str(err.value)
 
     def test_cant_place_ships_overlapping(self):
         board: GameBoard = GameBoard()
@@ -119,11 +129,11 @@ class TestGameBoard:
         sub: Ship = Ship(ShipType.SUBMARINE)
         board.place_ship(cruiser, Coord.D4, Orientation.DIAGONAL_DOWN)
         # try to place Sub overlapping Cruiser
-        with pytest.raises(ValueError) as err:
+        with pytest.raises(ShipPlacementTooCloseError) as err:
             board.place_ship(sub, Coord.E5, Orientation.HORIZONTAL)
 
         assert board.ships == [cruiser]
-        assert "too close to another ship" in str(err)
+        assert "too close to another ship" in str(err.value)
 
     def test_no_invalid_coords_with_no_ships_placed(self):
         board: GameBoard = GameBoard()
@@ -191,4 +201,3 @@ class TestGameBoardHelper:
         print()
         for line in output:
             print(line)
-

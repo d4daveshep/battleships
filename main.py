@@ -220,17 +220,10 @@ async def place_ship(
     orientation: str = Form(),
 ) -> HTMLResponse:
     """Handle ship placement on the board"""
-    # Ship lengths
-    ship_lengths: dict[str, int] = {
-        "Carrier": 5,
-        "Battleship": 4,
-        "Cruiser": 3,
-        "Submarine": 3,
-        "Destroyer": 2,
-    }
 
     # FIXME: implement this method using board.place_ship method
-    assert False, "Delegate to model objects to place ship"
+    # assert False, "Delegate to model objects to place ship"
+
     # Get ship length
     ship_length: int = ship_lengths.get(ship_name, 0)
 

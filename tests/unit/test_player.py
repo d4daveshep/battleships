@@ -3,24 +3,6 @@ from game.player import Player, PlayerStatus
 
 
 class TestPlayerStatus:
-    def test_player_status_available_exists(self):
-        status: PlayerStatus = PlayerStatus.AVAILABLE
-        assert status == "Available"
-
-    def test_player_status_requesting_game_exists(self):
-        status: PlayerStatus = PlayerStatus.REQUESTING_GAME
-        assert status == "Requesting Game"
-
-    def test_player_status_in_game_exists(self):
-        status: PlayerStatus = PlayerStatus.IN_GAME
-        assert status == "In Game"
-
-    def test_all_player_statuses_are_strings(self):
-        # Verify all PlayerStatus enum values are strings
-        assert isinstance(PlayerStatus.AVAILABLE, str)
-        assert isinstance(PlayerStatus.REQUESTING_GAME, str)
-        assert isinstance(PlayerStatus.IN_GAME, str)
-
     def test_player_status_values(self):
         # Test that we have all expected enum values
         expected_statuses = {
@@ -31,6 +13,10 @@ class TestPlayerStatus:
         }
         actual_statuses: set[PlayerStatus] = {status for status in PlayerStatus}
         assert expected_statuses == actual_statuses
+
+    def test_all_player_statuses_are_strings(self):
+        for status in PlayerStatus:
+            assert isinstance(status, str)
 
 
 class TestPlayer:

@@ -22,25 +22,26 @@ class LobbyTestContext:
     game_request_target: str | None = None
     expected_new_player: str | None = None
     player_who_left: str | None = None
+    player_clients: dict[str, TestClient] = field(default_factory=dict)
 
     def update_response(self, response: Response):
         """Update context with new response and parse HTML"""
         self.response = response
         self.soup = BeautifulSoup(response.text, "html.parser")
 
+    def get_client_for_player(self, player_name: str) -> TestClient:
+        """Get or create a TestClient for a specific player"""
+        if player_name not in self.player_clients:
+            from main import app
+
+            self.player_clients[player_name] = TestClient(app, follow_redirects=False)
+        return self.player_clients[player_name]
+
 
 @pytest.fixture
 def lobby_context():
     """Provide a test context for maintaining state between BDD steps"""
     return LobbyTestContext()
-
-
-@pytest.fixture
-def client():
-    """FastAPI TestClient fixture"""
-    from main import app
-
-    return TestClient(app, follow_redirects=False)
 
 
 def on_lobby_page(context: LobbyTestContext) -> None:
@@ -52,38 +53,25 @@ def on_lobby_page(context: LobbyTestContext) -> None:
     assert context.response.status_code == 200
 
 
-def get_lobby_status(
-    client: TestClient, context: LobbyTestContext, player_name: str
-) -> BeautifulSoup:
+def get_lobby_status(context: LobbyTestContext, player_name: str) -> BeautifulSoup:
     """Helper function to get the dynamic lobby status content"""
+    client = context.get_client_for_player(player_name)
     status_response = client.get(f"/lobby/status/{player_name}")
     return BeautifulSoup(status_response.text, "html.parser")
 
 
-def login_and_goto_lobby(
-    client: TestClient, context: LobbyTestContext, player_name: str
-) -> None:
+def login_and_goto_lobby(context: LobbyTestContext, player_name: str) -> None:
     """Helper function to log in a player and navigate to lobby"""
+    client = context.get_client_for_player(player_name)
+
     # First get the login page
     response = client.get("/")
     context.update_response(response)
 
     # Submit login form with human opponent selection
     form_data = {"player_name": player_name, "game_mode": "human"}
-    # try:
     response = client.post("/", data=form_data)
     context.update_response(response)
-    # except Exception as e:
-    #     # If player already exists, try to navigate directly to lobby
-    #     if "already exists" in str(e):
-    #         redirect_url = f"/lobby?player_name={player_name}"
-    #         target_response = client.get(redirect_url)
-    #         context.update_response(target_response)
-    #         context.current_player_name = player_name
-    #         on_lobby_page(context)
-    #         return
-    #     else:
-    #         raise
 
     # Should be redirected to lobby
     assert context.response is not None
@@ -104,37 +92,44 @@ def login_and_goto_lobby(
 
 
 @given("the multiplayer lobby system is available")
-def multiplayer_lobby_system_available(client: TestClient) -> None:
+def multiplayer_lobby_system_available(lobby_context: LobbyTestContext) -> None:
     """Verify the multiplayer lobby system is accessible"""
-    # Reset lobby state via test endpoint
+    # Reset lobby state via test endpoint using any client
+    from main import app
+
+    reset_client = TestClient(app)
     try:
-        client.post("/test/reset-lobby")
+        reset_client.post("/test/reset-lobby")
     except Exception:
         pass  # Test endpoint may not exist yet, that's okay
 
 
 @given("there are no other players in the lobby")
-def no_other_players_in_lobby(client: TestClient) -> None:
+def no_other_players_in_lobby(lobby_context: LobbyTestContext) -> None:
     """Set up empty lobby condition"""
-    # Reset lobby state via test endpoint
+    # Reset lobby state via test endpoint using any client
+    from main import app
+
+    reset_client = TestClient(app)
     try:
-        client.post("/test/reset-lobby")
+        reset_client.post("/test/reset-lobby")
     except Exception:
         pass  # Test endpoint may not exist yet, that's okay
 
 
 @given("there are other players in the lobby:")
-def other_players_in_lobby(
-    client: TestClient, lobby_context: LobbyTestContext, datatable
-) -> None:
+def other_players_in_lobby(lobby_context: LobbyTestContext, datatable) -> None:
     """Set up pre-existing players in the lobby"""
     # Store the current player's perspective to restore later
     current_player = lobby_context.current_player_name
 
     # Only reset lobby if no current player is set (fresh scenario)
     if current_player is None:
+        from main import app
+
+        reset_client = TestClient(app)
         try:
-            client.post("/test/reset-lobby")
+            reset_client.post("/test/reset-lobby")
         except Exception:
             pass  # Test endpoint may not exist yet
 
@@ -143,11 +138,12 @@ def other_players_in_lobby(
         player_name: str = row[0]
         status: str = row[1]
         if status == "Available":
-            # Add player to lobby using individual login flow, handle duplicates
+            # Add player to lobby using individual login flow with separate client
             try:
-                client.get("/")
+                player_client = lobby_context.get_client_for_player(player_name)
+                player_client.get("/")
                 form_data = {"player_name": player_name, "game_mode": "human"}
-                client.post("/", data=form_data)
+                player_client.post("/", data=form_data)
                 expected_players.append({"name": player_name, "status": status})
             except Exception as e:
                 # If player already exists, that's okay for test setup
@@ -160,7 +156,8 @@ def other_players_in_lobby(
 
     # Restore the original player's perspective if it was set
     if current_player:
-        lobby_response = client.get(f"/lobby?player_name={current_player}")
+        current_client = lobby_context.get_client_for_player(current_player)
+        lobby_response = current_client.get(f"/lobby?player_name={current_player}")
         lobby_context.update_response(lobby_response)
         lobby_context.current_player_name = current_player
 
@@ -168,22 +165,20 @@ def other_players_in_lobby(
 @when(parsers.parse('I login as "{player_name}" and select human opponent'))
 @given(parsers.parse('I\'ve logged in as "{player_name}" and selected human opponent'))
 def login_and_select_human_opponent(
-    client: TestClient, lobby_context: LobbyTestContext, player_name: str
+    lobby_context: LobbyTestContext, player_name: str
 ) -> None:
     """Navigate to login page, enter player name, and select human opponent"""
-    login_and_goto_lobby(client, lobby_context, player_name)
+    login_and_goto_lobby(lobby_context, player_name)
 
 
 @given('I see the message "Waiting for other players to join..."')
-def see_waiting_message_given(
-    client: TestClient, lobby_context: LobbyTestContext
-) -> None:
+def see_waiting_message_given(lobby_context: LobbyTestContext) -> None:
     """Verify the waiting message is displayed (given state)"""
     # Since messages are loaded dynamically via HTMX, get the status content
     current_player = lobby_context.current_player_name
     assert current_player is not None
 
-    status_soup = get_lobby_status(client, lobby_context, current_player)
+    status_soup = get_lobby_status(lobby_context, current_player)
     waiting_message = status_soup.find(attrs={"data-testid": "waiting-message"})
     assert waiting_message is not None
     waiting_text = waiting_message.get_text()
@@ -194,22 +189,24 @@ def see_waiting_message_given(
     parsers.parse('another player "{player_name}" logs in and selects human opponent')
 )
 def another_player_logs_in_and_selects_human(
-    client: TestClient, lobby_context: LobbyTestContext, player_name: str
+    lobby_context: LobbyTestContext, player_name: str
 ) -> None:
     """Simulate another player going through the login flow"""
     # Store current player to restore later
     current_player = lobby_context.current_player_name
 
-    # Simulate the new player logging in and selecting human opponent
-    client.get("/")
-    client.post("/", data={"player_name": player_name, "game_mode": "human"})
+    # Get separate client for the new player
+    new_player_client = lobby_context.get_client_for_player(player_name)
+    new_player_client.get("/")
+    new_player_client.post("/", data={"player_name": player_name, "game_mode": "human"})
 
     # Store the expected new player for verification
     lobby_context.expected_new_player = player_name
 
     # Restore original player's perspective by going back to lobby
     if current_player:
-        lobby_response = client.get(f"/lobby?player_name={current_player}")
+        current_client = lobby_context.get_client_for_player(current_player)
+        lobby_response = current_client.get(f"/lobby?player_name={current_player}")
         lobby_context.update_response(lobby_response)
         lobby_context.current_player_name = current_player
 
@@ -239,9 +236,7 @@ def see_my_name(lobby_context: LobbyTestContext) -> None:
 
 
 @then(parsers.parse('I should see a message "{message}"'))
-def see_message(
-    client: TestClient, lobby_context: LobbyTestContext, message: str
-) -> None:
+def see_message(lobby_context: LobbyTestContext, message: str) -> None:
     """Verify a specific message is displayed"""
     # Look for various message containers
     message_selectors = [
@@ -267,7 +262,7 @@ def see_message(
         current_player = lobby_context.current_player_name
         assert current_player is not None
 
-        status_soup = get_lobby_status(client, lobby_context, current_player)
+        status_soup = get_lobby_status(lobby_context, current_player)
 
         for selector in message_selectors:
             element = status_soup.find(attrs={"data-testid": selector})
@@ -279,13 +274,13 @@ def see_message(
 
 
 @then("I should not see any selectable players")
-def no_selectable_players(client: TestClient, lobby_context: LobbyTestContext) -> None:
+def no_selectable_players(lobby_context: LobbyTestContext) -> None:
     """Verify no player selection buttons are visible"""
     # Since player list is loaded dynamically via HTMX, get the status content
     current_player = lobby_context.current_player_name
     assert current_player is not None
 
-    status_soup = get_lobby_status(client, lobby_context, current_player)
+    status_soup = get_lobby_status(lobby_context, current_player)
     # Look for any elements with data-testid starting with "select-opponent-"
     all_elements = status_soup.find_all(attrs={"data-testid": True})
     select_buttons = []
@@ -302,15 +297,13 @@ def no_selectable_players(client: TestClient, lobby_context: LobbyTestContext) -
 
 
 @then(parsers.parse('my status should be "{status}"'))
-def my_status_should_be(
-    client: TestClient, lobby_context: LobbyTestContext, status: str
-) -> None:
+def my_status_should_be(lobby_context: LobbyTestContext, status: str) -> None:
     """Verify player's own status is displayed correctly"""
     # Since status is loaded dynamically via HTMX, get the status content
     current_player = lobby_context.current_player_name
     assert current_player is not None
 
-    status_soup = get_lobby_status(client, lobby_context, current_player)
+    status_soup = get_lobby_status(lobby_context, current_player)
     status_element = status_soup.find(attrs={"data-testid": "player-status"})
     assert status_element is not None
     status_text = status_element.get_text()
@@ -319,14 +312,14 @@ def my_status_should_be(
 
 @then(parsers.parse('I should see "{player_name}" in the available players list'))
 def see_player_in_available_list(
-    client: TestClient, lobby_context: LobbyTestContext, player_name: str
+    lobby_context: LobbyTestContext, player_name: str
 ) -> None:
     """Verify a specific player appears in the available players list"""
     # Since player list is loaded dynamically via HTMX, get the status content
     current_player = lobby_context.current_player_name
     assert current_player is not None
 
-    status_soup = get_lobby_status(client, lobby_context, current_player)
+    status_soup = get_lobby_status(lobby_context, current_player)
     player_element = status_soup.find(attrs={"data-testid": f"player-{player_name}"})
     assert player_element is not None
     assert player_name in player_element.get_text()
@@ -334,14 +327,14 @@ def see_player_in_available_list(
 
 @then(parsers.parse('I should see a "Select Opponent" button next to "{player_name}"'))
 def see_select_button_for_player(
-    client: TestClient, lobby_context: LobbyTestContext, player_name: str
+    lobby_context: LobbyTestContext, player_name: str
 ) -> None:
     """Verify there's a select opponent button for a specific player"""
     # Since buttons are loaded dynamically via HTMX, get the status content
     current_player = lobby_context.current_player_name
     assert current_player is not None
 
-    status_soup = get_lobby_status(client, lobby_context, current_player)
+    status_soup = get_lobby_status(lobby_context, current_player)
     select_button = status_soup.find(
         attrs={"data-testid": f"select-opponent-{player_name}"}
     )
@@ -367,14 +360,14 @@ def waiting_message_hidden(lobby_context: LobbyTestContext) -> None:
 
 @then(parsers.parse('I should be able to select "{player_name}" as my opponent'))
 def can_select_player_as_opponent(
-    client: TestClient, lobby_context: LobbyTestContext, player_name: str
+    lobby_context: LobbyTestContext, player_name: str
 ) -> None:
     """Verify the select button is functional for the player"""
     # Since buttons are loaded dynamically via HTMX, get the status content
     current_player = lobby_context.current_player_name
     assert current_player is not None
 
-    status_soup = get_lobby_status(client, lobby_context, current_player)
+    status_soup = get_lobby_status(lobby_context, current_player)
     select_button = status_soup.find(
         attrs={"data-testid": f"select-opponent-{player_name}"}
     )
@@ -385,15 +378,13 @@ def can_select_player_as_opponent(
 
 
 @then("I should see a list of available players:")
-def see_available_players_list(
-    client: TestClient, lobby_context: LobbyTestContext, datatable
-) -> None:
+def see_available_players_list(lobby_context: LobbyTestContext, datatable) -> None:
     """Verify the player list shows expected players"""
     # Since player list is loaded dynamically via HTMX, get the status content
     current_player = lobby_context.current_player_name
     assert current_player is not None
 
-    status_soup = get_lobby_status(client, lobby_context, current_player)
+    status_soup = get_lobby_status(lobby_context, current_player)
 
     # Check for each expected player
     for row in datatable[1:]:  # Skip header row
@@ -408,15 +399,13 @@ def see_available_players_list(
 
 
 @then('I should see a "Select Opponent" button for each available player')
-def see_select_opponent_buttons(
-    client: TestClient, lobby_context: LobbyTestContext
-) -> None:
+def see_select_opponent_buttons(lobby_context: LobbyTestContext) -> None:
     """Verify each available player has a select button"""
     # Since buttons are loaded dynamically via HTMX, get the status content
     current_player = lobby_context.current_player_name
     assert current_player is not None
 
-    status_soup = get_lobby_status(client, lobby_context, current_player)
+    status_soup = get_lobby_status(lobby_context, current_player)
 
     # Find all elements with data-testid starting with "select-opponent-"
     all_elements = status_soup.find_all(attrs={"data-testid": True})
@@ -439,13 +428,12 @@ def see_select_opponent_buttons(
 
 
 @when(parsers.parse('I click "Select Opponent" next to "{opponent_name}"'))
-def click_select_opponent(
-    client: TestClient, lobby_context: LobbyTestContext, opponent_name: str
-) -> None:
+def click_select_opponent(lobby_context: LobbyTestContext, opponent_name: str) -> None:
     """Click the Select Opponent button for the specified player"""
     # Simulate form submission for selecting opponent
     current_player = lobby_context.current_player_name
     assert current_player is not None
+    client = lobby_context.get_client_for_player(current_player)
     form_data = {"player_name": current_player, "opponent_name": opponent_name}
     response = client.post("/select-opponent", data=form_data)
     lobby_context.update_response(response)
@@ -472,14 +460,14 @@ def target_player_receives_invitation(
 
 @then(parsers.parse('my status should change to "{expected_status}"'))
 def my_status_should_change(
-    client: TestClient, lobby_context: LobbyTestContext, expected_status: str
+    lobby_context: LobbyTestContext, expected_status: str
 ) -> None:
     """Check that the current player's status has changed"""
     # Since status is loaded dynamically via HTMX, get the status content
     current_player = lobby_context.current_player_name
     assert current_player is not None
 
-    status_soup = get_lobby_status(client, lobby_context, current_player)
+    status_soup = get_lobby_status(lobby_context, current_player)
     status_element = status_soup.find(attrs={"data-testid": "player-status"})
     assert status_element is not None
     status_text = status_element.get_text()
@@ -489,15 +477,13 @@ def my_status_should_change(
 @then(
     "I should not be able to select other players while waiting for my request to be completed"
 )
-def cannot_select_other_players_while_waiting(
-    client: TestClient, lobby_context: LobbyTestContext
-) -> None:
+def cannot_select_other_players_while_waiting(lobby_context: LobbyTestContext) -> None:
     """Check that other Select Opponent buttons are disabled"""
     # Since buttons are loaded dynamically via HTMX, get the status content
     current_player = lobby_context.current_player_name
     assert current_player is not None
 
-    status_soup = get_lobby_status(client, lobby_context, current_player)
+    status_soup = get_lobby_status(lobby_context, current_player)
 
     # Find all elements with data-testid starting with "select-opponent-"
     all_elements = status_soup.find_all(attrs={"data-testid": True})
@@ -526,7 +512,6 @@ def cannot_select_other_players_while_waiting(
 
 @when(parsers.parse('"{target_player}" receives a game request from "{sender_player}"'))
 def target_player_receives_game_request(
-    client: TestClient,
     lobby_context: LobbyTestContext,
     target_player: str,
     sender_player: str,
@@ -535,21 +520,19 @@ def target_player_receives_game_request(
     # Store current context
     current_player = lobby_context.current_player_name
 
-    # Simulate sender selecting target as opponent
+    # Get sender's client and simulate sending request
+    sender_client = lobby_context.get_client_for_player(sender_player)
     form_data = {"player_name": sender_player, "opponent_name": target_player}
-    client.post("/select-opponent", data=form_data)
+    sender_client.post("/select-opponent", data=form_data)
 
     # Store the interaction for verification
     lobby_context.game_request_sender = sender_player
     lobby_context.game_request_target = target_player
 
-    # Simulate polling cycle wait (like Playwright tests)
-    # import time
-    # time.sleep(1.5)  # 1.5s wait for updates
-
     # Refresh current player's view
     if current_player:
-        lobby_response = client.get(f"/lobby?player_name={current_player}")
+        current_client = lobby_context.get_client_for_player(current_player)
+        lobby_response = current_client.get(f"/lobby?player_name={current_player}")
         lobby_context.update_response(lobby_response)
 
 
@@ -559,7 +542,6 @@ def target_player_receives_game_request(
     )
 )
 def see_player_status_change(
-    client: TestClient,
     lobby_context: LobbyTestContext,
     player_name: str,
     old_status: str,
@@ -570,7 +552,7 @@ def see_player_status_change(
     current_player = lobby_context.current_player_name
     assert current_player is not None
 
-    status_soup = get_lobby_status(client, lobby_context, current_player)
+    status_soup = get_lobby_status(lobby_context, current_player)
     player_status_element = status_soup.find(
         attrs={"data-testid": f"player-{player_name}-status"}
     )
@@ -591,14 +573,14 @@ def see_player_status_change(
     parsers.parse('the "Select Opponent" button for "{player_name}" should be disabled')
 )
 def select_opponent_button_should_be_disabled(
-    client: TestClient, lobby_context: LobbyTestContext, player_name: str
+    lobby_context: LobbyTestContext, player_name: str
 ) -> None:
     """Verify the Select Opponent button for specified player is disabled"""
     # Since buttons are loaded dynamically via HTMX, get the status content
     current_player = lobby_context.current_player_name
     assert current_player is not None
 
-    status_soup = get_lobby_status(client, lobby_context, current_player)
+    status_soup = get_lobby_status(lobby_context, current_player)
     select_button = status_soup.find(
         attrs={"data-testid": f"select-opponent-{player_name}"}
     )
@@ -608,12 +590,11 @@ def select_opponent_button_should_be_disabled(
 
 
 @when('I click the "Leave Lobby" button')
-def click_leave_lobby_button(
-    client: TestClient, lobby_context: LobbyTestContext
-) -> None:
+def click_leave_lobby_button(lobby_context: LobbyTestContext) -> None:
     """Click the Leave Lobby button to exit the lobby"""
     current_player = lobby_context.current_player_name
     assert current_player is not None
+    client = lobby_context.get_client_for_player(current_player)
     form_data = {"player_name": current_player}
     response = client.post("/leave-lobby", data=form_data)
     lobby_context.update_response(response)
@@ -638,26 +619,22 @@ def other_players_no_longer_see_me(lobby_context: LobbyTestContext) -> None:
 
 
 @when(parsers.parse('"{player_name}" leaves the lobby'))
-def player_leaves_lobby(
-    client: TestClient, lobby_context: LobbyTestContext, player_name: str
-) -> None:
+def player_leaves_lobby(lobby_context: LobbyTestContext, player_name: str) -> None:
     """Simulate another player leaving the lobby"""
     current_player = lobby_context.current_player_name
 
-    # Simulate player leaving
+    # Get the leaving player's client and simulate leaving
+    leaving_client = lobby_context.get_client_for_player(player_name)
     form_data = {"player_name": player_name}
-    client.post("/leave-lobby", data=form_data)
+    leaving_client.post("/leave-lobby", data=form_data)
 
     # Store the player who left for verification
     lobby_context.player_who_left = player_name
 
-    # Wait for polling cycle to complete (like Playwright tests)
-    # import time
-    # time.sleep(1.5)  # 1.5s wait for real-time updates
-
     # Refresh current player's view
     if current_player:
-        lobby_response = client.get(f"/lobby?player_name={current_player}")
+        current_client = lobby_context.get_client_for_player(current_player)
+        lobby_response = current_client.get(f"/lobby?player_name={current_player}")
         lobby_context.update_response(lobby_response)
 
 
@@ -666,41 +643,37 @@ def player_leaves_lobby(
         '"{player_name}" should no longer appear in my available players list'
     )
 )
-def player_no_longer_in_list(
-    client: TestClient, lobby_context: LobbyTestContext, player_name: str
-) -> None:
+def player_no_longer_in_list(lobby_context: LobbyTestContext, player_name: str) -> None:
     """Verify specified player is no longer visible in available players list"""
     # Since player list is loaded dynamically via HTMX, get the status content
     current_player = lobby_context.current_player_name
     assert current_player is not None
 
-    status_soup = get_lobby_status(client, lobby_context, current_player)
+    status_soup = get_lobby_status(lobby_context, current_player)
     player_element = status_soup.find(attrs={"data-testid": f"player-{player_name}"})
     assert player_element is None
 
 
 @when(parsers.parse('"{sender_player}" selects me as their opponent'))
 def sender_selects_me_as_opponent(
-    client: TestClient, lobby_context: LobbyTestContext, sender_player: str
+    lobby_context: LobbyTestContext, sender_player: str
 ) -> None:
     """Simulate another player selecting current player as opponent"""
     current_player = lobby_context.current_player_name
     assert current_player is not None
 
-    # Simulate sender selecting current player
+    # Get sender's client and simulate selection
+    sender_client = lobby_context.get_client_for_player(sender_player)
     form_data = {"player_name": sender_player, "opponent_name": current_player}
-    client.post("/select-opponent", data=form_data)
+    sender_client.post("/select-opponent", data=form_data)
 
     # Store the request details for verification
     lobby_context.game_request_sender = sender_player
     lobby_context.game_request_target = current_player
 
-    # Wait for polling cycle to update the UI (like Playwright tests)
-    # import time
-    # time.sleep(1.5)
-
     # Refresh current player's view
-    lobby_response = client.get(f"/lobby?player_name={current_player}")
+    current_client = lobby_context.get_client_for_player(current_player)
+    lobby_response = current_client.get(f"/lobby?player_name={current_player}")
     lobby_context.update_response(lobby_response)
 
 
@@ -708,14 +681,14 @@ def sender_selects_me_as_opponent(
     parsers.parse('I should receive a game request notification from "{sender_player}"')
 )
 def receive_game_request_notification(
-    client: TestClient, lobby_context: LobbyTestContext, sender_player: str
+    lobby_context: LobbyTestContext, sender_player: str
 ) -> None:
     """Verify that a game request notification appears"""
     # Since notifications are loaded dynamically via HTMX, get the status content
     current_player = lobby_context.current_player_name
     assert current_player is not None
 
-    status_soup = get_lobby_status(client, lobby_context, current_player)
+    status_soup = get_lobby_status(lobby_context, current_player)
     notification_element = status_soup.find(
         attrs={"data-testid": "game-request-notification"}
     )
@@ -745,41 +718,39 @@ def receive_game_request_notification(
 
 
 @then('I should see an "Accept" button for the game request')
-def see_accept_button(client: TestClient, lobby_context: LobbyTestContext) -> None:
+def see_accept_button(lobby_context: LobbyTestContext) -> None:
     """Verify that an Accept button is visible for the game request"""
     # Since buttons are loaded dynamically via HTMX, get the status content
     current_player = lobby_context.current_player_name
     assert current_player is not None
 
-    status_soup = get_lobby_status(client, lobby_context, current_player)
+    status_soup = get_lobby_status(lobby_context, current_player)
     accept_button = status_soup.find(attrs={"data-testid": "accept-game-request"})
     assert accept_button is not None
     assert "accept" in accept_button.get_text().lower()
 
 
 @then('I should see a "Decline" button for the game request')
-def see_decline_button(client: TestClient, lobby_context: LobbyTestContext) -> None:
+def see_decline_button(lobby_context: LobbyTestContext) -> None:
     """Verify that a Decline button is visible for the game request"""
     # Since buttons are loaded dynamically via HTMX, get the status content
     current_player = lobby_context.current_player_name
     assert current_player is not None
 
-    status_soup = get_lobby_status(client, lobby_context, current_player)
+    status_soup = get_lobby_status(lobby_context, current_player)
     decline_button = status_soup.find(attrs={"data-testid": "decline-game-request"})
     assert decline_button is not None
     assert "decline" in decline_button.get_text().lower()
 
 
 @then("I should not be able to select other players while responding to the request")
-def cannot_select_players_while_responding(
-    client: TestClient, lobby_context: LobbyTestContext
-) -> None:
+def cannot_select_players_while_responding(lobby_context: LobbyTestContext) -> None:
     """Verify other Select Opponent buttons are disabled while responding"""
     # Since buttons are loaded dynamically via HTMX, get the status content
     current_player = lobby_context.current_player_name
     assert current_player is not None
 
-    status_soup = get_lobby_status(client, lobby_context, current_player)
+    status_soup = get_lobby_status(lobby_context, current_player)
 
     # Find all elements with data-testid starting with "select-opponent-"
     all_elements = status_soup.find_all(attrs={"data-testid": True})
@@ -801,30 +772,39 @@ def cannot_select_players_while_responding(
 
 @given(parsers.parse('I have received a game request from "{sender_player}"'))
 def have_received_game_request(
-    client: TestClient, lobby_context: LobbyTestContext, sender_player: str
+    lobby_context: LobbyTestContext, sender_player: str
 ) -> None:
     """Set up state where current player has received a game request"""
     current_player = lobby_context.current_player_name
     assert current_player is not None
 
     # Ensure lobby is clean before setting up scenario
+    from main import app
+
+    reset_client = TestClient(app)
     try:
-        client.post("/test/reset-lobby")
+        reset_client.post("/test/reset-lobby")
     except Exception:
         pass
 
-    # First ensure the sender player is in the lobby (handle duplicate player error)
+    # First ensure the sender player is in the lobby with their own client
+    sender_client = lobby_context.get_client_for_player(sender_player)
     try:
-        client.get("/")
-        client.post("/", data={"player_name": sender_player, "game_mode": "human"})
+        sender_client.get("/")
+        sender_client.post(
+            "/", data={"player_name": sender_player, "game_mode": "human"}
+        )
     except Exception as e:
         if "already exists" not in str(e):
             raise
 
-    # Then ensure current player is in lobby (handle duplicate player error)
+    # Then ensure current player is in lobby with their own client
+    current_client = lobby_context.get_client_for_player(current_player)
     try:
-        client.get("/")
-        client.post("/", data={"player_name": current_player, "game_mode": "human"})
+        current_client.get("/")
+        current_client.post(
+            "/", data={"player_name": current_player, "game_mode": "human"}
+        )
     except Exception as e:
         if "already exists" not in str(e):
             raise
@@ -833,32 +813,27 @@ def have_received_game_request(
 
     # Simulate sender selecting current player
     form_data = {"player_name": sender_player, "opponent_name": current_player}
-    client.post("/select-opponent", data=form_data)
+    sender_client.post("/select-opponent", data=form_data)
 
     lobby_context.game_request_sender = sender_player
     lobby_context.game_request_target = current_player
 
-    # Wait for the UI to update and show the request
-    # import time
-    # time.sleep(1.5)
-
     # Refresh current player's view to see the request
-    lobby_response = client.get(f"/lobby?player_name={current_player}")
+    lobby_response = current_client.get(f"/lobby?player_name={current_player}")
     lobby_context.update_response(lobby_response)
 
     # Verify request is visible using dynamic content
-    status_soup = get_lobby_status(client, lobby_context, current_player)
+    status_soup = get_lobby_status(lobby_context, current_player)
     notification = status_soup.find(attrs={"data-testid": "game-request-notification"})
     assert notification is not None
 
 
 @when(parsers.parse('I click the "Accept" button for the game request'))
-def click_accept_game_request(
-    client: TestClient, lobby_context: LobbyTestContext
-) -> None:
+def click_accept_game_request(lobby_context: LobbyTestContext) -> None:
     """Click the Accept button for the game request"""
     current_player = lobby_context.current_player_name
     assert current_player is not None
+    client = lobby_context.get_client_for_player(current_player)
     form_data = {
         "player_name": current_player,
         "sender_name": lobby_context.game_request_sender,
@@ -868,9 +843,7 @@ def click_accept_game_request(
 
 
 @then("I should be redirected to the game interface")
-def redirected_to_game_interface(
-    client: TestClient, lobby_context: LobbyTestContext
-) -> None:
+def redirected_to_game_interface(lobby_context: LobbyTestContext) -> None:
     """Verify redirection to the game page"""
     assert lobby_context.response is not None
 
@@ -881,6 +854,9 @@ def redirected_to_game_interface(
         assert "game" in redirect_url
 
         # Follow redirect and verify game page
+        current_player = lobby_context.current_player_name
+        assert current_player is not None
+        client = lobby_context.get_client_for_player(current_player)
         target_response = client.get(redirect_url)
         lobby_context.update_response(target_response)
 
@@ -923,12 +899,11 @@ def both_players_removed_from_lobby(player1: str, player2: str) -> None:
 
 
 @when(parsers.parse('I click the "Decline" button for the game request'))
-def click_decline_game_request(
-    client: TestClient, lobby_context: LobbyTestContext
-) -> None:
+def click_decline_game_request(lobby_context: LobbyTestContext) -> None:
     """Click the Decline button for the game request"""
     current_player = lobby_context.current_player_name
     assert current_player is not None
+    client = lobby_context.get_client_for_player(current_player)
     form_data = {
         "player_name": current_player,
         "sender_name": lobby_context.game_request_sender,
@@ -950,15 +925,13 @@ def sender_notified_of_decline(sender_name: str) -> None:
 
 
 @then("I should be able to select other players again")
-def can_select_other_players_again(
-    client: TestClient, lobby_context: LobbyTestContext
-) -> None:
+def can_select_other_players_again(lobby_context: LobbyTestContext) -> None:
     """Verify that Select Opponent buttons are re-enabled after declining"""
     # Since buttons are loaded dynamically via HTMX, get the status content
     current_player = lobby_context.current_player_name
     assert current_player is not None
 
-    status_soup = get_lobby_status(client, lobby_context, current_player)
+    status_soup = get_lobby_status(lobby_context, current_player)
 
     # Find all elements with data-testid starting with "select-opponent-"
     all_elements = status_soup.find_all(attrs={"data-testid": True})
@@ -984,18 +957,14 @@ def can_select_other_players_again(
 
 @then(parsers.parse('"{sender_name}\'s" status should change to "Available"'))
 def sender_status_returns_to_available(
-    client: TestClient, lobby_context: LobbyTestContext, sender_name: str
+    lobby_context: LobbyTestContext, sender_name: str
 ) -> None:
     """Verify that the sender's status returns to Available after decline"""
     current_player = lobby_context.current_player_name
     assert current_player is not None
 
-    # Wait for status update polling cycle (like Playwright tests)
-    # import time
-    # time.sleep(1.5)
-
     # Get dynamic lobby status content
-    status_soup = get_lobby_status(client, lobby_context, current_player)
+    status_soup = get_lobby_status(lobby_context, current_player)
     sender_status = status_soup.find(
         attrs={"data-testid": f"player-{sender_name}-status"}
     )
@@ -1020,12 +989,13 @@ def sender_status_returns_to_available(
 
 @given(parsers.parse('I\'ve selected "{opponent_name}" as my opponent'))
 def ive_selected_opponent_as_my_opponent(
-    client: TestClient, lobby_context: LobbyTestContext, opponent_name: str
+    lobby_context: LobbyTestContext, opponent_name: str
 ) -> None:
     """Set up state where current player has sent a game request to opponent"""
     # Click the Select Opponent button
     current_player = lobby_context.current_player_name
     assert current_player is not None
+    client = lobby_context.get_client_for_player(current_player)
     form_data = {"player_name": current_player, "opponent_name": opponent_name}
     response = client.post("/select-opponent", data=form_data)
     lobby_context.update_response(response)
@@ -1038,10 +1008,8 @@ def ive_selected_opponent_as_my_opponent(
     assert lobby_context.response is not None
     assert lobby_context.response.status_code == 200
 
-    # Verify request exists by checking dynamic content - the confirmation message might be in status endpoint
-    # import time
-    # time.sleep(0.5)  # Brief wait for request to be processed
-    status_soup = get_lobby_status(client, lobby_context, current_player)
+    # Verify request exists by checking dynamic content
+    status_soup = get_lobby_status(lobby_context, current_player)
 
     # Look for confirmation message or status change that indicates request was sent
     confirmation = status_soup.find(attrs={"data-testid": "confirmation-message"})
@@ -1056,23 +1024,21 @@ def ive_selected_opponent_as_my_opponent(
 
 @when(parsers.parse('"{opponent_name}" accepts my game request'))
 def opponent_accepts_my_game_request(
-    client: TestClient, lobby_context: LobbyTestContext, opponent_name: str
+    lobby_context: LobbyTestContext, opponent_name: str
 ) -> None:
     """Simulate the opponent accepting the current player's game request"""
     current_player = lobby_context.current_player_name
     assert current_player is not None
 
-    # Simulate opponent accepting the request
+    # Get opponent's client and simulate accepting the request
+    opponent_client = lobby_context.get_client_for_player(opponent_name)
     form_data = {"player_name": opponent_name, "sender_name": current_player}
-    client.post("/accept-game-request", data=form_data)
-
-    # Wait for processing
-    # import time
-    # time.sleep(1.5)
+    opponent_client.post("/accept-game-request", data=form_data)
 
     # When Bob accepts Alice's request, Alice should be redirected to the game
     # Let's check Alice's lobby status endpoint to see if she gets redirected to game
-    status_response = client.get(f"/lobby/status/{current_player}")
+    current_client = lobby_context.get_client_for_player(current_player)
+    status_response = current_client.get(f"/lobby/status/{current_player}")
 
     if status_response.status_code in [302, 303]:
         # Alice gets redirected to game via status endpoint
@@ -1081,13 +1047,12 @@ def opponent_accepts_my_game_request(
         # Alice doesn't get auto-redirected, but she should be able to access the game directly
         # Build the correct game URL for Alice with Bob as opponent
         game_url = f"/game?player_name={current_player}&opponent_name={opponent_name}"
-        game_response = client.get(game_url)
+        game_response = current_client.get(game_url)
         lobby_context.update_response(game_response)
 
 
 @given(parsers.parse('"{sender_player}" selects "{opponent_player}" as his opponent'))
 def player_selects_another_as_opponent(
-    client: TestClient,
     lobby_context: LobbyTestContext,
     sender_player: str,
     opponent_player: str,
@@ -1096,9 +1061,10 @@ def player_selects_another_as_opponent(
     # Store current player to restore later
     current_player = lobby_context.current_player_name
 
-    # Simulate sender selecting opponent
+    # Get sender's client and simulate selection
+    sender_client = lobby_context.get_client_for_player(sender_player)
     form_data = {"player_name": sender_player, "opponent_name": opponent_player}
-    client.post("/select-opponent", data=form_data)
+    sender_client.post("/select-opponent", data=form_data)
 
     # Store the request details
     lobby_context.game_request_sender = sender_player
@@ -1106,7 +1072,8 @@ def player_selects_another_as_opponent(
 
     # Restore current player's perspective
     if current_player:
-        lobby_response = client.get(f"/lobby?player_name={current_player}")
+        current_client = lobby_context.get_client_for_player(current_player)
+        lobby_response = current_client.get(f"/lobby?player_name={current_player}")
         lobby_context.update_response(lobby_response)
         lobby_context.current_player_name = current_player
 
@@ -1115,7 +1082,6 @@ def player_selects_another_as_opponent(
     parsers.parse('"{receiver_player}" accepts the game request from "{sender_player}"')
 )
 def receiver_accepts_game_request_from_sender(
-    client: TestClient,
     lobby_context: LobbyTestContext,
     receiver_player: str,
     sender_player: str,
@@ -1124,13 +1090,15 @@ def receiver_accepts_game_request_from_sender(
     # Store current player to restore later
     current_player = lobby_context.current_player_name
 
-    # Simulate receiver accepting the request
+    # Get receiver's client and simulate accepting the request
+    receiver_client = lobby_context.get_client_for_player(receiver_player)
     form_data = {"player_name": receiver_player, "sender_name": sender_player}
-    client.post("/accept-game-request", data=form_data)
+    receiver_client.post("/accept-game-request", data=form_data)
 
     # Restore current player's perspective
     if current_player:
-        lobby_response = client.get(f"/lobby?player_name={current_player}")
+        current_client = lobby_context.get_client_for_player(current_player)
+        lobby_response = current_client.get(f"/lobby?player_name={current_player}")
         lobby_context.update_response(lobby_response)
         lobby_context.current_player_name = current_player
 

@@ -191,7 +191,7 @@ class TestPlaceShipEndpoint:
                 "player_name": "Alice",
                 "ship_name": "Cruiser",
                 "start_coordinate": "C3",
-                "orientation": "diagonal-down",
+                "orientation": "diagonal_down",
             },
         )
 
@@ -216,7 +216,7 @@ class TestPlaceShipEndpoint:
                 "player_name": "Alice",
                 "ship_name": "Destroyer",
                 "start_coordinate": "D4",
-                "orientation": "diagonal-up",
+                "orientation": "diagonal_up",
             },
         )
 

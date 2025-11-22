@@ -1,18 +1,31 @@
 import asyncio
+import secrets
 from typing import Any
 
-from fastapi import FastAPI, Form, Request, status
+from fastapi import FastAPI, Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import Response
 
 from game.lobby import Lobby
-from game.model import GameBoard, ShipType, Ship
+from game.model import (
+    Coord,
+    CoordHelper,
+    GameBoard,
+    Orientation,
+    ShipAlreadyPlacedError,
+    ShipPlacementOutOfBoundsError,
+    ShipPlacementTooCloseError,
+    ShipType,
+    Ship,
+)
 from game.player import GameRequest, Player, PlayerStatus
 from services.auth_service import AuthService, PlayerNameValidation
 from services.lobby_service import LobbyService
 
 app: FastAPI = FastAPI()
+app.add_middleware(SessionMiddleware, secret_key="your-secret-key-here")
 templates: Jinja2Templates = Jinja2Templates(directory="templates")
 
 
@@ -22,6 +35,33 @@ _game_lobby: Lobby = Lobby()
 # Service instances
 auth_service: AuthService = AuthService()
 lobby_service: LobbyService = LobbyService(_game_lobby)
+
+
+def _get_validated_player_name(request: Request, claimed_name: str) -> str:
+    """Verify the session owns this player name
+
+    Args:
+        request: The FastAPI request object containing session data
+        claimed_name: The player name being claimed in the request
+
+    Returns:
+        The validated player name
+
+    Raises:
+        HTTPException: 401 if no session, 403 if session doesn't own player
+    """
+    session_name: str | None = request.session.get("player_name")
+    if not session_name:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="No session found - please login",
+        )
+    if session_name != claimed_name:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Session does not own this player",
+        )
+    return claimed_name
 
 
 def _build_lobby_url(player_name: str) -> str:
@@ -91,6 +131,13 @@ async def login_submit(
             css_class=validation.css_class,
             status_code=status.HTTP_200_OK,  # Login form errors return 200, not 400
         )
+
+    # Generate and store player ID in session
+    # TODO: implement a get_player_id() helper function to create or get the player-id
+    player_id: str = secrets.token_urlsafe(16)
+    request.session["player-id"] = player_id
+    request.session["player_name"] = player_name.strip()
+
     try:
         redirect_url: str
         if game_mode == "human":
@@ -145,14 +192,39 @@ async def place_ship(
 ) -> HTMLResponse:
     """Handle ship placement on the board"""
 
-    # Create the ship based on type name
-    ship_type: ShipType = ShipType.from_ship_name(ship_name)
-    ship: Ship = Ship(ship_type)
+    try:
+        # Create the ship based on type name
+        ship_type: ShipType = ShipType.from_ship_name(ship_name)
+        ship: Ship = Ship(ship_type)
 
-    # FIXME: Implement game state (linked to session) that has each player's board
-    board: GameBoard = GameBoard()
-    board.place_ship(ship, start, orientation)
+        # Create the start coord and orientation
+        start: Coord = Coord[start_coordinate.upper()]
+        orient: Orientation = Orientation[orientation.upper()]
 
+        # FIXME: Implement game state (linked to session) that has each player's board
+        board: GameBoard = GameBoard()
+        board.place_ship(ship, start, orient)
+
+    except (
+        ValueError,
+        KeyError,
+        ShipAlreadyPlacedError,
+        ShipPlacementOutOfBoundsError,
+        ShipPlacementTooCloseError,
+    ) as e:
+        return _create_error_response(
+            request=request,
+            error_message=str(e),
+            player_name=player_name,
+            css_class="error",
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        )
+
+    # FIXME: Change this data structure when I design the proper ship board templates
+    cells: list[str] = [coord.name for coord in ship.positions]
+    placed_ships: dict[str, dict[str, list[str]]] = {
+        ship.ship_type.ship_name: {"cells": cells}
+    }
     return templates.TemplateResponse(
         request,
         "ship_placement.html",
@@ -222,6 +294,9 @@ async def select_opponent(
 ) -> HTMLResponse:
     """Handle opponent selection and return updated lobby view"""
 
+    # Validate session owns this player
+    _get_validated_player_name(request, player_name)
+
     try:
         lobby_service.send_game_request(player_name, opponent_name)
 
@@ -253,6 +328,9 @@ async def leave_lobby(
 ) -> RedirectResponse | HTMLResponse | Response:
     """Handle player leaving the lobby"""
 
+    # Validate session owns this player
+    _get_validated_player_name(request, player_name)
+
     try:
         lobby_service.leave_lobby(player_name)
         # TODO: add event here
@@ -282,6 +360,9 @@ async def lobby_status_component(
     request: Request, player_name: str
 ) -> HTMLResponse | Response:
     """Return partial HTML with polling for status updates and available for current player"""
+    # Validate session owns this player
+    _get_validated_player_name(request, player_name)
+
     return await _render_lobby_status(request, player_name)
 
 
@@ -297,6 +378,9 @@ async def lobby_status_long_poll(
 
     Otherwise waits up to `timeout` seconds for a state change.
     """
+
+    # Validate session owns this player
+    _get_validated_player_name(request, player_name)
 
     # Validate player exists
     try:
@@ -429,6 +513,9 @@ async def decline_game_request(
 ) -> HTMLResponse:
     """Decline a game request and return to lobby"""
 
+    # Validate session owns this player
+    _get_validated_player_name(request, player_name)
+
     try:
         # Decline the game request
         sender: str = lobby_service.decline_game_request(player_name)
@@ -464,6 +551,9 @@ async def accept_game_request(
     show_confirmation: str = Form(default=""),
 ) -> Response | RedirectResponse:
     """Accept a game request and redirect to game page"""
+
+    # Validate session owns this player
+    _get_validated_player_name(request, player_name)
 
     try:
         # Accept the game request

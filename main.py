@@ -146,7 +146,7 @@ async def login_submit(
             redirect_url = _build_lobby_url(player_name)
 
         elif game_mode == "computer":
-            redirect_url = f"/ship-placement?player_name={player_name.strip()}"
+            redirect_url = _build_game_url(player_name)
         else:
             raise ValueError(f"Invalid game mode: {game_mode}")
 

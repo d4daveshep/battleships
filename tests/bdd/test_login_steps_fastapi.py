@@ -120,18 +120,18 @@ def on_game_page(client: TestClient, context: BDDTestContext) -> None:
     assert context.response.status_code == 303
     redirect_url = context.response.headers.get("location")
     assert redirect_url is not None
-    # Application now redirects to ship-placement before game
-    assert "ship-placement" in redirect_url or "ship_placement" in redirect_url
+    # Application redirects directly to game
+    assert "game" in redirect_url
 
     # Follow the redirect and update context
     target_response = client.get(redirect_url)
     context.update_response(target_response)
 
-    # Verify we actually arrived at the ship placement page
+    # Verify we actually arrived at the game page
     assert context.response.status_code == 200
     assert context.soup is not None
     h1_element = context.soup.find("h1")
-    assert h1_element and "Ship Placement" in h1_element.get_text()
+    assert h1_element and "Battleships Game" in h1_element.get_text()
 
 
 @then("I should be redirected to the multiplayer lobby")
@@ -158,16 +158,9 @@ def on_multiplayer_lobby_page(client: TestClient, context: BDDTestContext) -> No
 def player_mode_is_single_player(context: BDDTestContext) -> None:
     # Context should already have the target page from redirect step
     assert context.soup is not None
-
-    # Check if we're on the game page (has game-mode testid)
     game_mode_element = context.soup.find(attrs={"data-testid": "game-mode"})
-    if game_mode_element is not None:
-        assert game_mode_element.get_text() == "Single Player"
-    else:
-        # We're on ship placement page - single player mode is implied
-        # (ship placement comes before game, so this is still valid)
-        h1_element = context.soup.find("h1")
-        assert h1_element and "Ship Placement" in h1_element.get_text()
+    assert game_mode_element is not None
+    assert game_mode_element.get_text() == "Single Player"
 
 
 @then("the game should be configured for two player mode")
@@ -183,17 +176,10 @@ def player_mode_is_two_player(context: BDDTestContext) -> None:
 def player_name_is_set(context: BDDTestContext, expected_name: str) -> None:
     # Context should already have the target page from redirect step
     assert context.soup is not None
-
-    # Try to find player name in testid element (game page)
     player_name_element = context.soup.find(attrs={"data-testid": "player-name"})
-    if player_name_element is not None:
-        name_text = player_name_element.get_text()
-        assert expected_name in name_text
-    else:
-        # We're on ship placement page - check the player paragraph
-        # Ship placement page shows: <p>Player: {{ player_name }}</p>
-        page_text = context.soup.get_text()
-        assert f"Player: {expected_name}" in page_text or expected_name in page_text
+    assert player_name_element is not None
+    name_text = player_name_element.get_text()
+    assert expected_name in name_text
 
 
 @then(parsers.parse('I should see an error message "{error_message}"'))

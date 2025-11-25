@@ -34,7 +34,7 @@ def logged_in_as_player(page: Page, player_name: str) -> None:
 @then(parsers.parse('I see the message "{message}"'))
 def i_see_message(page: Page, message: str) -> None:
     """Verify message appears"""
-    page.wait_for_selector(f'text={message}')
+    page.wait_for_selector(f"text={message}")
 
 
 @given(parsers.parse('another player "{player_name}" is already in the lobby'))
@@ -119,10 +119,11 @@ def no_polling_interval_wait(page: Page) -> None:
 @when(parsers.parse('"{player_name}" leaves the lobby'))
 def player_leaves_lobby(page: Page, player_name: str) -> None:
     """Simulate a player leaving the lobby"""
-    # Use httpx to remove player via API
+    # Use test endpoint to bypass authentication
     with httpx.Client() as client:
         client.post(
-            "http://localhost:8000/leave-lobby", data={"player_name": player_name}
+            "http://localhost:8000/test/remove-player-from-lobby",
+            data={"player_name": player_name},
         )
     setattr(page, "player_leave_time", time.time())
 
@@ -157,11 +158,11 @@ def player_sends_game_request(page: Page, sender: str) -> None:
     """Simulate another player sending a game request"""
     current_player = getattr(page, "current_player_name", "Alice")
 
-    # Send game request via API
+    # Use test endpoint to bypass authentication
     with httpx.Client() as client:
         client.post(
-            "http://localhost:8000/select-opponent",
-            data={"player_name": sender, "opponent_name": current_player},
+            "http://localhost:8000/test/send-game-request",
+            data={"sender_name": sender, "target_name": current_player},
         )
 
     setattr(page, "game_request_time", time.time())
@@ -174,7 +175,9 @@ def game_request_notification_appears(page: Page) -> None:
 
     # Wait for notification (allow up to 35s for long poll timeout + event trigger)
     try:
-        page.wait_for_selector('[data-testid="game-request-notification"]', timeout=35000)
+        page.wait_for_selector(
+            '[data-testid="game-request-notification"]', timeout=35000
+        )
         elapsed = time.time() - start_time
         # Log the actual time for performance tracking
         # In ideal conditions with events, this should be < 5s
@@ -189,7 +192,7 @@ def game_request_notification_appears(page: Page) -> None:
 @then(parsers.parse('the notification should say "{message}"'))
 def notification_says(page: Page, message: str) -> None:
     """Verify notification contains specific message"""
-    page.wait_for_selector(f'text={message}', timeout=35000)
+    page.wait_for_selector(f"text={message}", timeout=35000)
 
 
 @then('I should see "Accept" and "Decline" buttons')
@@ -214,13 +217,11 @@ def i_sent_game_request(page: Page, opponent: str) -> None:
 @when(parsers.parse('"{opponent}" accepts my game request'))
 def opponent_accepts_request(page: Page, opponent: str) -> None:
     """Simulate opponent accepting the game request"""
-    current_player = getattr(page, "current_player_name", "Alice")
-
-    # Accept via API
+    # Accept via test endpoint
     with httpx.Client() as client:
         client.post(
-            "http://localhost:8000/accept-game-request",
-            data={"player_name": opponent, "sender_name": current_player},
+            "http://localhost:8000/test/accept-game-request",
+            data={"player_name": opponent},
         )
 
     setattr(page, "accept_request_time", time.time())
@@ -240,7 +241,9 @@ def redirected_to_game_within_time(page: Page) -> None:
         print(f"Redirected to game page in {elapsed}s")
     except Exception as e:
         elapsed = time.time() - start_time
-        raise AssertionError(f"Did not redirect to game within timeout (waited {elapsed}s): {e}")
+        raise AssertionError(
+            f"Did not redirect to game within timeout (waited {elapsed}s): {e}"
+        )
 
 
 @then(parsers.parse('the game should be with opponent "{opponent}"'))
@@ -253,10 +256,11 @@ def verify_game_opponent(page: Page, opponent: str) -> None:
 @when(parsers.parse('"{opponent}" declines my game request'))
 def opponent_declines_request(page: Page, opponent: str) -> None:
     """Simulate opponent declining the game request"""
-    # Decline via API
+    # Decline via test endpoint
     with httpx.Client() as client:
         client.post(
-            "http://localhost:8000/decline-game-request", data={"player_name": opponent}
+            "http://localhost:8000/test/decline-game-request",
+            data={"player_name": opponent},
         )
 
     setattr(page, "decline_request_time", time.time())
@@ -276,9 +280,7 @@ def decline_message_appears(page: Page) -> None:
     # Wait for the "Game request sent" confirmation to disappear
     try:
         page.wait_for_selector(
-            '[data-testid="confirmation-message"]',
-            state="hidden",
-            timeout=35000
+            '[data-testid="confirmation-message"]', state="hidden", timeout=35000
         )
         elapsed = time.time() - start_time
         print(f"Request confirmation cleared in {elapsed}s (request was declined)")
@@ -330,7 +332,7 @@ def all_players_appear(page: Page) -> None:
 @then(parsers.parse('the "{message}" message should appear'))
 def message_should_appear(page: Page, message: str) -> None:
     """Verify a specific message appears"""
-    page.wait_for_selector(f'text={message}', timeout=35000)
+    page.wait_for_selector(f"text={message}", timeout=35000)
 
 
 @then(parsers.parse('I should see "{player}" in the available players list'))
@@ -342,7 +344,9 @@ def player_in_available_players_list(page: Page, player: str) -> None:
 @then(parsers.parse('I should see "{player_name}" appear in my lobby'))
 def player_appears_in_lobby(page: Page, player_name: str) -> None:
     """Verify player appears in lobby (without strict timing)"""
-    page.wait_for_selector(f'button[data-testid="select-opponent-{player_name}"]', timeout=35000)
+    page.wait_for_selector(
+        f'button[data-testid="select-opponent-{player_name}"]', timeout=35000
+    )
 
 
 @when(parsers.parse('another player "{player_name}" joins the lobby'))
@@ -372,16 +376,21 @@ def long_poll_reconnected(page: Page) -> None:
 @when(parsers.parse('"{sender}" sends a game request to "{receiver}"'))
 def other_player_sends_request(page: Page, sender: str, receiver: str) -> None:
     """Simulate one player sending request to another"""
+    # Use test endpoint to bypass authentication
     with httpx.Client() as client:
         client.post(
-            "http://localhost:8000/select-opponent",
-            data={"player_name": sender, "opponent_name": receiver},
+            "http://localhost:8000/test/send-game-request",
+            data={"sender_name": sender, "target_name": receiver},
         )
 
     setattr(page, "status_change_time", time.time())
 
 
-@then(parsers.parse('I should see "{player}" status change to "{status}" within 5 seconds'))
+@then(
+    parsers.parse(
+        'I should see "{player}" status change to "{status}" within 5 seconds'
+    )
+)
 def player_status_changes(page: Page, player: str, status: str) -> None:
     """Verify player status changes within specified time"""
     start_time = getattr(page, "status_change_time", time.time())
@@ -389,7 +398,8 @@ def player_status_changes(page: Page, player: str, status: str) -> None:
     # Wait for status to change (allow up to 35s for long poll timeout + event trigger)
     try:
         page.wait_for_selector(
-            f'[data-testid="player-{player}-status"]:has-text("{status}")', timeout=35000
+            f'[data-testid="player-{player}-status"]:has-text("{status}")',
+            timeout=35000,
         )
         elapsed = time.time() - start_time
         # Log the actual time for performance tracking
@@ -397,7 +407,9 @@ def player_status_changes(page: Page, player: str, status: str) -> None:
         print(f"Player {player} status changed to {status} in {elapsed}s")
     except Exception as e:
         elapsed = time.time() - start_time
-        raise AssertionError(f"Status did not change within timeout (waited {elapsed}s): {e}")
+        raise AssertionError(
+            f"Status did not change within timeout (waited {elapsed}s): {e}"
+        )
 
 
 @then(parsers.parse('I should not be able to select "{player}" as opponent'))
@@ -432,9 +444,9 @@ def at_most_one_request(page: Page) -> None:
 
     # With long polling, should have at most 1 request in 10 seconds
     # (one request holds for up to 30s)
-    assert (
-        len(requests) <= 1
-    ), f"Expected at most 1 request, got {len(requests)}: {requests}"
+    assert len(requests) <= 1, (
+        f"Expected at most 1 request, got {len(requests)}: {requests}"
+    )
 
 
 @then("the request should be a long-poll request")
@@ -495,4 +507,4 @@ def new_long_poll_initiated(page: Page) -> None:
     # Verify page still has long-poll endpoint configured
     status_div = page.locator('[data-testid="lobby-player-status"]')
     hx_get = status_div.get_attribute("hx-get")
-    assert "/long-poll" in hx_get, "Should still be using long-poll endpoint"
+    assert hx_get and "/long-poll" in hx_get, "Should still be using long-poll endpoint"

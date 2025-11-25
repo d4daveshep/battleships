@@ -288,10 +288,76 @@ async def reset_lobby_for_testing() -> dict[str, str]:
     return {"status": "lobby cleared"}
 
 
-@app.post("/select-opponent")
+@app.post("/test/add-player-to-lobby")
+async def add_player_to_lobby_for_testing(player_name: str = Form()) -> dict[str, str]:
+    """Add a player to the lobby bypassing authentication - for testing only"""
+    try:
+        lobby_service.join_lobby(player_name)
+        return {"status": "player added", "player": player_name}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/test/remove-player-from-lobby")
+async def remove_player_from_lobby_for_testing(
+    player_name: str = Form(),
+) -> dict[str, str]:
+    """Remove a player from the lobby bypassing authentication - for testing only"""
+    try:
+        lobby_service.leave_lobby(player_name)
+        return {"status": "player removed", "player": player_name}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/test/send-game-request")
+async def send_game_request_for_testing(
+    sender_name: str = Form(), target_name: str = Form()
+) -> dict[str, str]:
+    """Send a game request bypassing session validation - for testing only"""
+    try:
+        lobby_service.send_game_request(sender_name, target_name)
+        return {
+            "status": "game request sent",
+            "sender": sender_name,
+            "target": target_name,
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/test/accept-game-request")
+async def accept_game_request_for_testing(player_name: str = Form()) -> dict[str, str]:
+    """Accept a game request bypassing session validation - for testing only"""
+    try:
+        sender_name, receiver_name = lobby_service.accept_game_request(player_name)
+        return {
+            "status": "game request accepted",
+            "player": receiver_name,
+            "sender": sender_name,
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/test/decline-game-request")
+async def decline_game_request_for_testing(player_name: str = Form()) -> dict[str, str]:
+    """Decline a game request bypassing session validation - for testing only"""
+    try:
+        sender_name = lobby_service.decline_game_request(player_name)
+        return {
+            "status": "game request declined",
+            "player": player_name,
+            "sender": sender_name,
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/select-opponent", response_model=None)
 async def select_opponent(
     request: Request, player_name: str = Form(), opponent_name: str = Form()
-) -> HTMLResponse:
+) -> HTMLResponse | Response:
     """Handle opponent selection and return updated lobby view"""
 
     # Validate session owns this player

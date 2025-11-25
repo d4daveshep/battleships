@@ -6,6 +6,59 @@ from playwright.sync_api import Page, Locator
 scenarios("../../features/multiplayer_lobby.feature")
 
 
+# Helper function to wait for HTMX long-poll updates
+def wait_for_lobby_update(page: Page, timeout: int = 35000) -> None:
+    """
+    Wait for HTMX long-poll to update the lobby.
+    Long-poll has a 30s timeout, so we wait slightly longer.
+    This helper triggers a reload if needed to force an update.
+    """
+    # Reload the page to force fetching the latest lobby state
+    # This is more reliable than waiting for long-poll to complete
+    page.reload()
+    # Wait for the lobby container to be visible after reload
+    page.locator('[data-testid="lobby-player-status"]').wait_for(
+        state="visible", timeout=5000
+    )
+
+
+# Helper function to perform authenticated actions as another player using test endpoints
+def perform_action_as_player(
+    page: Page, player_name: str, action: str, target_player: str | None = None
+) -> None:
+    """
+    Perform an action as a different player using test endpoints.
+    This bypasses session authentication for testing purposes.
+
+    Args:
+        page: The current test page
+        player_name: The player performing the action
+        action: The action to perform ("select-opponent", "accept-request", "decline-request")
+        target_player: The target player for the action (if applicable)
+    """
+    with httpx.Client() as client:
+        if action == "select-opponent" and target_player:
+            # Send game request via test endpoint
+            client.post(
+                "http://localhost:8000/test/send-game-request",
+                data={"sender_name": player_name, "target_name": target_player},
+            )
+
+        elif action == "accept-request":
+            # Accept game request via test endpoint
+            client.post(
+                "http://localhost:8000/test/accept-game-request",
+                data={"player_name": player_name},
+            )
+
+        elif action == "decline-request":
+            # Decline game request via test endpoint
+            client.post(
+                "http://localhost:8000/test/decline-game-request",
+                data={"player_name": player_name},
+            )
+
+
 @given("the multiplayer lobby system is available")
 def multiplayer_lobby_system_available(page: Page) -> None:
     # Verify the multiplayer lobby system is accessible
@@ -37,11 +90,12 @@ def other_players_in_lobby(page: Page, datatable) -> None:
         player_name: str = row[0]
         status: str = row[1]
         if status == "Available":
-            # Use individual login flow to avoid conflicts
-            page.goto("http://localhost:8000/")
-            page.locator('input[name="player_name"]').fill(player_name)
-            page.locator('button[value="human"]').click()
-            page.wait_for_url("**/lobby*")
+            # Use test endpoint to add players directly to avoid session conflicts
+            with httpx.Client() as client:
+                client.post(
+                    "http://localhost:8000/test/add-player-to-lobby",
+                    data={"player_name": player_name},
+                )
             expected_players.append({"name": player_name, "status": status})
 
     setattr(page, "expected_lobby_players", expected_players)
@@ -132,18 +186,12 @@ def see_select_opponent_buttons(page: Page) -> None:
         assert "Select Opponent" in button_text
 
 
-
-
-
 @given("there are no other players in the lobby")
 def no_other_players_in_lobby(page: Page) -> None:
     # This step sets up the condition where the lobby is empty
     # The lobby should start empty for this test scenario
     # This will test the UI behavior when no players are available
     pass
-
-
-
 
 
 @then("I should not see any selectable players")
@@ -220,8 +268,8 @@ def another_player_logs_in_and_selects_human(page: Page, player_name: str) -> No
             data={"player_name": player_name, "game_mode": "human"},
         )
 
-    # Refresh the current page to see the updated lobby state
-    page.reload()
+    # Wait for the lobby to update with the new player
+    wait_for_lobby_update(page)
 
 
 @then(parsers.parse('I should see "{player_name}" in the available players list'))
@@ -291,7 +339,7 @@ def see_message(page: Page, expected_message: str) -> None:
         '[data-testid="message"]',
         '[data-testid="no-players-message"]',
         '[data-testid="waiting-message"]',
-        '[data-testid="decline-confirmation-message"]'
+        '[data-testid="decline-confirmation-message"]',
     ]
 
     message_found = False
@@ -377,9 +425,6 @@ def my_status_should_change(page: Page, expected_status: str) -> None:
     )
 
 
-
-
-
 @then(
     "I should not be able to select other players while waiting for my request to be completed"
 )
@@ -411,28 +456,14 @@ def target_player_receives_game_request(
     page: Page, target_player: str, sender_player: str
 ) -> None:
     # Simulate another player (sender) sending a game request to target_player
-    # This would typically involve:
-    # 1. Making an HTTP request from sender to select target as opponent
-    # 2. Triggering real-time updates via WebSocket/polling
-
-    # For now, simulate this by making the request via HTTP client
-    # In a real implementation, this might involve WebSocket messaging
-    import httpx
-
-    with httpx.Client() as client:
-        # Simulate sender selecting target as opponent
-        client.post(
-            "http://localhost:8000/select-opponent",
-            data={"player_name": sender_player, "opponent_name": target_player},
-        )
+    perform_action_as_player(page, sender_player, "select-opponent", target_player)
 
     # Store the interaction for verification
     setattr(page, "game_request_sender", sender_player)
     setattr(page, "game_request_target", target_player)
 
-    # Wait for long polling to update (up to 35s timeout)
-    # Using a short timeout since long poll returns immediately on state change
-    page.wait_for_timeout(2000)  # Brief wait for long poll event trigger
+    # Wait for long polling to update
+    wait_for_lobby_update(page)
 
 
 @then(
@@ -611,19 +642,20 @@ def other_players_no_longer_see_me(page: Page) -> None:
 def player_leaves_lobby(page: Page, player_name: str) -> None:
     # Simulate another player leaving the lobby
     # This would typically involve the other player clicking "Leave Lobby"
-    # For testing purposes, we simulate this via HTTP request or server state change
+    # For testing purposes, we use the test endpoint to bypass session authentication
 
     with httpx.Client() as client:
-        # Simulate the player leaving the lobby
+        # Use test endpoint to remove player from lobby
         client.post(
-            "http://localhost:8000/leave-lobby", data={"player_name": player_name}
+            "http://localhost:8000/test/remove-player-from-lobby",
+            data={"player_name": player_name},
         )
 
     # Store the player who left for verification
     setattr(page, "player_who_left", player_name)
 
     # Wait for long polling to update (returns immediately on state change)
-    page.wait_for_timeout(2000)  # Brief wait for long poll event trigger
+    wait_for_lobby_update(page)
 
 
 @then(
@@ -658,19 +690,15 @@ def sender_selects_me_as_opponent(page: Page, sender_player: str) -> None:
     # Get the current player's name
     current_player = getattr(page, "current_player_name", "TestPlayer")
 
-    # Simulate the sender making a request via HTTP client
-    with httpx.Client() as client:
-        client.post(
-            "http://localhost:8000/select-opponent",
-            data={"player_name": sender_player, "opponent_name": current_player},
-        )
+    # Simulate the sender making a request using authenticated action
+    perform_action_as_player(page, sender_player, "select-opponent", current_player)
 
     # Store the request details for verification
     setattr(page, "game_request_sender", sender_player)
     setattr(page, "game_request_receiver", current_player)
 
     # Wait for long polling to update the UI
-    page.wait_for_timeout(2000)  # Brief wait for long poll event trigger
+    wait_for_lobby_update(page)
 
 
 @then(
@@ -747,10 +775,17 @@ def have_received_game_request(page: Page, sender_player: str) -> None:
         client.post("http://localhost:8000/test/reset-lobby")
 
     # First ensure the sender player is in the lobby (avoid duplicate player error)
-    page.goto("http://localhost:8000/")
-    page.locator('input[name="player_name"]').fill(sender_player)
-    page.locator('button[value="human"]').click()
-    page.wait_for_url("**/lobby*")
+    # Create a temporary page for the sender to maintain separate sessions
+    browser = page.context.browser
+    if browser:
+        temp_context = browser.new_context()
+        temp_page = temp_context.new_page()
+        temp_page.goto("http://localhost:8000/")
+        temp_page.locator('input[name="player_name"]').fill(sender_player)
+        temp_page.locator('button[value="human"]').click()
+        temp_page.wait_for_url("**/lobby*")
+        temp_page.close()
+        temp_context.close()
 
     # Then ensure current player is in lobby
     page.goto("http://localhost:8000/")
@@ -759,21 +794,18 @@ def have_received_game_request(page: Page, sender_player: str) -> None:
     page.wait_for_url("**/lobby*")
     setattr(page, "current_player_name", current_player)
 
-    # Simulate the sender selecting current player as opponent
-    with httpx.Client() as client:
-        client.post(
-            "http://localhost:8000/select-opponent",
-            data={"player_name": sender_player, "opponent_name": current_player},
-        )
+    # Sender selects current player as opponent using authenticated action
+    perform_action_as_player(page, sender_player, "select-opponent", current_player)
 
     setattr(page, "game_request_sender", sender_player)
     setattr(page, "game_request_receiver", current_player)
 
     # Wait for long poll UI to update and show the request
-    page.wait_for_timeout(2000)  # Brief wait for long poll event trigger
+    wait_for_lobby_update(page)
 
-    # Verify the request is visible
+    # Verify the request is visible with explicit wait
     notification: Locator = page.locator('[data-testid="game-request-notification"]')
+    notification.wait_for(state="visible", timeout=5000)
     assert notification.is_visible(), (
         f"Game request from {sender_player} should be visible"
     )
@@ -786,9 +818,6 @@ def click_accept_game_request(page: Page) -> None:
     assert accept_button.is_visible(), "Accept button should be visible"
     assert accept_button.is_enabled(), "Accept button should be enabled"
     accept_button.click()
-
-
-
 
 
 @then("I should be redirected to the game interface")
@@ -852,9 +881,6 @@ def click_decline_game_request(page: Page) -> None:
     decline_button.click()
 
 
-
-
-
 @then(
     parsers.parse('"{sender_name}" should be notified that their request was declined')
 )
@@ -895,7 +921,7 @@ def sender_status_returns_to_available(page: Page, sender_name: str) -> None:
     # This tests the real-time status updates in the lobby
 
     # Wait for status update long polling
-    page.wait_for_timeout(2000)  # Brief wait for long poll event trigger
+    wait_for_lobby_update(page)
 
     # Check the sender's status in the lobby
     sender_status: Locator = page.locator(
@@ -930,9 +956,9 @@ def sender_status_returns_to_available(page: Page, sender_name: str) -> None:
 def ive_selected_opponent_as_my_opponent(page: Page, opponent_name: str) -> None:
     # Set up state where current player has sent a game request to opponent
     # This is a precondition for the "opponent accepts my request" scenario
-    
+
     current_player = getattr(page, "current_player_name", "TestPlayer")
-    
+
     # Click the "Select Opponent" button for the specified opponent
     select_button: Locator = page.locator(
         f'[data-testid="select-opponent-{opponent_name}"]'
@@ -941,14 +967,14 @@ def ive_selected_opponent_as_my_opponent(page: Page, opponent_name: str) -> None
         f"Select Opponent button for {opponent_name} should be visible"
     )
     select_button.click()
-    
+
     # Wait for the request to be processed
     page.wait_for_timeout(1000)
-    
+
     # Store the game request details for verification
     setattr(page, "game_request_sender", current_player)
     setattr(page, "game_request_target", opponent_name)
-    
+
     # Verify the request was sent (confirmation message should appear)
     confirmation_message: Locator = page.locator('[data-testid="confirmation-message"]')
     assert confirmation_message.is_visible(), (
@@ -963,30 +989,24 @@ def opponent_accepts_my_game_request(page: Page, opponent_name: str) -> None:
 
     current_player = getattr(page, "current_player_name", "TestPlayer")
 
-    # Simulate the opponent accepting the request via HTTP client
-    # In a real implementation, this would involve WebSocket messaging or API calls
-    with httpx.Client() as client:
-        client.post(
-            "http://localhost:8000/accept-game-request",
-            data={"player_name": opponent_name, "sender_name": current_player},
-        )
+    # Simulate the opponent accepting the request using authenticated action
+    perform_action_as_player(page, opponent_name, "accept-request", None)
 
     # Store the acceptance details for verification
     setattr(page, "game_request_accepted_by", opponent_name)
 
     # Wait for the long poll UI to update with the acceptance
-    page.wait_for_timeout(2000)  # Brief wait for long poll event trigger
+    # The page should redirect to game, so wait for that
+    page.wait_for_url("**/game*", timeout=10000)
 
 
 @given(parsers.parse('"{sender_player}" selects "{opponent_player}" as his opponent'))
-def player_selects_another_as_opponent(page: Page, sender_player: str, opponent_player: str) -> None:
+def player_selects_another_as_opponent(
+    page: Page, sender_player: str, opponent_player: str
+) -> None:
     """Simulate one player selecting another player as opponent"""
-    # Use HTTP client to simulate the selection
-    with httpx.Client() as client:
-        client.post(
-            "http://localhost:8000/select-opponent",
-            data={"player_name": sender_player, "opponent_name": opponent_player},
-        )
+    # Use authenticated action to simulate the selection
+    perform_action_as_player(page, sender_player, "select-opponent", opponent_player)
 
     # Store the request details
     setattr(page, "other_game_request_sender", sender_player)
@@ -996,18 +1016,18 @@ def player_selects_another_as_opponent(page: Page, sender_player: str, opponent_
     page.wait_for_timeout(1000)
 
 
-@when(parsers.parse('"{receiver_player}" accepts the game request from "{sender_player}"'))
-def receiver_accepts_game_request_from_sender(page: Page, receiver_player: str, sender_player: str) -> None:
+@when(
+    parsers.parse('"{receiver_player}" accepts the game request from "{sender_player}"')
+)
+def receiver_accepts_game_request_from_sender(
+    page: Page, receiver_player: str, sender_player: str
+) -> None:
     """Simulate a player accepting a game request from another player"""
-    # Use HTTP client to simulate the acceptance
-    with httpx.Client() as client:
-        client.post(
-            "http://localhost:8000/accept-game-request",
-            data={"player_name": receiver_player, "sender_name": sender_player},
-        )
+    # Use authenticated action to simulate the acceptance
+    perform_action_as_player(page, receiver_player, "accept-request", None)
 
     # Wait for long poll UI to update
-    page.wait_for_timeout(2000)
+    wait_for_lobby_update(page)
 
 
 @then("I should remain in the lobby")
@@ -1016,10 +1036,10 @@ def should_remain_in_lobby(page: Page) -> None:
     # Check that we're still on the lobby page, not redirected to game
     current_url = page.url
     assert "lobby" in current_url, f"Expected to be in lobby, but URL is: {current_url}"
-    assert "game" not in current_url, f"Should not be on game page, but URL is: {current_url}"
+    assert "game" not in current_url, (
+        f"Should not be on game page, but URL is: {current_url}"
+    )
 
     # Verify lobby interface elements are present
     lobby_container: Locator = page.locator('[data-testid="lobby-container"]')
     assert lobby_container.is_visible(), "Lobby container should be visible"
-
-

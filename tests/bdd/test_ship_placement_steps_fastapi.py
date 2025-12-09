@@ -43,7 +43,11 @@ def client() -> TestClient:
     return TestClient(app, follow_redirects=False)
 
 
+# FIXME: Fix this function so it takes the user to the ship placement page (after the "start game" page)
 def on_ship_placement_page(context: ShipPlacementContext) -> None:
+    assert False, (
+        'Fix this function so it takes the user to the ship placement page (after the "start game" page)'
+    )
     """Helper function to verify we're on the ship placement screen"""
     assert context.soup is not None
     assert context.response is not None

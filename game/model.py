@@ -159,6 +159,16 @@ class Ship:
 
 
 class GameBoard:
+    """Model class representing a players game board. The game board records:
+    - where the player has placed their ships
+    - the shots received (i.e. fired at them by their opponent)
+    - the shops they've fired at their opponent
+
+    Main functionality of the game board includes:
+    - placing ships
+    - locating ships by coords
+    """
+
     def __init__(self) -> None:
         self.ships: list[Ship] = []
         self.shots_received: dict = {}

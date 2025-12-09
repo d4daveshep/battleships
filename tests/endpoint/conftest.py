@@ -27,3 +27,17 @@ def create_player(client: TestClient, name: str) -> Response:
         Response from the login endpoint
     """
     return client.post("/", data={"player_name": name, "game_mode": "human"})
+
+
+@pytest.fixture
+def authenticated_client(client: TestClient) -> TestClient:
+    """TestClient with an authenticated session for Alice
+
+    Args:
+        client: TestClient instance
+
+    Returns:
+        TestClient with authenticated session
+    """
+    client.post("/", data={"player_name": "Alice", "game_mode": "computer"})
+    return client

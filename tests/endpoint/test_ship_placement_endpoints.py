@@ -104,11 +104,9 @@ class TestShipPlacementPageEndpoint:
 class TestPlaceShipEndpoint:
     """Tests for POST /place-ship endpoint"""
 
-    def test_place_ship_endpoint_exists(self, client: TestClient):
+    def test_place_ship_endpoint_exists(self, authenticated_client: TestClient):
         """Test that place ship endpoint responds to POST requests"""
-        # Note: Current implementation has assert False, so this will fail
-        # This test documents the expected behavior
-        response = client.post(
+        response = authenticated_client.post(
             "/place-ship",
             data={
                 "player_name": "Alice",
@@ -118,12 +116,8 @@ class TestPlaceShipEndpoint:
             },
         )
 
-        # Currently fails with 500 due to assert False in implementation
-        # When implemented, should return 200
-        assert response.status_code in [
-            status.HTTP_200_OK,
-            status.HTTP_500_INTERNAL_SERVER_ERROR,
-        ]
+        # Should return 200 when properly implemented
+        assert response.status_code == status.HTTP_200_OK
 
     def test_place_ship_horizontal_carrier(self, client: TestClient):
         """Test placing a carrier horizontally at A1"""
@@ -341,9 +335,9 @@ class TestShipPlacementValidation:
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
-    def test_place_ship_out_of_bounds(self, client: TestClient):
+    def test_place_ship_out_of_bounds(self, authenticated_client: TestClient):
         """Test that ships going out of bounds are rejected (when implemented)"""
-        response = client.post(
+        response = authenticated_client.post(
             "/place-ship",
             data={
                 "player_name": "Alice",
@@ -355,10 +349,10 @@ class TestShipPlacementValidation:
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
-    def test_place_ship_duplicate_ship_name(self, client: TestClient):
+    def test_place_ship_duplicate_ship_name(self, authenticated_client: TestClient):
         """Test that placing the same ship twice is rejected (when implemented)"""
         # Place carrier first time
-        client.post(
+        authenticated_client.post(
             "/place-ship",
             data={
                 "player_name": "Alice",
@@ -369,7 +363,7 @@ class TestShipPlacementValidation:
         )
 
         # Try to place carrier again
-        response = client.post(
+        response = authenticated_client.post(
             "/place-ship",
             data={
                 "player_name": "Alice",

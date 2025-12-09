@@ -36,6 +36,9 @@ _game_lobby: Lobby = Lobby()
 auth_service: AuthService = AuthService()
 lobby_service: LobbyService = LobbyService(_game_lobby)
 
+# FIXME: temporary global game storage - replace with a proper game manager
+games: dict[str, GameBoard] = {}  # player_name -> GameBoard
+
 
 def _get_validated_player_name(request: Request, claimed_name: str) -> str:
     """Verify the session owns this player name
@@ -201,8 +204,11 @@ async def place_ship(
         start: Coord = Coord[start_coordinate.upper()]
         orient: Orientation = Orientation[orientation.upper()]
 
-        # FIXME: Implement game state (linked to session) that has each player's board
-        board: GameBoard = GameBoard()
+        # FIXME: Replace with call to game manaager when it's implemented
+        # For now this will get the game board for the player or create a new one
+        board: GameBoard = games.get(
+            _get_validated_player_name(request, player_name), GameBoard()
+        )
         board.place_ship(ship, start, orient)
 
     except (
@@ -220,7 +226,7 @@ async def place_ship(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         )
 
-    # FIXME: Change this data structure when I design the proper ship board templates
+    # FIXME: Change this data structure when I design the proper ship board screens
     cells: list[str] = [coord.name for coord in ship.positions]
     placed_ships: dict[str, dict[str, list[str]]] = {
         ship.ship_type.ship_name: {"cells": cells}

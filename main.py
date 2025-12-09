@@ -206,10 +206,10 @@ async def place_ship(
 
         # FIXME: Replace with call to game manaager when it's implemented
         # For now this will get the game board for the player or create a new one
-        board: GameBoard = games.get(
-            _get_validated_player_name(request, player_name), GameBoard()
-        )
+        validated_player_name: str = _get_validated_player_name(request, player_name)
+        board: GameBoard = games.get(validated_player_name, GameBoard())
         board.place_ship(ship, start, orient)
+        games[validated_player_name] = board
 
     except (
         ValueError,

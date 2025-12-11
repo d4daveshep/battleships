@@ -11,7 +11,7 @@ Feature: Player Login and Game Mode Selection
     Given the player name field is empty
     When I enter "Alice" as my player name
     And I click the "Play against Computer" button
-    Then I should be redirected to the game interface
+    Then I should be redirected to the start game confirmation page
     And the game should be configured for single player mode
     And my player name should be set to "Alice"
 
@@ -37,10 +37,10 @@ Feature: Player Login and Game Mode Selection
     Examples:
       | player_name | result |
       | A | I should see an error message "Player name must be between 2 and 20 characters" |
-      | AB | I should be redirected to the game interface |
+      | AB | I should be redirected to the start game confirmation page |
       | ThisIsAVeryLongPlayerName | I should see an error message "Player name must be between 2 and 20 characters" |
-      | Player123 | I should be redirected to the game interface |
-      | Player With Spaces | I should be redirected to the game interface |
+      | Player123 |  I should be redirected to the start game confirmation page |
+      | Player With Spaces | I should be redirected to the start game confirmation page |
       | Player@#$ | I should see an error message "Player name can only contain letter, numbers and spaces" |
 
 

@@ -46,7 +46,7 @@ def click_play_against_human(page: Page) -> None:
     page.locator('button[value="human"]').click()
 
 
-@then("I should be redirected to the game interface")
+@then("I should be redirected to the start game confirmation page")
 def on_game_page(page: Page) -> None:
     page.wait_for_url("**/game*")
     assert "game" in page.url

@@ -113,7 +113,7 @@ def click_play_against_human(client: TestClient, context: BDDTestContext) -> Non
     context.update_response(response)
 
 
-@then("I should be redirected to the game interface")
+@then("I should be redirected to the start game confirmation page")
 def on_game_page(client: TestClient, context: BDDTestContext) -> None:
     # Check for redirect response
     assert context.response is not None

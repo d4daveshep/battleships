@@ -842,7 +842,7 @@ def click_accept_game_request(lobby_context: LobbyTestContext) -> None:
     lobby_context.update_response(response)
 
 
-@then("I should be redirected to the game interface")
+@then("I should be redirected to the start game confirmation page")
 def redirected_to_game_interface(lobby_context: LobbyTestContext) -> None:
     """Verify redirection to the game page"""
     assert lobby_context.response is not None

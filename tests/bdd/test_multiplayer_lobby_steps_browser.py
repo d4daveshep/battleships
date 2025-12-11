@@ -820,12 +820,12 @@ def click_accept_game_request(page: Page) -> None:
     accept_button.click()
 
 
-@then("I should be redirected to the game interface")
+@then("I should be redirected to the start game confirmation page")
 def redirected_to_game_interface(page: Page) -> None:
     # Verify redirection to the game page
     page.wait_for_url("**/game*", timeout=5000)
 
-    # Verify game interface elements are present
+    # Verify start game confirmaiton page elements are present
     game_title = page.locator("h1").text_content()
     assert game_title is not None, "Game page should have a title"
     assert "game" in game_title.lower() or "battleship" in game_title.lower(), (
@@ -837,20 +837,20 @@ def redirected_to_game_interface(page: Page) -> None:
 @then(parsers.parse('"{player_name}" should be named as my opponent'))
 def player_should_be_opponent(page: Page, player_name: str) -> None:
     # Verify that the specified player is set as the opponent in the game
-    # This checks the game interface shows the correct opponent
+    # This checks the start game confirmation page shows the correct opponent
 
-    # Look for opponent information in the game interface
+    # Look for opponent information in the start game confirmation page
     opponent_element: Locator = page.locator('[data-testid="opponent-name"]')
     if opponent_element.count() > 0:
         opponent_text = opponent_element.inner_text()
         assert player_name in opponent_text, (
-            f"Expected opponent '{player_name}' in game interface, got '{opponent_text}'"
+            f"Expected opponent '{player_name}' in start game confirmaiton page, got '{opponent_text}'"
         )
     else:
         # Alternative: check page content for opponent information
         page_content = page.content()
         assert player_name in page_content, (
-            f"Opponent '{player_name}' should be mentioned in game interface"
+            f"Opponent '{player_name}' should be mentioned in start game confirmation page"
         )
 
 

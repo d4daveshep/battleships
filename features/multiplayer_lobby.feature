@@ -113,7 +113,7 @@ Feature: Multiplayer Game Lobby
       | Charlie     | Available |
     And I have received a game request from "Bob"
     When I click the "Accept" button for the game request
-    Then I should be redirected to the game interface
+    Then I should be redirected to the start game confirmation page
     And "Bob" should be named as my opponent
     And both "Alice" and "Bob" should no longer appear in other players' lobby views
 
@@ -135,7 +135,7 @@ Feature: Multiplayer Game Lobby
       | Charlie     | Available |
     And I've selected "Bob" as my opponent
     When "Bob" accepts my game request
-    Then I should be redirected to the game interface
+    Then I should be redirected to the start game confirmation page
     And "Bob" should be named as my opponent
 
   Scenario: Other players accept game requests

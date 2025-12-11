@@ -248,7 +248,7 @@ async def game_page(
     game_mode: str = "Two Player" if opponent_name else "Single Player"
     return templates.TemplateResponse(
         request,
-        "game.html",
+        "start_game.html",
         {
             "player_name": player_name,
             "opponent_name": opponent_name,

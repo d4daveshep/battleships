@@ -131,7 +131,7 @@ def on_game_page(client: TestClient, context: BDDTestContext) -> None:
     assert context.response.status_code == 200
     assert context.soup is not None
     h1_element = context.soup.find("h1")
-    assert h1_element and "Battleships Game" in h1_element.get_text()
+    assert h1_element and "Start Game Confirmation" in h1_element.get_text()
 
 
 @then("I should be redirected to the multiplayer lobby")

@@ -104,7 +104,7 @@ class TestGamePageEndpoint:
         # Check h1 heading
         heading = soup.find("h1")
         assert heading is not None
-        assert "Battleships Game" in heading.text
+        assert "Start Game Confirmation" in heading.text
 
     def test_game_page_with_special_characters_in_names(self, client: TestClient):
         """Test that game page handles special characters in player names"""

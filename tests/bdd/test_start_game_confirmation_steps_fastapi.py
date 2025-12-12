@@ -93,14 +93,14 @@ def game_details_are_correct(
 
     # Check for player name display
     player_name_element = confirmation_context.soup.find(
-        attrs={"data-testid": "confirmation-player-name"}
+        attrs={"data-testid": "player-name"}
     )
     assert player_name_element is not None
     assert confirmation_context.player_name in player_name_element.get_text()
 
     # Check for game mode display
     game_mode_element = confirmation_context.soup.find(
-        attrs={"data-testid": "confirmation-game-mode"}
+        attrs={"data-testid": "game-mode"}
     )
     assert game_mode_element is not None
 
@@ -115,7 +115,7 @@ def choose_start_game(
         "player_name": confirmation_context.player_name,
         "action": "start_game",
     }
-    response = client.post("/start-game-confirmation", data=form_data)
+    response = client.post("/start-game", data=form_data)
     confirmation_context.update_response(response)
 
 
@@ -153,7 +153,7 @@ def choose_return_to_login(
         "player_name": confirmation_context.player_name,
         "action": "return_to_login",
     }
-    response = client.post("/start-game-confirmation", data=form_data)
+    response = client.post("/start-game", data=form_data)
     confirmation_context.update_response(response)
 
 
@@ -191,7 +191,7 @@ def choose_exit(
         "player_name": confirmation_context.player_name,
         "action": "exit",
     }
-    response = client.post("/start-game-confirmation", data=form_data)
+    response = client.post("/start-game", data=form_data)
     confirmation_context.update_response(response)
 
 

@@ -61,8 +61,11 @@ class TestGamePairingRedirect:
         assert response.status_code == 204, "Should return 204 with HX-Redirect header"
         assert "HX-Redirect" in response.headers, "Should have HX-Redirect header"
 
-        # The redirect URL should contain Bob as opponent
         redirect_url = response.headers["HX-Redirect"]
+        assert "/start-game" in redirect_url, (
+            f"Redirect URL should contain /game, got: {redirect_url}"
+        )
+        # The redirect URL should contain Alice as player and Bob as opponent
         assert "opponent_name=Bob" in redirect_url, (
             f"Redirect should contain opponent Bob, got: {redirect_url}"
         )

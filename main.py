@@ -294,6 +294,52 @@ async def start_game_page(
     )
 
 
+@app.post("/start-game", response_model=None)
+async def start_game_submit(
+    request: Request, player_name: str = Form(), action: str = Form(default="")
+) -> RedirectResponse:
+    """Handle start game confirmation form submission
+
+    Args:
+        request: The FastAPI request object
+        player_name: The player name from form
+        action: The action to perform (start_game, return_to_login, exit)
+
+    Returns:
+        RedirectResponse to appropriate page based on action
+    """
+    # Validate player_name is provided
+    if not player_name:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Player name is required",
+        )
+
+    # Validate action parameter
+    valid_actions: list[str] = ["start_game", "return_to_login", "exit"]
+    if not action or action not in valid_actions:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid action. Must be one of: {', '.join(valid_actions)}",
+        )
+
+    # Route based on action
+    redirect_url: str
+    if action == "start_game":
+        redirect_url = f"/ship-placement?player_name={player_name}"
+    elif action == "return_to_login":
+        redirect_url = "/"
+    elif action == "exit":
+        redirect_url = "/goodbye"
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid action: {action}",
+        )
+
+    return RedirectResponse(url=redirect_url, status_code=status.HTTP_303_SEE_OTHER)
+
+
 @app.post("/player-name")
 async def validate_player_name(
     request: Request, player_name: str = Form()
@@ -312,6 +358,12 @@ async def validate_player_name(
             "css_class": validation.css_class,
         },
     )
+
+
+@app.get("/goodbye", response_class=HTMLResponse)
+async def goodbye_page(request: Request) -> HTMLResponse:
+    """Goodbye page when user exits the game"""
+    return HTMLResponse(content="<html><body><h1>Goodbye</h1></body></html>")
 
 
 @app.get("/health")

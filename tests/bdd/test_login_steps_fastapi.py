@@ -114,20 +114,20 @@ def click_play_against_human(client: TestClient, context: BDDTestContext) -> Non
 
 
 @then("I should be redirected to the start game confirmation page")
-def on_game_page(client: TestClient, context: BDDTestContext) -> None:
+def on_start_game_page(client: TestClient, context: BDDTestContext) -> None:
     # Check for redirect response
     assert context.response is not None
     assert context.response.status_code == 303
     redirect_url = context.response.headers.get("location")
     assert redirect_url is not None
     # Application redirects directly to game
-    assert "game" in redirect_url
+    assert "start-game" in redirect_url
 
     # Follow the redirect and update context
     target_response = client.get(redirect_url)
     context.update_response(target_response)
 
-    # Verify we actually arrived at the game page
+    # Verify we actually arrived at the start game page
     assert context.response.status_code == 200
     assert context.soup is not None
     h1_element = context.soup.find("h1")

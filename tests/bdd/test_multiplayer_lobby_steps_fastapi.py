@@ -844,16 +844,16 @@ def click_accept_game_request(lobby_context: LobbyTestContext) -> None:
 
 @then("I should be redirected to the start game confirmation page")
 def redirected_to_game_interface(lobby_context: LobbyTestContext) -> None:
-    """Verify redirection to the game page"""
+    """Verify redirection to the start game page"""
     assert lobby_context.response is not None
 
     if lobby_context.response.status_code in [302, 303]:
         # This is a redirect response
         redirect_url = lobby_context.response.headers.get("location")
         assert redirect_url is not None
-        assert "game" in redirect_url
+        assert "start-game" in redirect_url
 
-        # Follow redirect and verify game page
+        # Follow redirect and verify start game page
         current_player = lobby_context.current_player_name
         assert current_player is not None
         client = lobby_context.get_client_for_player(current_player)
@@ -862,13 +862,13 @@ def redirected_to_game_interface(lobby_context: LobbyTestContext) -> None:
 
         assert lobby_context.response.status_code == 200
     else:
-        # This is already the game page (status 200)
+        # This is already the start game page (status 200)
         assert lobby_context.response.status_code == 200
 
     # Verify we're on the game page
     assert lobby_context.soup is not None
     h1_element = lobby_context.soup.find("h1")
-    assert h1_element and "game" in h1_element.get_text().lower()
+    assert h1_element and "start game" in h1_element.get_text().lower()
 
 
 @then(parsers.parse('"{player_name}" should be named as my opponent'))
@@ -1041,14 +1041,16 @@ def opponent_accepts_my_game_request(
     status_response = current_client.get(f"/lobby/status/{current_player}")
 
     if status_response.status_code in [302, 303]:
-        # Alice gets redirected to game via status endpoint
+        # Alice gets redirected to start game via status endpoint
         lobby_context.update_response(status_response)
     else:
-        # Alice doesn't get auto-redirected, but she should be able to access the game directly
+        # Alice doesn't get auto-redirected, but she should be able to access the start game directly
         # Build the correct game URL for Alice with Bob as opponent
-        game_url = f"/game?player_name={current_player}&opponent_name={opponent_name}"
-        game_response = current_client.get(game_url)
-        lobby_context.update_response(game_response)
+        start_game_url = (
+            f"/start-game?player_name={current_player}&opponent_name={opponent_name}"
+        )
+        start_game_response = current_client.get(start_game_url)
+        lobby_context.update_response(start_game_response)
 
 
 @given(parsers.parse('"{sender_player}" selects "{opponent_player}" as his opponent'))
@@ -1117,9 +1119,11 @@ def should_remain_in_lobby(lobby_context: LobbyTestContext) -> None:
     if h1_element:
         assert "lobby" in h1_element.get_text().lower(), "Should be on lobby page"
 
-    # Verify NOT on game page
+    # Verify NOT on start game page
     if h1_element:
-        assert "game" not in h1_element.get_text().lower(), "Should not be on game page"
+        assert "start game" not in h1_element.get_text().lower(), (
+            "Should not be on start game page"
+        )
 
     # Verify lobby container exists
     lobby_container = lobby_context.soup.find(attrs={"data-testid": "lobby-container"})

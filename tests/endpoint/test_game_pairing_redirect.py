@@ -170,23 +170,6 @@ class TestGamePairingRedirect:
         diana_response = diana_client.get("/lobby/status/Diana")
         assert "opponent_name=Charlie" in diana_response.headers["HX-Redirect"]
 
-    def test_no_opponent_found_handles_gracefully(self, client):
-        """Test that system handles edge case where opponent cannot be found"""
-        # This is an edge case that shouldn't happen in normal flow,
-        # but we should handle it gracefully
-
-        # Manually set a player to IN_GAME without a pairing
-        # (This would require direct lobby manipulation in a real scenario)
-        # For now, we document this as a future edge case test
-
-        # If we can't find an opponent, we should either:
-        # 1. Return an error message
-        # 2. Use a default/fallback value
-        # 3. Log an error and keep them in lobby
-
-        # This test documents the expected behavior once implemented
-        pass
-
     def test_long_poll_endpoint_also_uses_correct_opponent(self, client):
         """Test that long polling endpoint also redirects with correct opponent"""
         # Create separate clients for Alice and Bob to maintain separate sessions

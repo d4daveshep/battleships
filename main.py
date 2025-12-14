@@ -72,12 +72,12 @@ def _build_lobby_url(player_name: str) -> str:
     return f"/lobby?player_name={player_name.strip()}"
 
 
-def _build_game_url(player_name: str, opponent_name: str = "") -> str:
+def _build_start_game_url(player_name: str, opponent_name: str = "") -> str:
     """Build game URL with player name parameter"""
     if not opponent_name:
-        return f"/game?player_name={player_name.strip()}"
+        return f"/start-game?player_name={player_name.strip()}"
     else:
-        return f"/game?player_name={player_name.strip()}&opponent_name={opponent_name.strip()}"
+        return f"/start-game?player_name={player_name.strip()}&opponent_name={opponent_name.strip()}"
 
 
 def _create_error_response(
@@ -149,7 +149,7 @@ async def login_submit(
             redirect_url = _build_lobby_url(player_name)
 
         elif game_mode == "computer":
-            redirect_url = _build_game_url(player_name)
+            redirect_url = _build_start_game_url(player_name)
         else:
             raise ValueError(f"Invalid game mode: {game_mode}")
 
@@ -563,7 +563,7 @@ async def _render_lobby_status(
                         context=template_context,
                     )
 
-                game_url: str = _build_game_url(player_name, opponent_name)
+                game_url: str = _build_start_game_url(player_name, opponent_name)
 
                 # Return HTMX redirect
                 return Response(
@@ -673,7 +673,7 @@ async def accept_game_request(
 
         # The player_name is the receiver, sender is the opponent_name
         opponent_name: str = sender
-        redirect_url: str = _build_game_url(player_name, opponent_name)
+        redirect_url: str = _build_start_game_url(player_name, opponent_name)
 
         if request.headers.get("HX-Request"):
             response: Response = Response(

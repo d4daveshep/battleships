@@ -9,7 +9,7 @@ from fastapi import status
 from fastapi.testclient import TestClient
 
 
-class TestStartGameConfirmationPageEndpoint:
+class TestEndStartGameEndpoint:
     """Tests for GET /start-game endpoint"""
 
     def test_start_game_page_returns_200(self, client: TestClient):
@@ -133,6 +133,111 @@ class TestStartGameConfirmationPageEndpoint:
             "player name" in error_message.text.lower()
             or "required" in error_message.text.lower()
         )
+
+
+class TestPostStartGameEndpoint:
+    """Tests for POST /start-game endpoint"""
+
+    def test_post_start_game_with_start_action_redirects_to_ship_placement(
+        self, client: TestClient
+    ):
+        """Test POST /start-game with action=start_game redirects to ship placement"""
+        # First login to create session
+        client.post("/", data={"player_name": "Alice", "game_mode": "computer"})
+
+        # Submit start game form with start_game action
+        response = client.post(
+            "/start-game",
+            data={"player_name": "Alice", "action": "start_game"},
+            follow_redirects=False,
+        )
+
+        # Should redirect with 303 status
+        assert response.status_code == status.HTTP_303_SEE_OTHER
+        redirect_url = response.headers.get("location")
+        assert redirect_url is not None
+        assert "ship-placement" in redirect_url
+
+    def test_post_start_game_with_return_to_login_action_redirects_to_login(
+        self, client: TestClient
+    ):
+        """Test POST /start-game with action=return_to_login redirects to login page"""
+        # First login to create session
+        client.post("/", data={"player_name": "Alice", "game_mode": "computer"})
+
+        # Submit start game form with return_to_login action
+        response = client.post(
+            "/start-game",
+            data={"player_name": "Alice", "action": "return_to_login"},
+            follow_redirects=False,
+        )
+
+        # Should redirect with 303 status
+        assert response.status_code == status.HTTP_303_SEE_OTHER
+        redirect_url = response.headers.get("location")
+        assert redirect_url is not None
+        assert redirect_url == "/" or "login" in redirect_url
+
+    def test_post_start_game_with_exit_action_redirects_to_goodbye(
+        self, client: TestClient
+    ):
+        """Test POST /start-game with action=exit redirects to goodbye page"""
+        # First login to create session
+        client.post("/", data={"player_name": "Alice", "game_mode": "computer"})
+
+        # Submit start game form with exit action
+        response = client.post(
+            "/start-game",
+            data={"player_name": "Alice", "action": "exit"},
+            follow_redirects=False,
+        )
+
+        # Should redirect with 303 status
+        assert response.status_code == status.HTTP_303_SEE_OTHER
+        redirect_url = response.headers.get("location")
+        assert redirect_url is not None
+        assert "goodbye" in redirect_url
+
+    def test_post_start_game_without_action_returns_400(self, client: TestClient):
+        """Test POST /start-game without action parameter returns 400 Bad Request"""
+        # First login to create session
+        client.post("/", data={"player_name": "Alice", "game_mode": "computer"})
+
+        # Submit start game form without action
+        response = client.post(
+            "/start-game",
+            data={"player_name": "Alice"},
+            follow_redirects=False,
+        )
+
+        # Should return 400 Bad Request
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_post_start_game_with_invalid_action_returns_400(self, client: TestClient):
+        """Test POST /start-game with invalid action returns 400 Bad Request"""
+        # First login to create session
+        client.post("/", data={"player_name": "Alice", "game_mode": "computer"})
+
+        # Submit start game form with invalid action
+        response = client.post(
+            "/start-game",
+            data={"player_name": "Alice", "action": "invalid_action"},
+            follow_redirects=False,
+        )
+
+        # Should return 400 Bad Request
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_post_start_game_without_player_name_returns_422(self, client: TestClient):
+        """Test POST /start-game without player_name returns 422 Unprocessable Entity"""
+        response = client.post(
+            "/start-game",
+            data={"action": "start_game"},
+            follow_redirects=False,
+        )
+
+        # Should return 422 Unprocessable Entity
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
 
 class TestStartGamePageIntegration:

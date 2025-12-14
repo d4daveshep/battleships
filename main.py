@@ -241,20 +241,20 @@ async def place_ship(
     )
 
 
-@app.get("/game", response_class=HTMLResponse)
-async def game_page(
-    request: Request, player_name: str = "", opponent_name: str = ""
-) -> HTMLResponse:
-    game_mode: str = "Two Player" if opponent_name else "Single Player"
-    return templates.TemplateResponse(
-        request,
-        "start_game.html",
-        {
-            "player_name": player_name,
-            "opponent_name": opponent_name,
-            "game_mode": game_mode,
-        },
-    )
+# @app.get("/game", response_class=HTMLResponse)
+# async def game_page(
+#     request: Request, player_name: str = "", opponent_name: str = ""
+# ) -> HTMLResponse:
+#     game_mode: str = "Two Player" if opponent_name else "Single Player"
+#     return templates.TemplateResponse(
+#         request,
+#         "start_game.html",
+#         {
+#             "player_name": player_name,
+#             "opponent_name": opponent_name,
+#             "game_mode": game_mode,
+#         },
+#     )
 
 
 @app.get("/start-game", response_class=HTMLResponse)

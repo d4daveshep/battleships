@@ -257,6 +257,43 @@ async def game_page(
     )
 
 
+@app.get("/start-game", response_class=HTMLResponse)
+async def start_game_page(
+    request: Request, player_name: str | None = None, opponent_name: str = ""
+) -> HTMLResponse:
+    """Start game confirmation page
+
+    Args:
+        request: The FastAPI request object
+        player_name: Required player name
+        opponent_name: Optional opponent name for two-player mode
+
+    Returns:
+        HTMLResponse with start game confirmation page or error
+    """
+    # Validate player_name is provided
+    if not player_name:
+        return templates.TemplateResponse(
+            request=request,
+            name="validation_error.html",
+            context={
+                "error_message": "Player name is required",
+            },
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        )
+
+    game_mode: str = "Two Player" if opponent_name else "Single Player"
+    return templates.TemplateResponse(
+        request=request,
+        name="start_game.html",
+        context={
+            "player_name": player_name,
+            "opponent_name": opponent_name,
+            "game_mode": game_mode,
+        },
+    )
+
+
 @app.post("/player-name")
 async def validate_player_name(
     request: Request, player_name: str = Form()

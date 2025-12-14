@@ -133,8 +133,6 @@ class TestStartGameConfirmationPageEndpoint:
             "player name" in error_message.text.lower()
             or "required" in error_message.text.lower()
         )
-        assert response.status_code == status.HTTP_200_OK
-        soup = BeautifulSoup(response.text, "html.parser")
 
 
 class TestStartGamePageIntegration:

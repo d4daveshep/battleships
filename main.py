@@ -80,6 +80,7 @@ def _build_start_game_url(player_name: str, opponent_name: str = "") -> str:
         return f"/start-game?player_name={player_name.strip()}&opponent_name={opponent_name.strip()}"
 
 
+# TODO: this is specific to the login page, so it should either be renamed or moved somewhere else
 def _create_error_response(
     request: Request,
     error_message: str,
@@ -103,6 +104,7 @@ def _create_error_response(
     )
 
 
+# TODO: rename this endpoint to /login and change / to be a welcome page with link to /login
 @app.get("/", response_class=HTMLResponse)
 async def login_page(request: Request) -> HTMLResponse:
     template_context: dict[str, str] = {
@@ -118,6 +120,7 @@ async def login_page(request: Request) -> HTMLResponse:
     )
 
 
+# TODO: rename this to /login
 @app.post("/", response_model=None)
 async def login_submit(
     request: Request, player_name: str = Form(), game_mode: str = Form()
@@ -145,7 +148,7 @@ async def login_submit(
         redirect_url: str
         if game_mode == "human":
             lobby_service.join_lobby(player_name)  # Add the player to the lobby
-            # TODO: add event here
+            # TODO: add event here? (can't remember why I added this TODO)
             redirect_url = _build_lobby_url(player_name)
 
         elif game_mode == "computer":
@@ -224,6 +227,7 @@ def _map_error_message_for_ui(
         return error_str
 
 
+# TODO: rename this /place-ships
 @app.get("/ship-placement", response_class=HTMLResponse)
 async def ship_placement_page(request: Request, player_name: str = "") -> HTMLResponse:
     return templates.TemplateResponse(
@@ -270,6 +274,8 @@ async def place_ship(
         ShipPlacementOutOfBoundsError,
         ShipPlacementTooCloseError,
     ) as e:
+        # TODO: Should be able to refactor this functionality into GameBoard
+
         # Get current board state to show what's already placed
         validated_player_name: str = _get_validated_player_name(request, player_name)
         board: GameBoard = games.get(validated_player_name, GameBoard())
@@ -292,6 +298,7 @@ async def place_ship(
             # If we can't calculate positions, that's fine - we'll use None
             pass
 
+        # TODO: remove this when the execption error messages are refactored or improved
         # Map exception to user-friendly message
         user_friendly_error: str = _map_error_message_for_ui(
             e, board, attempted_positions
@@ -322,22 +329,6 @@ async def place_ship(
             "placed_ships": placed_ships,
         },
     )
-
-
-# @app.get("/game", response_class=HTMLResponse)
-# async def game_page(
-#     request: Request, player_name: str = "", opponent_name: str = ""
-# ) -> HTMLResponse:
-#     game_mode: str = "Two Player" if opponent_name else "Single Player"
-#     return templates.TemplateResponse(
-#         request,
-#         "start_game.html",
-#         {
-#             "player_name": player_name,
-#             "opponent_name": opponent_name,
-#             "game_mode": game_mode,
-#         },
-#     )
 
 
 @app.get("/start-game", response_class=HTMLResponse)
@@ -446,90 +437,32 @@ async def validate_player_name(
 @app.get("/goodbye", response_class=HTMLResponse)
 async def goodbye_page(request: Request) -> HTMLResponse:
     """Goodbye page when user exits the game"""
+    # TODO: Create a proper template the Goodbye page with a link back to the Welcome page
     return HTMLResponse(content="<html><body><h1>Goodbye</h1></body></html>")
 
 
 @app.get("/health")
 async def health_check() -> dict[str, str]:
     """Health check endpoint for test infrastructure"""
+    # TODO: return game stats e.g. number of games completed, number of games in progress, players in lobby
     return {"status": "healthy"}
 
 
-@app.post("/test/reset-lobby")
-async def reset_lobby_for_testing() -> dict[str, str]:
-    """Reset lobby state - for testing only"""
-    _game_lobby.players.clear()
-    _game_lobby.game_requests.clear()
-    _game_lobby.version = 0
-    _game_lobby.change_event = asyncio.Event()
-
-    return {"status": "lobby cleared"}
+# === Lobby Endpoints ===
 
 
-@app.post("/test/add-player-to-lobby")
-async def add_player_to_lobby_for_testing(player_name: str = Form()) -> dict[str, str]:
-    """Add a player to the lobby bypassing authentication - for testing only"""
-    try:
-        lobby_service.join_lobby(player_name)
-        return {"status": "player added", "player": player_name}
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+@app.get("/lobby", response_class=HTMLResponse)
+async def lobby_page(request: Request, player_name: str = "") -> HTMLResponse:
+    # Default template context
+    template_context: dict[str, str] = {
+        "player_name": player_name,
+    }
 
-
-@app.post("/test/remove-player-from-lobby")
-async def remove_player_from_lobby_for_testing(
-    player_name: str = Form(),
-) -> dict[str, str]:
-    """Remove a player from the lobby bypassing authentication - for testing only"""
-    try:
-        lobby_service.leave_lobby(player_name)
-        return {"status": "player removed", "player": player_name}
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-@app.post("/test/send-game-request")
-async def send_game_request_for_testing(
-    sender_name: str = Form(), target_name: str = Form()
-) -> dict[str, str]:
-    """Send a game request bypassing session validation - for testing only"""
-    try:
-        lobby_service.send_game_request(sender_name, target_name)
-        return {
-            "status": "game request sent",
-            "sender": sender_name,
-            "target": target_name,
-        }
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-@app.post("/test/accept-game-request")
-async def accept_game_request_for_testing(player_name: str = Form()) -> dict[str, str]:
-    """Accept a game request bypassing session validation - for testing only"""
-    try:
-        sender_name, receiver_name = lobby_service.accept_game_request(player_name)
-        return {
-            "status": "game request accepted",
-            "player": receiver_name,
-            "sender": sender_name,
-        }
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-@app.post("/test/decline-game-request")
-async def decline_game_request_for_testing(player_name: str = Form()) -> dict[str, str]:
-    """Decline a game request bypassing session validation - for testing only"""
-    try:
-        sender_name = lobby_service.decline_game_request(player_name)
-        return {
-            "status": "game request declined",
-            "player": player_name,
-            "sender": sender_name,
-        }
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    return templates.TemplateResponse(
+        request=request,
+        name="lobby.html",
+        context=template_context,
+    )
 
 
 @app.post("/select-opponent", response_model=None)
@@ -550,20 +483,6 @@ async def select_opponent(
     except ValueError as e:
         # Handle validation errors (player not available, etc.)
         return _create_error_response(request, str(e))
-
-
-@app.get("/lobby", response_class=HTMLResponse)
-async def lobby_page(request: Request, player_name: str = "") -> HTMLResponse:
-    # Default template context
-    template_context: dict[str, str] = {
-        "player_name": player_name,
-    }
-
-    return templates.TemplateResponse(
-        request=request,
-        name="lobby.html",
-        context=template_context,
-    )
 
 
 @app.post("/leave-lobby", response_model=None)
@@ -823,6 +742,86 @@ async def accept_game_request(
     except ValueError as e:
         # Handle validation errors (no pending request, etc.)
         return _create_error_response(request, str(e))
+
+
+# === Testing Endpoints ===
+
+
+@app.post("/test/reset-lobby")
+async def reset_lobby_for_testing() -> dict[str, str]:
+    """Reset lobby state - for testing only"""
+    _game_lobby.players.clear()
+    _game_lobby.game_requests.clear()
+    _game_lobby.version = 0
+    _game_lobby.change_event = asyncio.Event()
+
+    return {"status": "lobby cleared"}
+
+
+@app.post("/test/add-player-to-lobby")
+async def add_player_to_lobby_for_testing(player_name: str = Form()) -> dict[str, str]:
+    """Add a player to the lobby bypassing authentication - for testing only"""
+    try:
+        lobby_service.join_lobby(player_name)
+        return {"status": "player added", "player": player_name}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/test/remove-player-from-lobby")
+async def remove_player_from_lobby_for_testing(
+    player_name: str = Form(),
+) -> dict[str, str]:
+    """Remove a player from the lobby bypassing authentication - for testing only"""
+    try:
+        lobby_service.leave_lobby(player_name)
+        return {"status": "player removed", "player": player_name}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/test/send-game-request")
+async def send_game_request_for_testing(
+    sender_name: str = Form(), target_name: str = Form()
+) -> dict[str, str]:
+    """Send a game request bypassing session validation - for testing only"""
+    try:
+        lobby_service.send_game_request(sender_name, target_name)
+        return {
+            "status": "game request sent",
+            "sender": sender_name,
+            "target": target_name,
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/test/accept-game-request")
+async def accept_game_request_for_testing(player_name: str = Form()) -> dict[str, str]:
+    """Accept a game request bypassing session validation - for testing only"""
+    try:
+        sender_name, receiver_name = lobby_service.accept_game_request(player_name)
+        return {
+            "status": "game request accepted",
+            "player": receiver_name,
+            "sender": sender_name,
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/test/decline-game-request")
+async def decline_game_request_for_testing(player_name: str = Form()) -> dict[str, str]:
+    """Decline a game request bypassing session validation - for testing only"""
+    try:
+        sender_name = lobby_service.decline_game_request(player_name)
+        return {
+            "status": "game request declined",
+            "player": player_name,
+            "sender": sender_name,
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 if __name__ == "__main__":

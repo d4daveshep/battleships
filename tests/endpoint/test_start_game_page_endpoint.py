@@ -139,14 +139,11 @@ class TestPostStartGameEndpoint:
     """Tests for POST /start-game endpoint"""
 
     def test_post_start_game_with_start_action_redirects_to_ship_placement(
-        self, client: TestClient
+        self, authenticated_client: TestClient
     ):
         """Test POST /start-game with action=start_game redirects to ship placement"""
-        # First login to create session
-        client.post("/", data={"player_name": "Alice", "game_mode": "computer"})
-
         # Submit start game form with start_game action
-        response = client.post(
+        response = authenticated_client.post(
             "/start-game",
             data={"player_name": "Alice", "action": "start_game"},
             follow_redirects=False,
@@ -159,14 +156,11 @@ class TestPostStartGameEndpoint:
         assert "ship-placement" in redirect_url
 
     def test_post_start_game_with_return_to_login_action_redirects_to_login(
-        self, client: TestClient
+        self, authenticated_client: TestClient
     ):
         """Test POST /start-game with action=return_to_login redirects to login page"""
-        # First login to create session
-        client.post("/", data={"player_name": "Alice", "game_mode": "computer"})
-
         # Submit start game form with return_to_login action
-        response = client.post(
+        response = authenticated_client.post(
             "/start-game",
             data={"player_name": "Alice", "action": "return_to_login"},
             follow_redirects=False,
@@ -179,14 +173,11 @@ class TestPostStartGameEndpoint:
         assert redirect_url == "/" or "login" in redirect_url
 
     def test_post_start_game_with_exit_action_redirects_to_goodbye(
-        self, client: TestClient
+        self, authenticated_client: TestClient
     ):
         """Test POST /start-game with action=exit redirects to goodbye page"""
-        # First login to create session
-        client.post("/", data={"player_name": "Alice", "game_mode": "computer"})
-
         # Submit start game form with exit action
-        response = client.post(
+        response = authenticated_client.post(
             "/start-game",
             data={"player_name": "Alice", "action": "exit"},
             follow_redirects=False,
@@ -198,13 +189,12 @@ class TestPostStartGameEndpoint:
         assert redirect_url is not None
         assert "goodbye" in redirect_url
 
-    def test_post_start_game_without_action_returns_400(self, client: TestClient):
+    def test_post_start_game_without_action_returns_400(
+        self, authenticated_client: TestClient
+    ):
         """Test POST /start-game without action parameter returns 400 Bad Request"""
-        # First login to create session
-        client.post("/", data={"player_name": "Alice", "game_mode": "computer"})
-
         # Submit start game form without action
-        response = client.post(
+        response = authenticated_client.post(
             "/start-game",
             data={"player_name": "Alice"},
             follow_redirects=False,
@@ -213,13 +203,12 @@ class TestPostStartGameEndpoint:
         # Should return 400 Bad Request
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
-    def test_post_start_game_with_invalid_action_returns_400(self, client: TestClient):
+    def test_post_start_game_with_invalid_action_returns_400(
+        self, authenticated_client: TestClient
+    ):
         """Test POST /start-game with invalid action returns 400 Bad Request"""
-        # First login to create session
-        client.post("/", data={"player_name": "Alice", "game_mode": "computer"})
-
         # Submit start game form with invalid action
-        response = client.post(
+        response = authenticated_client.post(
             "/start-game",
             data={"player_name": "Alice", "action": "invalid_action"},
             follow_redirects=False,
@@ -244,14 +233,13 @@ class TestStartGamePageIntegration:
     """Integration tests for start game page flow"""
 
     def test_start_game_page_accessible_after_login_computer_mode(
-        self, client: TestClient
+        self, authenticated_client: TestClient
     ):
         """Test that start game page is accessible after single player login flow"""
-        # Login with computer mode redirects to ship placement first
-        client.post("/", data={"player_name": "Alice", "game_mode": "computer"})
-
-        # Verify start game page works after single polayer login
-        start_game_response = client.get("/start-game", params={"player_name": "Alice"})
+        # Verify start game page works after single player login
+        start_game_response = authenticated_client.get(
+            "/start-game", params={"player_name": "Alice"}
+        )
         assert start_game_response.status_code == status.HTTP_200_OK
 
         soup = BeautifulSoup(start_game_response.text, "html.parser")
@@ -259,18 +247,14 @@ class TestStartGamePageIntegration:
         assert start_game_mode_element is not None
         assert "Single Player" in start_game_mode_element.text
 
-    def test_game_page_accessible_after_multiplayer_pairing(self, client: TestClient):
+    def test_game_page_accessible_after_multiplayer_pairing(
+        self, game_paired: tuple[TestClient, TestClient]
+    ):
         """Test that game page works after multiplayer game pairing"""
-        # Set up multiplayer game pairing
-        client.post("/", data={"player_name": "Alice", "game_mode": "human"})
-        client.post("/", data={"player_name": "Bob", "game_mode": "human"})
-        client.post(
-            "/select-opponent", data={"player_name": "Alice", "opponent_name": "Bob"}
-        )
-        client.post("/accept-game-request", data={"player_name": "Bob"})
+        alice_client, bob_client = game_paired
 
         # Access start game page directly
-        start_game_response = client.get(
+        start_game_response = alice_client.get(
             "/start-game", params={"player_name": "Alice", "opponent_name": "Bob"}
         )
         assert start_game_response.status_code == status.HTTP_200_OK

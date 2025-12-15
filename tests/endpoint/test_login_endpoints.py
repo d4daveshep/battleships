@@ -1,11 +1,8 @@
-import json
-from base64 import b64decode
-
 from bs4 import BeautifulSoup
 from fastapi import status
 from fastapi.testclient import TestClient
 from httpx import Response
-from itsdangerous import TimestampSigner
+from test_helpers import decode_session
 
 
 class TestLoginEndpoints:
@@ -30,10 +27,7 @@ class TestLoginEndpoints:
         assert "session" in client.cookies
 
         # Decode session cookie to verify player-id is set
-        session_cookie: str = client.cookies["session"]
-        signer: TimestampSigner = TimestampSigner("your-secret-key-here")
-        unsigned_data: bytes = signer.unsign(session_cookie.encode("utf-8"))
-        session_data: dict[str, str] = json.loads(b64decode(unsigned_data))
+        session_data: dict[str, str] = decode_session(client.cookies["session"])
 
         # Verify player-id key exists and has a non-empty value
         assert "player-id" in session_data

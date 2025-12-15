@@ -10,7 +10,7 @@ These tests follow the TDD RED phase for Step 3 of the long polling migration.
 import time
 from fastapi import status
 from fastapi.testclient import TestClient
-from tests.endpoint.conftest import create_player
+from test_helpers import create_player
 
 
 class TestLongPollingWithEvents:

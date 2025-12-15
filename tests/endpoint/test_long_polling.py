@@ -9,38 +9,26 @@ import time
 
 from fastapi import status
 from fastapi.testclient import TestClient
-from main import app
+from test_helpers import leave_lobby, send_game_request
 
 
 class TestLongPollingEndpoint:
     """Tests for the /lobby/status/{player_name}/long-poll endpoint"""
 
-    def test_long_poll_endpoint_exists(self, client: TestClient):
+    def test_long_poll_endpoint_exists(self, alice_client: TestClient):
         """Test that the long poll endpoint exists and returns 200 OK"""
-        # Setup: Create a player in the lobby
-        login_response = client.post(
-            "/", data={"player_name": "Alice", "game_mode": "human"}
-        )
-        assert login_response.status_code == status.HTTP_200_OK
-
         # Test: Call the long poll endpoint
-        response = client.get("/lobby/status/Alice/long-poll")
+        response = alice_client.get("/lobby/status/Alice/long-poll")
 
         # Verify: Endpoint exists and returns OK
         assert response.status_code == status.HTTP_200_OK
         assert response.headers["content-type"].startswith("text/html")
 
     def test_long_poll_returns_current_state_immediately_on_first_call(
-        self, client: TestClient
+        self, two_player_lobby: tuple[TestClient, TestClient]
     ):
         """Test that first long poll returns current state without waiting"""
-        # Create separate clients for Alice and Bob to maintain separate sessions
-        alice_client = TestClient(app)
-        bob_client = TestClient(app)
-
-        # Setup: Create players in lobby with their respective clients
-        alice_client.post("/", data={"player_name": "Alice", "game_mode": "human"})
-        bob_client.post("/", data={"player_name": "Bob", "game_mode": "human"})
+        alice_client, bob_client = two_player_lobby
 
         # Test: First long poll should return immediately
         start_time = time.time()
@@ -52,19 +40,16 @@ class TestLongPollingEndpoint:
         assert elapsed_time < 1.0, "First long poll should return immediately"
         assert "Bob" in response.text, "Should show other players in lobby"
 
-    def test_long_poll_waits_for_state_change(self, client: TestClient):
+    def test_long_poll_waits_for_state_change(self, alice_client: TestClient):
         """Test that long poll waits when state hasn't changed"""
-        # Setup: Create player in lobby
-        client.post("/", data={"player_name": "Alice", "game_mode": "human"})
-
         # Make initial call to get current version
-        initial_response = client.get("/lobby/status/Alice/long-poll")
+        initial_response = alice_client.get("/lobby/status/Alice/long-poll")
         assert initial_response.status_code == status.HTTP_200_OK
 
         # Test: Second long poll with current version should wait (will timeout in test)
         # Version is 1 after adding Alice
         start_time = time.time()
-        response = client.get(
+        response = alice_client.get(
             "/lobby/status/Alice/long-poll", params={"timeout": "2", "version": "1"}
         )
         elapsed_time = time.time() - start_time
@@ -73,15 +58,10 @@ class TestLongPollingEndpoint:
         assert response.status_code == status.HTTP_200_OK
         assert 1.5 < elapsed_time < 2.5, f"Expected ~2s wait, got {elapsed_time:.2f}s"
 
-    def test_long_poll_returns_early_on_state_change(self, client: TestClient):
+    def test_long_poll_returns_early_on_state_change(
+        self, alice_client: TestClient, bob_client: TestClient
+    ):
         """Test that long poll returns immediately when lobby state changes"""
-        # Create separate clients for Alice and Bob to maintain separate sessions
-        alice_client = TestClient(app)
-        bob_client = TestClient(app)
-
-        # Setup: Create player in lobby
-        alice_client.post("/", data={"player_name": "Alice", "game_mode": "human"})
-
         # Get initial state
         initial_response = alice_client.get("/lobby/status/Alice/long-poll")
         assert initial_response.status_code == status.HTTP_200_OK
@@ -91,9 +71,7 @@ class TestLongPollingEndpoint:
         # For now, we'll test the version parameter approach
 
         # Test: Make a state change, then poll with old version
-        bob_client.post(
-            "/", data={"player_name": "Bob", "game_mode": "human"}
-        )  # State change!
+        # Bob already joined, so state changed!
 
         start_time = time.time()
         response = alice_client.get(
@@ -109,15 +87,13 @@ class TestLongPollingEndpoint:
         )
         assert "Bob" in response.text, "Should show the new player"
 
-    def test_long_poll_accepts_timeout_parameter(self, client: TestClient):
+    def test_long_poll_accepts_timeout_parameter(self, alice_client: TestClient):
         """Test that timeout parameter is respected"""
-        # Setup: Create player
-        client.post("/", data={"player_name": "Alice", "game_mode": "human"})
-        client.get("/lobby/status/Alice/long-poll")  # Initial call
+        alice_client.get("/lobby/status/Alice/long-poll")  # Initial call
 
         # Test: Custom timeout of 1 second with current version
         start_time = time.time()
-        response = client.get(
+        response = alice_client.get(
             "/lobby/status/Alice/long-poll", params={"timeout": "1", "version": "1"}
         )
         elapsed_time = time.time() - start_time
@@ -128,29 +104,23 @@ class TestLongPollingEndpoint:
             f"Expected ~1s timeout, got {elapsed_time:.2f}s"
         )
 
-    def test_long_poll_accepts_version_parameter(self, client: TestClient):
+    def test_long_poll_accepts_version_parameter(self, alice_client: TestClient):
         """Test that version parameter is accepted and used for change detection"""
-        # Setup: Create players
-        client.post("/", data={"player_name": "Alice", "game_mode": "human"})
-
         # Test: Poll with version 0 (should return immediately if state changed)
-        response = client.get("/lobby/status/Alice/long-poll", params={"version": "0"})
+        response = alice_client.get(
+            "/lobby/status/Alice/long-poll", params={"version": "0"}
+        )
 
         # Verify: Endpoint accepts version parameter
         assert response.status_code == status.HTTP_200_OK
 
-    def test_long_poll_multiple_players_concurrent(self, client: TestClient):
+    def test_long_poll_multiple_players_concurrent(
+        self,
+        alice_client: TestClient,
+        bob_client: TestClient,
+        charlie_client: TestClient,
+    ):
         """Test that multiple players can long poll concurrently"""
-        # Create separate clients for each player to maintain separate sessions
-        alice_client = TestClient(app)
-        bob_client = TestClient(app)
-        charlie_client = TestClient(app)
-
-        # Setup: Create multiple players with their respective clients
-        alice_client.post("/", data={"player_name": "Alice", "game_mode": "human"})
-        bob_client.post("/", data={"player_name": "Bob", "game_mode": "human"})
-        charlie_client.post("/", data={"player_name": "Charlie", "game_mode": "human"})
-
         # Get initial states for all
         alice_client.get("/lobby/status/Alice/long-poll")
         bob_client.get("/lobby/status/Bob/long-poll")
@@ -169,14 +139,11 @@ class TestLongPollingEndpoint:
         assert response_alice.status_code == status.HTTP_200_OK
         assert response_bob.status_code == status.HTTP_200_OK
 
-    def test_long_poll_invalid_player_returns_error(self, client: TestClient):
+    def test_long_poll_invalid_player_returns_error(self, alice_client: TestClient):
         """Test that polling for non-existent player returns appropriate error"""
-        # Create a session first by logging in as a valid player
-        client.post("/", data={"player_name": "Alice", "game_mode": "human"})
-
         # Test: Poll for player that doesn't exist (but we have a valid session)
         # This will fail session validation since Alice's session can't access NonExistent
-        response = client.get("/lobby/status/NonExistent/long-poll")
+        response = alice_client.get("/lobby/status/NonExistent/long-poll")
 
         # Verify: Should return error (401 for session mismatch, or 404 for not found)
         assert response.status_code in [
@@ -185,29 +152,26 @@ class TestLongPollingEndpoint:
             status.HTTP_404_NOT_FOUND,
         ]
 
-    def test_long_poll_default_timeout_is_reasonable(self, client: TestClient):
+    def test_long_poll_default_timeout_is_reasonable(self, alice_client: TestClient):
         """Test that default timeout is set to a reasonable value (e.g., 30s)"""
-        # Setup: Create player
-        client.post("/", data={"player_name": "Alice", "game_mode": "human"})
-        client.get("/lobby/status/Alice/long-poll")  # Initial call
+        alice_client.get("/lobby/status/Alice/long-poll")  # Initial call
 
         # Test: Call without timeout parameter (should use default)
         # We'll use a short timeout to avoid slow tests
         start_time = time.time()
-        response = client.get("/lobby/status/Alice/long-poll", params={"timeout": "1"})
+        response = alice_client.get(
+            "/lobby/status/Alice/long-poll", params={"timeout": "1"}
+        )
         elapsed_time = time.time() - start_time
 
         # Verify: Has a reasonable default (tested with explicit param for speed)
         assert response.status_code == status.HTTP_200_OK
         assert elapsed_time < 2.0
 
-    def test_long_poll_returns_html_response(self, client: TestClient):
+    def test_long_poll_returns_html_response(self, alice_client: TestClient):
         """Test that long poll returns HTML response suitable for HTMX"""
-        # Setup: Create player
-        client.post("/", data={"player_name": "Alice", "game_mode": "human"})
-
         # Test: Get long poll response
-        response = client.get("/lobby/status/Alice/long-poll")
+        response = alice_client.get("/lobby/status/Alice/long-poll")
 
         # Verify: Returns HTML
         assert response.status_code == status.HTTP_200_OK
@@ -219,19 +183,16 @@ class TestLongPollingEndpoint:
 class TestLongPollingStateChangeDetection:
     """Tests for state change detection in long polling"""
 
-    def test_long_poll_detects_player_join(self, client: TestClient):
+    def test_long_poll_detects_player_join(
+        self, alice_client: TestClient, bob_client: TestClient
+    ):
         """Test that long poll detects when a new player joins"""
-        # Create separate clients for Alice and Bob to maintain separate sessions
-        alice_client = TestClient(app)
-        bob_client = TestClient(app)
-
         # Setup: Create Alice
-        alice_client.post("/", data={"player_name": "Alice", "game_mode": "human"})
         initial = alice_client.get("/lobby/status/Alice/long-poll")
         assert initial.status_code == status.HTTP_200_OK
 
         # Test: Bob joins while Alice is polling
-        bob_client.post("/", data={"player_name": "Bob", "game_mode": "human"})
+        # Bob already joined via fixture
 
         # Poll with old version - should return immediately
         start_time = time.time()
@@ -246,20 +207,16 @@ class TestLongPollingStateChangeDetection:
         assert elapsed < 1.0, "Should detect player join immediately"
         assert "Bob" in response.text
 
-    def test_long_poll_detects_player_leave(self, client: TestClient):
+    def test_long_poll_detects_player_leave(
+        self, alice_client: TestClient, bob_client: TestClient
+    ):
         """Test that long poll detects when a player leaves"""
-        # Create separate clients for Alice and Bob to maintain separate sessions
-        alice_client = TestClient(app)
-        bob_client = TestClient(app)
-
         # Setup: Create Alice and Bob
-        alice_client.post("/", data={"player_name": "Alice", "game_mode": "human"})
-        bob_client.post("/", data={"player_name": "Bob", "game_mode": "human"})
         initial = alice_client.get("/lobby/status/Alice/long-poll")
         assert "Bob" in initial.text
 
         # Test: Bob leaves
-        bob_client.post("/leave-lobby", data={"player_name": "Bob"})
+        leave_lobby(bob_client, "Bob")
 
         # Poll with old version - should return immediately
         start_time = time.time()
@@ -274,22 +231,16 @@ class TestLongPollingStateChangeDetection:
         assert elapsed < 1.0, "Should detect player leave immediately"
         assert "Bob" not in response.text
 
-    def test_long_poll_detects_game_request(self, client: TestClient):
+    def test_long_poll_detects_game_request(
+        self, alice_client: TestClient, bob_client: TestClient
+    ):
         """Test that long poll detects when a game request is sent"""
-        # Create separate clients for Alice and Bob to maintain separate sessions
-        alice_client = TestClient(app)
-        bob_client = TestClient(app)
-
         # Setup: Create Alice and Bob
-        alice_client.post("/", data={"player_name": "Alice", "game_mode": "human"})
-        bob_client.post("/", data={"player_name": "Bob", "game_mode": "human"})
         initial = bob_client.get("/lobby/status/Bob/long-poll")
         assert initial.status_code == status.HTTP_200_OK
 
         # Test: Alice sends game request to Bob
-        alice_client.post(
-            "/select-opponent", data={"player_name": "Alice", "opponent_name": "Bob"}
-        )
+        send_game_request(alice_client, "Alice", "Bob")
 
         # Poll with old version - should return immediately
         start_time = time.time()

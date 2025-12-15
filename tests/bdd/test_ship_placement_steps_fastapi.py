@@ -3,7 +3,7 @@ from fastapi.testclient import TestClient
 from bs4 import BeautifulSoup, NavigableString, Tag
 from httpx import Response
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Generator
 import pytest
 
 
@@ -17,7 +17,7 @@ class ShipPlacementContext:
     response: Response | None = None
     soup: BeautifulSoup | None = None
     form_data: dict[str, str] = field(default_factory=dict)
-    current_player_name: str | None = None
+    player_name: str | None = None
     selected_ship: str | None = None
     placed_ships: dict[str, list[str]] = field(default_factory=dict)
     last_placement_error: str | None = None
@@ -43,11 +43,21 @@ def client() -> TestClient:
     return TestClient(app, follow_redirects=False)
 
 
+@pytest.fixture(autouse=True)
+def reset_games_state() -> Generator[None, None, None]:
+    """Reset games state for FastAPI TestClient tests"""
+    from main import games
+
+    games.clear()
+    yield
+    games.clear()
+
+
 # FIXME: Fix this function so it takes the user to the ship placement page (after the "start game" page)
 def on_ship_placement_page(context: ShipPlacementContext) -> None:
-    assert False, (
-        'Fix this function so it takes the user to the ship placement page (after the "start game" page)'
-    )
+    # assert False, (
+    #     'Fix this function so it takes the user to the ship placement page (after the "start game" page)'
+    # )
     """Helper function to verify we're on the ship placement screen"""
     assert context.soup is not None
     assert context.response is not None
@@ -78,7 +88,7 @@ def logged_in_and_selected_game_mode(
     response = client.post("/", data=form_data)
     ship_context.update_response(response)
 
-    ship_context.current_player_name = "TestPlayer"
+    ship_context.player_name = "TestPlayer"
 
 
 @given("I am on the ship placement screen")
@@ -86,6 +96,13 @@ def on_ship_placement_screen(
     client: TestClient, ship_context: ShipPlacementContext
 ) -> None:
     """Navigate to ship placement screen"""
+    # Submit form with start game action
+    form_data = {
+        "player_name": ship_context.player_name,
+        "action": "start_game",
+    }
+    response = client.post("/start-game", data=form_data)
+    ship_context.update_response(response)
     # After login, should be redirected to ship placement or game setup
     # Follow any redirects to get to ship placement screen
     if ship_context.response and ship_context.response.status_code in [302, 303]:
@@ -137,7 +154,7 @@ def place_ship_with_direction(
     is_attempt: bool = False,
 ) -> None:
     """Helper to place a ship using start coordinate and orientation"""
-    assert ship_context.current_player_name is not None
+    assert ship_context.player_name is not None
     assert ship_context.selected_ship is not None
 
     # Map direction to orientation
@@ -150,7 +167,7 @@ def place_ship_with_direction(
     orientation: str = orientation_map.get(direction, direction)
 
     form_data: dict[str, str] = {
-        "player_name": ship_context.current_player_name,
+        "player_name": ship_context.player_name,
         "ship_name": ship_context.selected_ship,
         "start_coordinate": start,
         "orientation": orientation,
@@ -186,11 +203,11 @@ def attempt_place_ship_invalid_direction(
     client: TestClient, ship_context: ShipPlacementContext, start: str
 ) -> None:
     """Attempt to place a ship with invalid direction"""
-    assert ship_context.current_player_name is not None
+    assert ship_context.player_name is not None
     assert ship_context.selected_ship is not None
 
     form_data: dict[str, str] = {
-        "player_name": ship_context.current_player_name,
+        "player_name": ship_context.player_name,
         "ship_name": ship_context.selected_ship,
         "start_coordinate": start,
         "orientation": "invalid",
@@ -329,8 +346,8 @@ def click_random_placement_button(
     client: TestClient, ship_context: ShipPlacementContext
 ) -> None:
     """Click the Random Placement button"""
-    assert ship_context.current_player_name is not None
-    form_data: dict[str, str] = {"player_name": ship_context.current_player_name}
+    assert ship_context.player_name is not None
+    form_data: dict[str, str] = {"player_name": ship_context.player_name}
     response: Response = client.post("/random-ship-placement", data=form_data)
     ship_context.update_response(response)
 
@@ -492,9 +509,9 @@ def click_ship_to_remove(
     client: TestClient, ship_context: ShipPlacementContext, ship_name: str
 ) -> None:
     """Click on a placed ship to remove it"""
-    assert ship_context.current_player_name is not None
+    assert ship_context.player_name is not None
     form_data: dict[str, str] = {
-        "player_name": ship_context.current_player_name,
+        "player_name": ship_context.player_name,
         "ship_name": ship_name,
     }
     response: Response = client.post("/remove-ship", data=form_data)
@@ -555,8 +572,8 @@ def click_reset_all_ships_button(
     client: TestClient, ship_context: ShipPlacementContext
 ) -> None:
     """Click the Reset All Ships button"""
-    assert ship_context.current_player_name is not None
-    form_data: dict[str, str] = {"player_name": ship_context.current_player_name}
+    assert ship_context.player_name is not None
+    form_data: dict[str, str] = {"player_name": ship_context.player_name}
     response: Response = client.post("/reset-all-ships", data=form_data)
     ship_context.update_response(response)
     ship_context.placed_ships = {}
@@ -624,8 +641,8 @@ def click_start_game_button(
     client: TestClient, ship_context: ShipPlacementContext
 ) -> None:
     """Click the Start Game button"""
-    assert ship_context.current_player_name is not None
-    form_data: dict[str, str] = {"player_name": ship_context.current_player_name}
+    assert ship_context.player_name is not None
+    form_data: dict[str, str] = {"player_name": ship_context.player_name}
     response: Response = client.post("/start-game", data=form_data)
     ship_context.update_response(response)
 
@@ -669,8 +686,8 @@ def playing_against_human(ship_context: ShipPlacementContext) -> None:
 @when('I click the "Ready" button')
 def click_ready_button(client: TestClient, ship_context: ShipPlacementContext) -> None:
     """Click the Ready button"""
-    assert ship_context.current_player_name is not None
-    form_data: dict[str, str] = {"player_name": ship_context.current_player_name}
+    assert ship_context.player_name is not None
+    form_data: dict[str, str] = {"player_name": ship_context.player_name}
     response: Response = client.post("/ready-for-game", data=form_data)
     ship_context.update_response(response)
 

@@ -8,17 +8,18 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import Response
 
+from game.game_service import GameService
 from game.lobby import Lobby
 from game.model import (
     Coord,
     CoordHelper,
     GameBoard,
     Orientation,
+    Ship,
     ShipAlreadyPlacedError,
     ShipPlacementOutOfBoundsError,
     ShipPlacementTooCloseError,
     ShipType,
-    Ship,
 )
 from game.player import GameRequest, Player, PlayerStatus
 from services.auth_service import AuthService, PlayerNameValidation

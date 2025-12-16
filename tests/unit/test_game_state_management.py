@@ -1,34 +1,17 @@
-import pytest
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Optional
 
+import pytest
 
-# FIXME: Move this model class to the game package
-class GameMode(StrEnum):
-    """Game mode enumeration for distinguishing single vs multiplayer games"""
-
-    SINGLE_PLAYER = "Single Player"
-    MULTIPLAYER = "Multiplayer"
+from game.game_service import GameService
+from game.model import GameBoard
 
 
 # FIXME: Move this model class to the game package
-@dataclass
-class GameState:
-    """Game state management for tracking game sessions"""
 
-    player_name: str
-    game_mode: GameMode
-    opponent_name: Optional[str] = None
 
-    def __post_init__(self):
-        # Validate that multiplayer games have an opponent
-        if self.game_mode == GameMode.MULTIPLAYER and not self.opponent_name:
-            raise ValueError("Multiplayer games must have an opponent")
-
-        # Validate that single player games don't have an opponent
-        if self.game_mode == GameMode.SINGLE_PLAYER and self.opponent_name:
-            raise ValueError("Single player games cannot have an opponent")
+# FIXME: Move this model class to the game package
 
 
 # FIXME: Move this model class to the game package
@@ -139,9 +122,31 @@ class TestGameState:
 
 
 class TestGameService:
-    def test_get_game_from_player_id(self):
-        player_id: str = "abcde12345"
-        game_state: GameState = GameService.get_game(player_id)
+    def test_create_game_service(self):
+        service: GameService = GameService()
+        assert service, "Can't create GameService"
+        assert len(service.games) == 0
+
+    def test_create_single_player_game(self):
+        service: GameService = GameService()
+        alice_id = "alice12345"
+        game_id: str = service.create_single_player_game(
+            player_id=alice_id, player_name="Alice"
+        )
+        assert len(game_id) == 24  # game_id should be a ?? length random string
+        assert len(service.games) == 1
+
+    def test_get_game_board_from_known_player_id(self):
+        service: GameService = GameService()
+        alice_id = "alice12345"
+        service.create_single_player_game(player_id=alice_id, player_name="Alice")
+
+        board: GameBoard = service.get_game_board(player_id=alice_id)
+        assert board, "Didn't get GameBoard from GameService"
+
+    # def test_get_game_from_player_id(self):
+    #     player_id: str = "abcde12345"
+    #     game_state: GameState = GameService.get_game(player_id)
 
 
 class TestGameStateManager:

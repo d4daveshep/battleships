@@ -37,7 +37,8 @@ auth_service: AuthService = AuthService()
 lobby_service: LobbyService = LobbyService(_game_lobby)
 
 # FIXME: temporary global game storage - replace with a proper game manager
-games: dict[str, GameBoard] = {}  # player_name -> GameBoard
+game_service: GameService = GameService()
+# games: dict[str, GameBoard] = {}  # player_name -> GameBoard
 
 
 def _get_validated_player_name(request: Request, claimed_name: str) -> str:
@@ -263,7 +264,10 @@ async def place_ship(
         # FIXME: Replace with call to game manaager when it's implemented
         # For now this will get the game board for the player or create a new one
         validated_player_name: str = _get_validated_player_name(request, player_name)
-        board: GameBoard = games.get(validated_player_name, GameBoard())
+        # board: GameBoard = games.get(validated_player_name, GameBoard())
+        board: GameBoard = game_service.get_game_board(
+            player_id=_get_player_id(request)
+        )
         board.place_ship(ship, start, orient)
         games[validated_player_name] = board
 

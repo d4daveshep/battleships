@@ -138,6 +138,12 @@ class TestGameState:
             )
 
 
+class TestGameService:
+    def test_get_game_from_player_id(self):
+        player_id: str = "abcde12345"
+        game_state: GameState = GameService.get_game(player_id)
+
+
 class TestGameStateManager:
     """Unit tests for GameStateManager class"""
 
@@ -407,4 +413,3 @@ class TestGameStateIntegration:
         assert multi_state2.opponent_name is not None
         assert multi_state1.opponent_name == "Charlie"
         assert multi_state2.opponent_name == "Bob"
-

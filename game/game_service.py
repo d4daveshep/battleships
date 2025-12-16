@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from enum import StrEnum
+from typing import Optional
 
 
 class GameMode(StrEnum):
@@ -15,7 +16,7 @@ class GameState:
 
     player_name: str
     game_mode: GameMode
-    opponent_name: str | None
+    opponent_name: Optional[str] = None
 
     def __post_init__(self):
         # Validate that multiplayer games have an opponent

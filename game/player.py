@@ -19,6 +19,7 @@ class GameRequest:
 
 @dataclass
 class Player:
+    # TODO: add player_id here as a mandatory field
     name: str
     status: PlayerStatus
 
@@ -27,4 +28,3 @@ class Player:
             raise TypeError(
                 f"status must be a PlayerStatus enum, got {type(self.status)}"
             )
-

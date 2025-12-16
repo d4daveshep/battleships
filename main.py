@@ -729,6 +729,7 @@ async def accept_game_request(
         receiver: str
         sender, receiver = lobby_service.accept_game_request(player_name)
         # TODO: add event here
+        # TODO: remove both Player objects from Lobby and add them to GameState
 
         # The player_name is the receiver, sender is the opponent_name
         opponent_name: str = sender

@@ -14,28 +14,28 @@ from main import app
 class TestSessionCreation:
     """Verify sessions are created correctly on login"""
 
-    def test_login_multiplayer_creates_session_with_player_name(
+    def test_login_two_player_creates_session_with_player_id(
         self, alice_client: TestClient
     ):
-        """Test that logging in for multiplayer stores player_name in session"""
+        """Test that logging in for two player stores player-id in session"""
         # Verify session contains player_name
         assert "session" in alice_client.cookies
         session_data = decode_session(alice_client.cookies["session"])
 
         # This test expects player_name to be stored (not yet implemented)
-        assert "player_name" in session_data, "Session should contain player_name"
-        assert session_data["player_name"] == "Alice"
+        assert "player-id" in session_data, "Session should contain player-id"
+        assert len(session_data["player-id"]) == 22
 
-    def test_login_computer_creates_session_with_player_name(
+    def test_login_computer_creates_session_with_player_id(
         self, authenticated_client: TestClient
     ):
-        """Test that logging in for computer mode also stores player_name in session"""
+        """Test that logging in for computer mode also stores player-id in session"""
         # Verify session contains player_name
         session_data = decode_session(authenticated_client.cookies["session"])
-        assert "player_name" in session_data
-        assert session_data["player_name"] == "Alice"
+        assert "player-id" in session_data
+        assert len(session_data["player-id"]) == 22
 
-    def test_multiple_players_have_independent_sessions(
+    def test_two_players_have_independent_sessions(
         self, alice_client: TestClient, bob_client: TestClient
     ):
         """Test that different clients have different sessions"""
@@ -43,8 +43,8 @@ class TestSessionCreation:
         session1 = decode_session(alice_client.cookies["session"])
         session2 = decode_session(bob_client.cookies["session"])
 
-        assert session1["player_name"] == "Alice"
-        assert session2["player_name"] == "Bob"
+        assert session1["player-id"]
+        assert session2["player-id"]
         assert session1["player-id"] != session2["player-id"]
 
 

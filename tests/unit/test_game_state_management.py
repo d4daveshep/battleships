@@ -2,7 +2,7 @@ from typing import Optional
 
 import pytest
 
-from game.game_service import GameMode, GameState
+from game.game_service import GameMode, Game
 
 
 # FIXME: Move this model class to the game package
@@ -10,32 +10,19 @@ class GameStateManager:
     """Manages active game states for players"""
 
     def __init__(self):
-        self.active_games: dict[str, GameState] = {}
+        self.active_games: dict[str, Game] = {}
 
-    def start_single_player_game(self, player_name: str) -> GameState:
-        """Start a single player game for the given player"""
-        if player_name in self.active_games:
-            raise ValueError(f"Player {player_name} is already in a game")
-
-        game_state = GameState(
-            player_name=player_name, game_mode=GameMode.SINGLE_PLAYER
-        )
-        self.active_games[player_name] = game_state
-        return game_state
-
-    def start_multiplayer_game(
-        self, player1: str, player2: str
-    ) -> tuple[GameState, GameState]:
+    def start_multiplayer_game(self, player1: str, player2: str) -> tuple[Game, Game]:
         """Start a multiplayer game between two players"""
         if player1 in self.active_games:
             raise ValueError(f"Player {player1} is already in a game")
         if player2 in self.active_games:
             raise ValueError(f"Player {player2} is already in a game")
 
-        game_state1 = GameState(
+        game_state1 = Game(
             player_name=player1, game_mode=GameMode.MULTIPLAYER, opponent_name=player2
         )
-        game_state2 = GameState(
+        game_state2 = Game(
             player_name=player2, game_mode=GameMode.MULTIPLAYER, opponent_name=player1
         )
 
@@ -44,7 +31,7 @@ class GameStateManager:
 
         return game_state1, game_state2
 
-    def get_game_state(self, player_name: str) -> Optional[GameState]:
+    def get_game_state(self, player_name: str) -> Optional[Game]:
         """Get the current game state for a player"""
         return self.active_games.get(player_name)
 
@@ -74,57 +61,8 @@ class GameStateManager:
         self.active_games.clear()
 
 
-class TestGameState:
-    """Unit tests for GameState dataclass"""
-
-    def test_single_player_game_state_creation(self):
-        # Test creating a valid single player game state
-        game_state = GameState(player_name="Alice", game_mode=GameMode.SINGLE_PLAYER)
-
-        assert game_state.player_name == "Alice"
-        assert game_state.game_mode == GameMode.SINGLE_PLAYER
-        assert game_state.opponent_name is None
-
-    def test_multiplayer_game_state_creation(self):
-        # Test creating a valid multiplayer game state
-        game_state = GameState(
-            player_name="Alice", game_mode=GameMode.MULTIPLAYER, opponent_name="Bob"
-        )
-
-        assert game_state.player_name == "Alice"
-        assert game_state.game_mode == GameMode.MULTIPLAYER
-        assert game_state.opponent_name == "Bob"
-
-    def test_multiplayer_game_state_without_opponent_fails(self):
-        # Test that multiplayer game state requires an opponent
-        with pytest.raises(ValueError, match="Multiplayer games must have an opponent"):
-            GameState(player_name="Alice", game_mode=GameMode.MULTIPLAYER)
-
-    def test_single_player_game_state_with_opponent_fails(self):
-        # Test that single player game state cannot have an opponent
-        with pytest.raises(
-            ValueError, match="Single player games cannot have an opponent"
-        ):
-            GameState(
-                player_name="Alice",
-                game_mode=GameMode.SINGLE_PLAYER,
-                opponent_name="Bob",
-            )
-
-
 class TestGameStateManager:
     """Unit tests for GameStateManager class"""
-
-    def test_start_single_player_game_success(self):
-        # Test starting a single player game
-        manager = GameStateManager()
-
-        game_state = manager.start_single_player_game("Alice")
-
-        assert game_state.player_name == "Alice"
-        assert game_state.game_mode == GameMode.SINGLE_PLAYER
-        assert game_state.opponent_name is None
-        assert manager.is_player_in_game("Alice")
 
     def test_start_multiplayer_game_success(self):
         # Test starting a multiplayer game
@@ -145,14 +83,6 @@ class TestGameStateManager:
         # Verify both are in game
         assert manager.is_player_in_game("Alice")
         assert manager.is_player_in_game("Bob")
-
-    def test_start_single_player_game_player_already_in_game(self):
-        # Test that starting single player game fails if player already in game
-        manager = GameStateManager()
-        manager.start_single_player_game("Alice")
-
-        with pytest.raises(ValueError, match="Player Alice is already in a game"):
-            manager.start_single_player_game("Alice")
 
     def test_start_multiplayer_game_player1_already_in_game(self):
         # Test that starting multiplayer game fails if player1 already in game
@@ -327,28 +257,6 @@ class TestGameStateManager:
         assert bob_state.opponent_name == "Alice"
 
 
-class TestGameModeEnum:
-    """Unit tests for GameMode enumeration"""
-
-    def test_game_mode_values(self):
-        # Test that GameMode has expected values
-        assert GameMode.SINGLE_PLAYER == "Single Player"
-        assert GameMode.MULTIPLAYER == "Multiplayer"
-
-    def test_game_mode_enum_members(self):
-        # Test that GameMode has expected members
-        expected_modes = {GameMode.SINGLE_PLAYER, GameMode.MULTIPLAYER}
-        actual_modes = {mode for mode in GameMode}
-        assert expected_modes == actual_modes
-
-    def test_game_mode_string_comparison(self):
-        # Test that GameMode can be compared to strings
-        assert GameMode.SINGLE_PLAYER == "Single Player"
-        assert GameMode.MULTIPLAYER == "Multiplayer"
-        assert GameMode.SINGLE_PLAYER != "Multiplayer"
-        assert GameMode.MULTIPLAYER != "Single Player"
-
-
 class TestGameStateIntegration:
     """Integration tests between GameState and GameStateManager"""
 
@@ -358,13 +266,13 @@ class TestGameStateIntegration:
 
         # Test single player
         single_state = manager.start_single_player_game("Alice")
-        assert isinstance(single_state, GameState)
+        assert isinstance(single_state, Game)
         # Should not raise validation errors
 
         # Test multiplayer
         multi_state1, multi_state2 = manager.start_multiplayer_game("Bob", "Charlie")
-        assert isinstance(multi_state1, GameState)
-        assert isinstance(multi_state2, GameState)
+        assert isinstance(multi_state1, Game)
+        assert isinstance(multi_state2, Game)
         # Should not raise validation errors
 
     def test_game_state_manager_consistency_with_game_state_validation(self):

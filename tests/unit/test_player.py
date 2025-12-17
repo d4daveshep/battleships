@@ -20,9 +20,19 @@ class TestPlayerStatus:
 
 
 class TestPlayer:
+    def test_generate_player_id(self):
+        id: str = Player.generate_id()
+        assert len(id) == 22
+        # generate 100 unique ids
+        ids: set[str] = set()
+        for _ in range(100):
+            ids.add(Player.generate_id())
+        assert len(ids) == 100
+
     def test_player_creation(self):
         player: Player = Player("David", PlayerStatus.AVAILABLE)
         assert player
+        assert player.id
 
     def test_add_player_only_accepts_player_status_enum(self):
         with pytest.raises(TypeError):
@@ -53,3 +63,10 @@ class TestPlayer:
         # Update back to AVAILABLE
         player.status = PlayerStatus.AVAILABLE
         assert player.status == PlayerStatus.AVAILABLE
+
+    def test_player_id_cannot_be_updated(self):
+        player: Player = Player("Alice", PlayerStatus.AVAILABLE)
+        orig_player_id: str = player.id
+        with pytest.raises(AttributeError):
+            player.id = Player.generate_id()
+        assert player.id == orig_player_id

@@ -37,9 +37,7 @@ _game_lobby: Lobby = Lobby()
 auth_service: AuthService = AuthService()
 lobby_service: LobbyService = LobbyService(_game_lobby)
 
-# FIXME: temporary global game storage - replace with a proper game manager
 game_service: GameService = GameService()
-# games: dict[str, GameBoard] = {}  # player_name -> GameBoard
 
 
 def _get_validated_player_name(request: Request, claimed_name: str) -> str:
@@ -140,17 +138,16 @@ async def login_submit(
             status_code=status.HTTP_200_OK,  # Login form errors return 200, not 400
         )
 
-    # Generate and store player ID in session
-    # TODO: implement a get_player_id() helper function to create or get the player-id
-    player_id: str = secrets.token_urlsafe(16)
-    request.session["player-id"] = player_id
-    request.session["player_name"] = player_name.strip()
+    # Generate and store player ID in session and player object in game service
+    player: Player = Player(player_name, PlayerStatus.AVAILABLE)
+    request.session["player-id"] = player.id
+    game_service.add_player(player)
 
     try:
         redirect_url: str
         if game_mode == "human":
+            # TODO: Add the player object to lobby not the player_name
             lobby_service.join_lobby(player_name)  # Add the player to the lobby
-            # TODO: add event here? (can't remember why I added this TODO)
             redirect_url = _build_lobby_url(player_name)
 
         elif game_mode == "computer":

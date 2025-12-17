@@ -7,6 +7,7 @@ class LobbyService:
         self.lobby = lobby
         # self.initialized_scenarios: set[str] = set()
 
+    # TODO: move/merge this to the AuthService
     def _validate_and_clean_player_name(
         self,
         player_name: str,
@@ -21,6 +22,7 @@ class LobbyService:
                 raise ValueError(error_msg_template)
         return current_player
 
+    # TODO: change this method parameter to an already created Player object
     def join_lobby(self, player_name: str) -> None:
         """Add a player to the lobby - this is the write operation"""
 
@@ -34,6 +36,7 @@ class LobbyService:
     def get_available_players(self) -> list[Player]:
         return self.lobby.get_available_players()
 
+    # TODO: change this method parameter to player_id
     def get_lobby_data_for_player(self, player_name: str) -> list[str]:
         """Get lobby data for a specific player - READ-ONLY operation"""
         current_player: str = self._validate_and_clean_player_name(player_name)
@@ -51,6 +54,7 @@ class LobbyService:
 
         return available_players
 
+    # TODO: change this method parameter to player_id
     def get_lobby_players_for_player(self, player_name: str) -> list[Player]:
         """Get lobby players visible to a specific player - READ-ONLY operation"""
         current_player: str = self._validate_and_clean_player_name(player_name)
@@ -63,14 +67,17 @@ class LobbyService:
 
         return lobby_players
 
+    # TODO: change this method parameter to player_id
     def update_player_status(self, player_name: str, status: PlayerStatus) -> None:
         """Update a player's status in the lobby"""
         self.lobby.update_player_status(player_name, status)
 
+    # TODO: change this method parameter to player_id
     def get_player_status(self, player_name: str) -> PlayerStatus:
         """Get a player's current status"""
         return self.lobby.get_player_status(player_name)
 
+    # TODO: change this method parameter to player_id
     def leave_lobby(self, player_name: str) -> None:
         """Remove a player from the lobby"""
 
@@ -85,6 +92,7 @@ class LobbyService:
         # - Removing player from self.lobby.players dict
         self.lobby.remove_player(current_player)
 
+    # TODO: change this method parameter to player_ids?
     def send_game_request(self, sender: str, receiver: str) -> None:
         """Send a game request from sender to receiver"""
         # Validate player names
@@ -94,6 +102,7 @@ class LobbyService:
         # Use the lobby method to send the request
         self.lobby.send_game_request(sender_clean, receiver_clean)
 
+    # TODO: change this method parameter to player_id
     def get_pending_request_for_player(self, player_name: str) -> GameRequest | None:
         """Get any pending game request for the specified player"""
         # Validate player name
@@ -102,11 +111,13 @@ class LobbyService:
         # Get the request from the lobby
         return self.lobby.get_pending_request(clean_name)
 
+    # TODO: change this method parameter to player_id
     def get_pending_request_by_sender(self, sender_name: str) -> GameRequest | None:
         """Get any pending game request sent by the specified player"""
         clean_name = self._validate_and_clean_player_name(sender_name)
         return self.lobby.get_pending_request_by_sender(clean_name)
 
+    # TODO: change this method parameter to player_id
     def accept_game_request(self, receiver: str) -> tuple[str, str]:
         """Accept a game request"""
         # Validate player name
@@ -115,6 +126,7 @@ class LobbyService:
         # Use the lobby method to accept the request
         return self.lobby.accept_game_request(receiver_clean)
 
+    # TODO: change this method parameter to player_id
     def decline_game_request(self, receiver: str) -> str:
         """Decline a game request"""
         # Validate player name
@@ -123,6 +135,7 @@ class LobbyService:
         # Use the lobby method to decline the request
         return self.lobby.decline_game_request(receiver_clean)
 
+    # TODO: change this method parameter to player_id
     def get_decline_notification(self, player_name: str) -> str | None:
         """Get and clear decline notification for a player"""
         clean_name = self._validate_and_clean_player_name(player_name)
@@ -136,6 +149,7 @@ class LobbyService:
         """Wait for lobby state to change from the given version"""
         await self.lobby.wait_for_change(since_version)
 
+    # TODO: change this method parameter to player_id
     def get_opponent(self, player_name: str) -> str | None:
         """Get the opponent for a player in an active game.
 

@@ -54,6 +54,7 @@ class TestLeaveLobbySessionValidation:
     def test_leave_lobby_succeeds_with_valid_session(self, alice_client: TestClient):
         """Test that player with valid session can leave lobby"""
         # Leave lobby with matching session
+        # FIXME: change the /lobby endpoints to use player-id not player_name
         response = leave_lobby(alice_client, "Alice")
 
         # Should succeed (200 OK or redirect)

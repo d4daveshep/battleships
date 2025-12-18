@@ -183,8 +183,7 @@ async def login_submit(
     try:
         redirect_url: str
         if game_mode == "human":
-            # TODO: Add the player object to lobby not the player_name
-            lobby_service.join_lobby(player_name)  # Add the player to the lobby
+            lobby_service.join_lobby(player)  # Add the player to the lobby
             redirect_url = _build_lobby_url()
 
         elif game_mode == "computer":
@@ -397,10 +396,10 @@ async def start_game_page(request: Request) -> HTMLResponse:
     opponent_name: str = ""
     try:
         # Check if player is in lobby and has IN_GAME status
-        player_status: PlayerStatus = lobby_service.get_player_status(player.name)
+        player_status: PlayerStatus = lobby_service.get_player_status(player.id)
         if player_status == PlayerStatus.IN_GAME:
-            opponent_name_from_lobby: str | None = lobby_service.get_opponent(
-                player.name
+            opponent_name_from_lobby: str | None = lobby_service.get_opponent_name(
+                player.id
             )
             if opponent_name_from_lobby:
                 opponent_name = opponent_name_from_lobby
@@ -525,10 +524,15 @@ async def select_opponent(
     player: Player = _get_player_from_session(request)
 
     try:
-        lobby_service.send_game_request(player.name, opponent_name)
+        # Look up opponent ID by name
+        opponent_id: str | None = lobby_service.get_player_id_by_name(opponent_name)
+        if not opponent_id:
+            raise ValueError(f"Opponent '{opponent_name}' not found in lobby")
+
+        lobby_service.send_game_request(player.id, opponent_id)
 
         # Return updated lobby status (same as long poll endpoint)
-        return await _render_lobby_status(request, player.name)
+        return await _render_lobby_status(request, player.id, player.name)
 
     except ValueError as e:
         # Handle validation errors (player not available, etc.)
@@ -543,7 +547,7 @@ async def leave_lobby(request: Request) -> RedirectResponse | HTMLResponse | Res
     player: Player = _get_player_from_session(request)
 
     try:
-        lobby_service.leave_lobby(player.name)
+        lobby_service.leave_lobby(player.id)
         # TODO: add event here
 
         if request.headers.get("HX-Request"):
@@ -572,7 +576,7 @@ async def lobby_status_component(request: Request) -> HTMLResponse | Response:
     # Get player from session
     player: Player = _get_player_from_session(request)
 
-    return await _render_lobby_status(request, player.name)
+    return await _render_lobby_status(request, player.id, player.name)
 
 
 @app.get("/lobby/status/long-poll", response_model=None)
@@ -593,7 +597,7 @@ async def lobby_status_long_poll(
 
     # Validate player exists
     try:
-        lobby_service.get_player_status(player.name)
+        lobby_service.get_player_status(player.id)
     except ValueError:
         return Response(
             content=f"Player '{player.name}' not found in lobby",
@@ -606,7 +610,7 @@ async def lobby_status_long_poll(
     # If no version provided or version has changed, return immediately
     if version is None or current_version != version:
         # Return current state immediately
-        return await _render_lobby_status(request, player.name)
+        return await _render_lobby_status(request, player.id, player.name)
 
     # Version matches - wait for changes or timeout
     try:
@@ -615,16 +619,22 @@ async def lobby_status_long_poll(
             lobby_service.wait_for_lobby_change(version), timeout=timeout
         )
         # State changed, return new state
-        return await _render_lobby_status(request, player.name)
+        return await _render_lobby_status(request, player.id, player.name)
     except asyncio.TimeoutError:
         # Timeout reached, return current state
-        return await _render_lobby_status(request, player.name)
+        return await _render_lobby_status(request, player.id, player.name)
 
 
 async def _render_lobby_status(
-    request: Request, player_name: str
+    request: Request, player_id: str, player_name: str
 ) -> HTMLResponse | Response:
-    """Helper function to render lobby status (shared by both endpoints)"""
+    """Helper function to render lobby status (shared by both endpoints)
+
+    Args:
+        request: The FastAPI request object
+        player_id: The ID of the player
+        player_name: The name of the player (for display)
+    """
 
     # Get current lobby version for long polling
     lobby_version = lobby_service.get_lobby_version()
@@ -643,13 +653,13 @@ async def _render_lobby_status(
     try:
         # Get current player status
         try:
-            player_status: PlayerStatus = lobby_service.get_player_status(player_name)
+            player_status: PlayerStatus = lobby_service.get_player_status(player_id)
             template_context["player_status"] = player_status.value
 
             # If player is IN_GAME, redirect them to game page
             if player_status == PlayerStatus.IN_GAME:
                 # Find their opponent from the lobby
-                opponent_name: str | None = lobby_service.get_opponent(player_name)
+                opponent_name: str | None = lobby_service.get_opponent_name(player_id)
 
                 if not opponent_name:
                     # Edge case: player is IN_GAME but no opponent found
@@ -675,29 +685,34 @@ async def _render_lobby_status(
             template_context["player_status"] = f"Unknown player: {player_name}"
 
         # Check for decline notification (this consumes/clears the notification)
-        decliner: str | None = lobby_service.get_decline_notification(player_name)
-        if decliner is not None:
+        decliner_name: str | None = lobby_service.get_decline_notification_name(
+            player_id
+        )
+        if decliner_name is not None:
             template_context["decline_confirmation_message"] = (
-                f"Game request from {decliner} declined"
+                f"Game request from {decliner_name} declined"
             )
 
         # Check for pending game request sent
         pending_request_sent: GameRequest | None = (
-            lobby_service.get_pending_request_by_sender(player_name)
+            lobby_service.get_pending_request_by_sender(player_id)
         )
         if pending_request_sent is not None:
+            receiver_name: str | None = lobby_service.get_player_name(
+                pending_request_sent.receiver_id
+            )
             template_context["confirmation_message"] = (
-                f"Game request sent to {pending_request_sent.receiver}"
+                f"Game request sent to {receiver_name}"
             )
 
         # Check for pending game request
         pending_request: GameRequest | None = (
-            lobby_service.get_pending_request_for_player(player_name)
+            lobby_service.get_pending_request_for_player(player_id)
         )
         template_context["pending_request"] = pending_request
 
         all_players: list[Player] = lobby_service.get_lobby_players_for_player(
-            player_name
+            player_id
         )
         # Filter out IN_GAME players for lobby view
         lobby_data: list[Player] = [
@@ -726,14 +741,13 @@ async def decline_game_request(
 
     try:
         # Decline the game request
-        sender: str = lobby_service.decline_game_request(player.name)
+        sender_id: str = lobby_service.decline_game_request(player.id)
+        sender_name: str | None = lobby_service.get_player_name(sender_id)
         # TODO: add event here
 
         # Get updated lobby data
-        lobby_data: list[Player] = lobby_service.get_lobby_players_for_player(
-            player.name
-        )
-        player_status: str = lobby_service.get_player_status(player.name).value
+        lobby_data: list[Player] = lobby_service.get_lobby_players_for_player(player.id)
+        player_status: str = lobby_service.get_player_status(player.id).value
 
         return templates.TemplateResponse(
             request=request,
@@ -742,7 +756,7 @@ async def decline_game_request(
                 "player_name": player.name,
                 "game_mode": "Two Player",
                 "available_players": lobby_data,
-                "decline_confirmation_message": f"Game request from {sender} declined",
+                "decline_confirmation_message": f"Game request from {sender_name} declined",
                 "player_status": player_status,
             },
         )
@@ -764,13 +778,12 @@ async def accept_game_request(
 
     try:
         # Accept the game request
-        sender: str
-        receiver: str
-        sender, receiver = lobby_service.accept_game_request(player.name)
+        sender_id: str
+        receiver_id: str
+        sender_id, receiver_id = lobby_service.accept_game_request(player.id)
         # TODO: add notification event to the requester that their request has been accepted
         # TODO: remove both Player objects from Lobby and add them to GameState
 
-        # The player_name is the receiver, sender is the opponent_name
         # Opponent is now stored in lobby state, no need to pass via URL
         redirect_url: str = _build_start_game_url()
 
@@ -807,7 +820,9 @@ async def reset_lobby_for_testing() -> dict[str, str]:
 async def add_player_to_lobby_for_testing(player_name: str = Form()) -> dict[str, str]:
     """Add a player to the lobby bypassing authentication - for testing only"""
     try:
-        lobby_service.join_lobby(player_name)
+        # Create a player object for testing
+        test_player: Player = Player(player_name, PlayerStatus.AVAILABLE)
+        lobby_service.join_lobby(test_player)
         return {"status": "player added", "player": player_name}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -819,7 +834,11 @@ async def remove_player_from_lobby_for_testing(
 ) -> dict[str, str]:
     """Remove a player from the lobby bypassing authentication - for testing only"""
     try:
-        lobby_service.leave_lobby(player_name)
+        # Look up player ID by name
+        player_id: str | None = lobby_service.get_player_id_by_name(player_name)
+        if not player_id:
+            raise ValueError(f"Player '{player_name}' not found in lobby")
+        lobby_service.leave_lobby(player_id)
         return {"status": "player removed", "player": player_name}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -831,7 +850,14 @@ async def send_game_request_for_testing(
 ) -> dict[str, str]:
     """Send a game request bypassing session validation - for testing only"""
     try:
-        lobby_service.send_game_request(sender_name, target_name)
+        # Look up player IDs by names
+        sender_id: str | None = lobby_service.get_player_id_by_name(sender_name)
+        target_id: str | None = lobby_service.get_player_id_by_name(target_name)
+        if not sender_id:
+            raise ValueError(f"Sender '{sender_name}' not found in lobby")
+        if not target_id:
+            raise ValueError(f"Target '{target_name}' not found in lobby")
+        lobby_service.send_game_request(sender_id, target_id)
         return {
             "status": "game request sent",
             "sender": sender_name,
@@ -845,11 +871,17 @@ async def send_game_request_for_testing(
 async def accept_game_request_for_testing(player_name: str = Form()) -> dict[str, str]:
     """Accept a game request bypassing session validation - for testing only"""
     try:
-        sender_name, receiver_name = lobby_service.accept_game_request(player_name)
+        # Look up player ID by name
+        player_id: str | None = lobby_service.get_player_id_by_name(player_name)
+        if not player_id:
+            raise ValueError(f"Player '{player_name}' not found in lobby")
+        sender_id, receiver_id = lobby_service.accept_game_request(player_id)
+        sender_name: str | None = lobby_service.get_player_name(sender_id)
+        receiver_name: str | None = lobby_service.get_player_name(receiver_id)
         return {
             "status": "game request accepted",
-            "player": receiver_name,
-            "sender": sender_name,
+            "player": receiver_name or receiver_id,
+            "sender": sender_name or sender_id,
         }
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -859,11 +891,16 @@ async def accept_game_request_for_testing(player_name: str = Form()) -> dict[str
 async def decline_game_request_for_testing(player_name: str = Form()) -> dict[str, str]:
     """Decline a game request bypassing session validation - for testing only"""
     try:
-        sender_name = lobby_service.decline_game_request(player_name)
+        # Look up player ID by name
+        player_id: str | None = lobby_service.get_player_id_by_name(player_name)
+        if not player_id:
+            raise ValueError(f"Player '{player_name}' not found in lobby")
+        sender_id: str = lobby_service.decline_game_request(player_id)
+        sender_name: str | None = lobby_service.get_player_name(sender_id)
         return {
             "status": "game request declined",
             "player": player_name,
-            "sender": sender_name,
+            "sender": sender_name or sender_id,
         }
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

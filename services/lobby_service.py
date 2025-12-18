@@ -7,139 +7,164 @@ class LobbyService:
         self.lobby = lobby
         # self.initialized_scenarios: set[str] = set()
 
-    # TODO: move/merge this to the AuthService
-    def _validate_and_clean_player_name(
-        self,
-        player_name: str,
-        error_msg_template: str = "Player name '{player_name}' is invalid",
-    ) -> str:
-        """Validate and sanitize player name input"""
-        current_player: str = player_name.strip()
-        if not current_player:
-            if "{player_name}" in error_msg_template:
-                raise ValueError(error_msg_template.format(player_name=player_name))
-            else:
-                raise ValueError(error_msg_template)
-        return current_player
+    def join_lobby(self, player: Player) -> None:
+        """Add a player to the lobby - this is the write operation
 
-    # TODO: change this method parameter to an already created Player object
-    def join_lobby(self, player_name: str) -> None:
-        """Add a player to the lobby - this is the write operation"""
+        Args:
+            player: The Player object to add to the lobby
+        """
+        if player.id in self.lobby.players:
+            raise ValueError(f"Player with ID '{player.id}' already exists in lobby")
 
-        current_player: str = self._validate_and_clean_player_name(player_name)
-
-        if player_name in self.lobby.players:
-            raise ValueError(f"Player name '{player_name}' already exists in lobby")
-
-        self.lobby.add_player(current_player, PlayerStatus.AVAILABLE)
+        self.lobby.add_player(player)
 
     def get_available_players(self) -> list[Player]:
+        """Get all available players in the lobby
+
+        Returns:
+            List of Player objects with AVAILABLE status
+        """
         return self.lobby.get_available_players()
 
-    # TODO: change this method parameter to player_id
-    def get_lobby_data_for_player(self, player_name: str) -> list[str]:
-        """Get lobby data for a specific player - READ-ONLY operation"""
-        current_player: str = self._validate_and_clean_player_name(player_name)
+    def get_lobby_data_for_player(self, player_id: str) -> list[str]:
+        """Get lobby data for a specific player - READ-ONLY operation
 
+        Args:
+            player_id: The ID of the player requesting lobby data
+
+        Returns:
+            List of player names (for display) of available players
+        """
         # Get all available players from lobby, excluding current player
         all_players: list[Player] = self.get_available_players()
+        # Check the specified player is actually in the lobby and available
+        all_player_ids: set[str] = {player.id for player in all_players}
+        if player_id not in all_player_ids:
+            raise KeyError(f"Player with id:{player_id} is not available in the Lobby")
         available_players: list[str] = [
             player.name
             for player in all_players
-            if (
-                player.name != current_player
-                and player.status == PlayerStatus.AVAILABLE
-            )
+            if (player.id != player_id and player.status == PlayerStatus.AVAILABLE)
         ]
 
         return available_players
 
-    # TODO: change this method parameter to player_id
-    def get_lobby_players_for_player(self, player_name: str) -> list[Player]:
-        """Get lobby players visible to a specific player - READ-ONLY operation"""
-        current_player: str = self._validate_and_clean_player_name(player_name)
+    def get_lobby_players_for_player(self, player_id: str) -> list[Player]:
+        """Get lobby players visible to a specific player - READ-ONLY operation
 
+        Args:
+            player_id: The ID of the player requesting lobby data
+
+        Returns:
+            List of Player objects (excluding the requesting player)
+        """
         # Get all players from lobby, excluding current player (include all statuses)
         all_players: list[Player] = list(self.lobby.players.values())
         lobby_players: list[Player] = [
-            player for player in all_players if player.name != current_player
+            player for player in all_players if player.id != player_id
         ]
 
         return lobby_players
 
-    # TODO: change this method parameter to player_id
-    def update_player_status(self, player_name: str, status: PlayerStatus) -> None:
-        """Update a player's status in the lobby"""
-        self.lobby.update_player_status(player_name, status)
+    def update_player_status(self, player_id: str, status: PlayerStatus) -> None:
+        """Update a player's status in the lobby
 
-    # TODO: change this method parameter to player_id
-    def get_player_status(self, player_name: str) -> PlayerStatus:
-        """Get a player's current status"""
-        return self.lobby.get_player_status(player_name)
+        Args:
+            player_id: The ID of the player
+            status: The new status to set
+        """
+        self.lobby.update_player_status(player_id, status)
 
-    # TODO: change this method parameter to player_id
-    def leave_lobby(self, player_name: str) -> None:
-        """Remove a player from the lobby"""
+    def get_player_status(self, player_id: str) -> PlayerStatus:
+        """Get a player's current status
 
-        # Step 1: Validate and clean input
-        current_player: str = self._validate_and_clean_player_name(
-            player_name, "Player name cannot be empty"
-        )
+        Args:
+            player_id: The ID of the player
 
-        # Step 2: Use existing lobby.remove_player method
+        Returns:
+            The player's current status
+        """
+        return self.lobby.get_player_status(player_id)
+
+    def leave_lobby(self, player_id: str) -> None:
+        """Remove a player from the lobby
+
+        Args:
+            player_id: The ID of the player leaving the lobby
+        """
+        # Use existing lobby.remove_player method
         # This will handle:
         # - Checking if player exists (raises ValueError if not)
         # - Removing player from self.lobby.players dict
-        self.lobby.remove_player(current_player)
+        self.lobby.remove_player(player_id)
 
-    # TODO: change this method parameter to player_ids?
-    def send_game_request(self, sender: str, receiver: str) -> None:
-        """Send a game request from sender to receiver"""
-        # Validate player names
-        sender_clean = self._validate_and_clean_player_name(sender)
-        receiver_clean = self._validate_and_clean_player_name(receiver)
+    def send_game_request(self, sender_id: str, receiver_id: str) -> None:
+        """Send a game request from sender to receiver
 
+        Args:
+            sender_id: The ID of the player sending the request
+            receiver_id: The ID of the player receiving the request
+        """
         # Use the lobby method to send the request
-        self.lobby.send_game_request(sender_clean, receiver_clean)
+        self.lobby.send_game_request(sender_id, receiver_id)
 
-    # TODO: change this method parameter to player_id
-    def get_pending_request_for_player(self, player_name: str) -> GameRequest | None:
-        """Get any pending game request for the specified player"""
-        # Validate player name
-        clean_name = self._validate_and_clean_player_name(player_name)
+    def get_pending_request_for_player(self, player_id: str) -> GameRequest | None:
+        """Get any pending game request for the specified player
 
+        Args:
+            player_id: The ID of the player to check for pending requests
+
+        Returns:
+            The GameRequest if one exists, None otherwise
+        """
         # Get the request from the lobby
-        return self.lobby.get_pending_request(clean_name)
+        return self.lobby.get_pending_request(player_id)
 
-    # TODO: change this method parameter to player_id
-    def get_pending_request_by_sender(self, sender_name: str) -> GameRequest | None:
-        """Get any pending game request sent by the specified player"""
-        clean_name = self._validate_and_clean_player_name(sender_name)
-        return self.lobby.get_pending_request_by_sender(clean_name)
+    def get_pending_request_by_sender(self, sender_id: str) -> GameRequest | None:
+        """Get any pending game request sent by the specified player
 
-    # TODO: change this method parameter to player_id
-    def accept_game_request(self, receiver: str) -> tuple[str, str]:
-        """Accept a game request"""
-        # Validate player name
-        receiver_clean = self._validate_and_clean_player_name(receiver)
+        Args:
+            sender_id: The ID of the player who sent the request
 
+        Returns:
+            The GameRequest if one exists, None otherwise
+        """
+        return self.lobby.get_pending_request_by_sender(sender_id)
+
+    def accept_game_request(self, receiver_id: str) -> tuple[str, str]:
+        """Accept a game request
+
+        Args:
+            receiver_id: The ID of the player accepting the request
+
+        Returns:
+            Tuple of (sender_id, receiver_id)
+        """
         # Use the lobby method to accept the request
-        return self.lobby.accept_game_request(receiver_clean)
+        return self.lobby.accept_game_request(receiver_id)
 
-    # TODO: change this method parameter to player_id
-    def decline_game_request(self, receiver: str) -> str:
-        """Decline a game request"""
-        # Validate player name
-        receiver_clean = self._validate_and_clean_player_name(receiver)
+    def decline_game_request(self, receiver_id: str) -> str:
+        """Decline a game request
 
+        Args:
+            receiver_id: The ID of the player declining the request
+
+        Returns:
+            The sender_id whose request was declined
+        """
         # Use the lobby method to decline the request
-        return self.lobby.decline_game_request(receiver_clean)
+        return self.lobby.decline_game_request(receiver_id)
 
-    # TODO: change this method parameter to player_id
-    def get_decline_notification(self, player_name: str) -> str | None:
-        """Get and clear decline notification for a player"""
-        clean_name = self._validate_and_clean_player_name(player_name)
-        return self.lobby.get_decline_notification(clean_name)
+    def get_decline_notification(self, player_id: str) -> str | None:
+        """Get and clear decline notification for a player
+
+        Args:
+            player_id: The ID of the player to get notification for
+
+        Returns:
+            The ID of the player who declined, or None if no notification
+        """
+        return self.lobby.get_decline_notification(player_id)
 
     def get_lobby_version(self) -> int:
         """Get the current version of the lobby state"""
@@ -149,22 +174,88 @@ class LobbyService:
         """Wait for lobby state to change from the given version"""
         await self.lobby.wait_for_change(since_version)
 
-    # TODO: change this method parameter to player_id
-    def get_opponent(self, player_name: str) -> str | None:
+    def get_opponent(self, player_id: str) -> str | None:
         """Get the opponent for a player in an active game.
 
         Args:
-            player_name: The name of the player to get opponent for
+            player_id: The ID of the player to get opponent for
 
         Returns:
-            The opponent's name if the player is in an active game, None otherwise
+            The opponent's ID if the player is in an active game, None otherwise
         """
-        # Handle empty or whitespace-only names
-        if not player_name or not player_name.strip():
+        # Handle empty IDs
+        if not player_id:
             return None
 
-        # Strip whitespace from player name
-        clean_name = player_name.strip()
-
         # Get opponent from lobby
-        return self.lobby.get_opponent(clean_name)
+        return self.lobby.get_opponent(player_id)
+
+    # Display helper methods - convert IDs to names for UI
+
+    def get_player_id_by_name(self, player_name: str) -> str | None:
+        """Get a player's ID by their display name
+
+        Args:
+            player_name: The name of the player to find
+
+        Returns:
+            The player's ID if found, None otherwise
+        """
+        for player in self.lobby.players.values():
+            if player.name == player_name:
+                return player.id
+        return None
+
+    def get_player_name(self, player_id: str) -> str | None:
+        """Get a player's display name by their ID
+
+        Args:
+            player_id: The ID of the player
+
+        Returns:
+            The player's name if found, None otherwise
+        """
+        player = self.lobby.players.get(player_id)
+        return player.name if player else None
+
+    def get_opponent_name(self, player_id: str) -> str | None:
+        """Get the opponent's display name for a player in an active game
+
+        Args:
+            player_id: The ID of the player to get opponent name for
+
+        Returns:
+            The opponent's name if player is in an active game, None otherwise
+        """
+        opponent_id = self.get_opponent(player_id)
+        if not opponent_id:
+            return None
+        return self.get_player_name(opponent_id)
+
+    def get_pending_request_sender_name(self, player_id: str) -> str | None:
+        """Get the sender's display name for a pending game request
+
+        Args:
+            player_id: The ID of the player who received the request
+
+        Returns:
+            The sender's name if there's a pending request, None otherwise
+        """
+        request = self.get_pending_request_for_player(player_id)
+        if not request:
+            return None
+        return self.get_player_name(request.sender_id)
+
+    def get_decline_notification_name(self, player_id: str) -> str | None:
+        """Get the decliner's display name and clear the notification
+
+        Args:
+            player_id: The ID of the player to get notification for
+
+        Returns:
+            The name of the player who declined, or None if no notification
+        """
+        decliner_id = self.get_decline_notification(player_id)
+        if not decliner_id:
+            return None
+        return self.get_player_name(decliner_id)

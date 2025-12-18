@@ -2,6 +2,7 @@ from datetime import datetime
 
 
 from game.player import GameRequest, Player, PlayerStatus
+from tests.unit.conftest import make_player
 
 
 class TestPlayerStatusGameRequestFeatures:
@@ -61,12 +62,13 @@ class TestGameRequest:
         # Test creating a basic game request
 
         now = datetime.now()
-        request = GameRequest(
-            sender="Alice", receiver="Bob", timestamp=now
+        request = alice = make_player("Alice")
+        bob = make_player("Bob")
+        request = GameRequest(sender_id=alice.id, receiver_id=bob.id, timestamp=now
         )
 
-        assert request.sender == "Alice"
-        assert request.receiver == "Bob"
+        assert request.sender_id == alice.id
+        assert request.receiver_id == bob.id
         assert request.timestamp == now
 
     def test_game_request_status_values(self):
@@ -76,8 +78,8 @@ class TestGameRequest:
 
         # Test basic GameRequest creation
         request = GameRequest("Alice", "Bob", now)
-        assert request.sender == "Alice"
-        assert request.receiver == "Bob"
+        assert request.sender_id == alice.id
+        assert request.receiver_id == bob.id
         assert request.timestamp == now
 
     def test_game_request_dataclass_equality(self):

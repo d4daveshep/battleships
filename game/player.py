@@ -13,8 +13,8 @@ class PlayerStatus(StrEnum):
 
 @dataclass
 class GameRequest:
-    sender: str
-    receiver: str
+    sender_id: str
+    receiver_id: str
     timestamp: datetime
 
 

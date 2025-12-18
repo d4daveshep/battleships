@@ -5,10 +5,10 @@ from game.player import GameRequest, Player, PlayerStatus
 
 class Lobby:
     def __init__(self):
-        self.players: dict[str, Player] = {}
-        self.game_requests: dict[str, GameRequest] = {}
-        self.active_games: dict[str, str] = {}  # player_name -> opponent_name
-        self.decline_notifications: dict[str, str] = {}  # sender -> decliner (who declined their request)
+        self.players: dict[str, Player] = {}  # player_id -> Player
+        self.game_requests: dict[str, GameRequest] = {}  # receiver_id -> GameRequest
+        self.active_games: dict[str, str] = {}  # player_id -> opponent_id
+        self.decline_notifications: dict[str, str] = {}  # sender_id -> decliner_id
         self.version: int = 0
         self.change_event: asyncio.Event = asyncio.Event()
 
@@ -17,23 +17,37 @@ class Lobby:
         self.version += 1
         self.change_event.set()
 
-    def add_player(self, name: str, status: PlayerStatus) -> None:
-        self.players[name] = Player(name, status)
+    def add_player(self, player: Player) -> None:
+        """Add a player to the lobby
+
+        Args:
+            player: The Player object to add to the lobby
+        """
+        self.players[player.id] = player
         self._notify_change()
 
-    def remove_player(self, name: str) -> None:
-        if name in self.players:
-            del self.players[name]
+    def remove_player(self, player_id: str) -> None:
+        """Remove a player from the lobby
+
+        Args:
+            player_id: The ID of the player to remove
+        """
+        if player_id in self.players:
+            del self.players[player_id]
             self._notify_change()
         else:
-            raise ValueError(f"Player '{name}' not found in lobby")
+            raise ValueError(f"Player with ID '{player_id}' not found in lobby")
 
-    def clear_all_except(self, player_name: str) -> None:
-        # Keep only the specified player in the lobby
-        if player_name in self.players:
-            player = self.players[player_name]
+    def clear_all_except(self, player_id: str) -> None:
+        """Keep only the specified player in the lobby
+
+        Args:
+            player_id: The ID of the player to keep
+        """
+        if player_id in self.players:
+            player = self.players[player_id]
             self.players.clear()
-            self.players[player_name] = player
+            self.players[player_id] = player
         else:
             self.players.clear()
 
@@ -44,120 +58,176 @@ class Lobby:
             if player.status == PlayerStatus.AVAILABLE
         ]
 
-    def update_player_status(self, name: str, status: PlayerStatus) -> None:
-        if name not in self.players:
-            raise ValueError(f"Player '{name}' not found in lobby")
-        self.players[name].status = status
+    def update_player_status(self, player_id: str, status: PlayerStatus) -> None:
+        """Update a player's status in the lobby
+
+        Args:
+            player_id: The ID of the player
+            status: The new status to set
+        """
+        if player_id not in self.players:
+            raise ValueError(f"Player with ID '{player_id}' not found in lobby")
+        self.players[player_id].status = status
         self._notify_change()
 
-    def get_player_status(self, name: str) -> PlayerStatus:
-        if name not in self.players:
-            raise ValueError(f"Player '{name}' not found in lobby")
-        return self.players[name].status
+    def get_player_status(self, player_id: str) -> PlayerStatus:
+        """Get a player's current status
 
-    def send_game_request(self, sender: str, receiver: str) -> None:
+        Args:
+            player_id: The ID of the player
+
+        Returns:
+            The player's current status
+        """
+        if player_id not in self.players:
+            raise ValueError(f"Player with ID '{player_id}' not found in lobby")
+        return self.players[player_id].status
+
+    def send_game_request(self, sender_id: str, receiver_id: str) -> None:
+        """Send a game request from sender to receiver
+
+        Args:
+            sender_id: The ID of the player sending the request
+            receiver_id: The ID of the player receiving the request
+        """
         # Validate that both players exist
-        if sender not in self.players:
-            raise ValueError(f"Player '{sender}' not found in lobby")
-        if receiver not in self.players:
-            raise ValueError(f"Player '{receiver}' not found in lobby")
+        if sender_id not in self.players:
+            raise ValueError(f"Player with ID '{sender_id}' not found in lobby")
+        if receiver_id not in self.players:
+            raise ValueError(f"Player with ID '{receiver_id}' not found in lobby")
 
         # Validate that sender is available
-        if self.players[sender].status != PlayerStatus.AVAILABLE:
-            raise ValueError(f"Sender {sender} is not available")
+        if self.players[sender_id].status != PlayerStatus.AVAILABLE:
+            raise ValueError(f"Sender with ID {sender_id} is not available")
 
         # Validate that receiver is available
-        if self.players[receiver].status != PlayerStatus.AVAILABLE:
-            raise ValueError(f"Receiver {receiver} is not available")
+        if self.players[receiver_id].status != PlayerStatus.AVAILABLE:
+            raise ValueError(f"Receiver with ID {receiver_id} is not available")
 
         # Create the game request
         request = GameRequest(
-            sender=sender, receiver=receiver, timestamp=datetime.now()
+            sender_id=sender_id, receiver_id=receiver_id, timestamp=datetime.now()
         )
 
         # Store the request
-        self.game_requests[receiver] = request
+        self.game_requests[receiver_id] = request
 
         # Update player statuses
-        self.players[sender].status = PlayerStatus.REQUESTING_GAME
-        self.players[receiver].status = PlayerStatus.PENDING_RESPONSE
+        self.players[sender_id].status = PlayerStatus.REQUESTING_GAME
+        self.players[receiver_id].status = PlayerStatus.PENDING_RESPONSE
         self._notify_change()
 
-    def get_pending_request(self, receiver: str) -> GameRequest | None:
-        return self.game_requests.get(receiver)
+    def get_pending_request(self, receiver_id: str) -> GameRequest | None:
+        """Get any pending game request for the specified player
 
-    def get_pending_request_by_sender(self, sender: str) -> GameRequest | None:
+        Args:
+            receiver_id: The ID of the player to check for pending requests
+
+        Returns:
+            The GameRequest if one exists, None otherwise
+        """
+        return self.game_requests.get(receiver_id)
+
+    def get_pending_request_by_sender(self, sender_id: str) -> GameRequest | None:
+        """Get any pending game request sent by the specified player
+
+        Args:
+            sender_id: The ID of the player who sent the request
+
+        Returns:
+            The GameRequest if one exists, None otherwise
+        """
         for request in self.game_requests.values():
-            if request.sender == sender:
+            if request.sender_id == sender_id:
                 return request
         return None
 
-    def accept_game_request(self, receiver: str) -> tuple[str, str]:
-        # Check if there's a pending request
-        if receiver not in self.game_requests:
-            raise ValueError(f"No pending game request for {receiver}")
+    def accept_game_request(self, receiver_id: str) -> tuple[str, str]:
+        """Accept a game request
 
-        request = self.game_requests[receiver]
-        sender = request.sender
+        Args:
+            receiver_id: The ID of the player accepting the request
+
+        Returns:
+            Tuple of (sender_id, receiver_id)
+        """
+        # Check if there's a pending request
+        if receiver_id not in self.game_requests:
+            raise ValueError(
+                f"No pending game request for player with ID {receiver_id}"
+            )
+
+        request = self.game_requests[receiver_id]
+        sender_id = request.sender_id
 
         # Update both players to IN_GAME
-        self.players[sender].status = PlayerStatus.IN_GAME
-        self.players[receiver].status = PlayerStatus.IN_GAME
+        self.players[sender_id].status = PlayerStatus.IN_GAME
+        self.players[receiver_id].status = PlayerStatus.IN_GAME
 
         # Create bidirectional pairing
-        self.active_games[sender] = receiver
-        self.active_games[receiver] = sender
+        self.active_games[sender_id] = receiver_id
+        self.active_games[receiver_id] = sender_id
 
         # Remove the request
-        del self.game_requests[receiver]
+        del self.game_requests[receiver_id]
 
         self._notify_change()
 
-        return sender, receiver
+        return sender_id, receiver_id
 
-    def decline_game_request(self, receiver: str) -> str:
+    def decline_game_request(self, receiver_id: str) -> str:
+        """Decline a game request
+
+        Args:
+            receiver_id: The ID of the player declining the request
+
+        Returns:
+            The sender_id of the player whose request was declined
+        """
         # Check if there's a pending request
-        if receiver not in self.game_requests:
-            raise ValueError(f"No pending game request for {receiver}")
+        if receiver_id not in self.game_requests:
+            raise ValueError(
+                f"No pending game request for player with ID {receiver_id}"
+            )
 
-        request = self.game_requests[receiver]
-        sender = request.sender
+        request = self.game_requests[receiver_id]
+        sender_id = request.sender_id
 
         # Return both players to AVAILABLE
-        self.players[sender].status = PlayerStatus.AVAILABLE
-        self.players[receiver].status = PlayerStatus.AVAILABLE
+        self.players[sender_id].status = PlayerStatus.AVAILABLE
+        self.players[receiver_id].status = PlayerStatus.AVAILABLE
 
         # Store decline notification for sender
-        self.decline_notifications[sender] = receiver
+        self.decline_notifications[sender_id] = receiver_id
 
         # Remove the request
-        del self.game_requests[receiver]
+        del self.game_requests[receiver_id]
 
         self._notify_change()
 
-        return sender
+        return sender_id
 
-    def get_opponent(self, player_name: str) -> str | None:
+    def get_opponent(self, player_id: str) -> str | None:
         """Get the opponent for a player in an active game.
 
         Args:
-            player_name: The name of the player to get opponent for
+            player_id: The ID of the player to get opponent for
 
         Returns:
-            The opponent's name if the player is in an active game, None otherwise
+            The opponent's ID if the player is in an active game, None otherwise
         """
-        return self.active_games.get(player_name)
+        return self.active_games.get(player_id)
 
-    def get_decline_notification(self, player_name: str) -> str | None:
+    def get_decline_notification(self, player_id: str) -> str | None:
         """Get and clear decline notification for a player.
 
         Args:
-            player_name: The name of the player to get notification for
+            player_id: The ID of the player to get notification for
 
         Returns:
-            The name of the player who declined, or None if no notification
+            The ID of the player who declined, or None if no notification
         """
-        return self.decline_notifications.pop(player_name, None)
+        return self.decline_notifications.pop(player_id, None)
 
     def get_version(self) -> int:
         """Return the current version of the lobby state"""

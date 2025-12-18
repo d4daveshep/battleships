@@ -709,7 +709,19 @@ async def _render_lobby_status(
         pending_request: GameRequest | None = (
             lobby_service.get_pending_request_for_player(player_id)
         )
-        template_context["pending_request"] = pending_request
+
+        if pending_request:
+            sender_name: str | None = lobby_service.get_player_name(
+                pending_request.sender_id
+            )
+            template_context["pending_request"] = {
+                "sender": sender_name or "Unknown",
+                "sender_id": pending_request.sender_id,
+                "receiver_id": pending_request.receiver_id,
+                "timestamp": pending_request.timestamp,
+            }
+        else:
+            template_context["pending_request"] = None
 
         all_players: list[Player] = lobby_service.get_lobby_players_for_player(
             player_id

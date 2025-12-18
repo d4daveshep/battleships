@@ -64,20 +64,8 @@ class TestGameRequest:
         now = datetime.now()
         request = alice = make_player("Alice")
         bob = make_player("Bob")
-        request = GameRequest(sender_id=alice.id, receiver_id=bob.id, timestamp=now
-        )
+        request = GameRequest(sender_id=alice.id, receiver_id=bob.id, timestamp=now)
 
-        assert request.sender_id == alice.id
-        assert request.receiver_id == bob.id
-        assert request.timestamp == now
-
-    def test_game_request_status_values(self):
-        # Test that GameRequest can be created without status field
-
-        now = datetime.now()
-
-        # Test basic GameRequest creation
-        request = GameRequest("Alice", "Bob", now)
         assert request.sender_id == alice.id
         assert request.receiver_id == bob.id
         assert request.timestamp == now

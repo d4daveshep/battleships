@@ -234,7 +234,7 @@ def redirected_to_game_within_time(page: Page) -> None:
 
     # Wait for redirect to game page (allow up to 35s for long poll timeout + event trigger)
     try:
-        page.wait_for_url("**/game**", timeout=35000)
+        page.wait_for_url("**/start-game", timeout=35000)
         elapsed = time.time() - start_time
         # Log the actual time for performance tracking
         # In ideal conditions with events, this should be < 5s
@@ -249,8 +249,12 @@ def redirected_to_game_within_time(page: Page) -> None:
 @then(parsers.parse('the game should be with opponent "{opponent}"'))
 def verify_game_opponent(page: Page, opponent: str) -> None:
     """Verify the game page shows correct opponent"""
-    # Check URL contains opponent name
-    assert opponent in page.url, f"Expected {opponent} in URL, got {page.url}"
+    # Check page content for opponent name instead of URL
+    opponent_element = page.locator('[data-testid="opponent-name"]')
+    assert opponent_element.is_visible()
+    assert opponent in opponent_element.inner_text(), (
+        f"Expected {opponent} in opponent name element"
+    )
 
 
 @when(parsers.parse('"{opponent}" declines my game request'))

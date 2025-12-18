@@ -22,7 +22,7 @@ class TestLongPollingWithEvents:
         """Test that long poll returns quickly when using event notifications"""
         # Setup: Create Alice
         create_player(client, "Alice")
-        initial_response = client.get("/lobby/status/Alice/long-poll")
+        initial_response = client.get("/lobby/status/long-poll")
         assert initial_response.status_code == status.HTTP_200_OK
 
         # Start a long poll with current version (should wait)
@@ -46,12 +46,12 @@ class TestLongPollingWithEvents:
         """Test that timeout still works when using event-based waiting"""
         # Setup
         create_player(client, "Alice")
-        client.get("/lobby/status/Alice/long-poll")  # Initial call
+        client.get("/lobby/status/long-poll")  # Initial call
 
         # Test: Wait with current version and short timeout
         start_time = time.time()
         response = client.get(
-            "/lobby/status/Alice/long-poll", params={"version": "1", "timeout": "1"}
+            "/lobby/status/long-poll", params={"version": "1", "timeout": "1"}
         )
         elapsed_time = time.time() - start_time
 
@@ -71,9 +71,9 @@ class TestLongPollingWithEvents:
         create_player(client, "Charlie")
 
         # Get initial states
-        client.get("/lobby/status/Alice/long-poll")
-        client.get("/lobby/status/Bob/long-poll")
-        client.get("/lobby/status/Charlie/long-poll")
+        client.get("/lobby/status/long-poll")
+        client.get("/lobby/status/long-poll")
+        client.get("/lobby/status/long-poll")
 
         # All three players polling concurrently would all be notified
         # by the same event when state changes

@@ -40,6 +40,49 @@ lobby_service: LobbyService = LobbyService(_game_lobby)
 game_service: GameService = GameService()
 
 
+def _get_player_id(request: Request) -> str:
+    """Get player ID from session
+
+    Args:
+        request: The FastAPI request object containing session data
+
+    Returns:
+        The player ID from session
+
+    Raises:
+        HTTPException: 401 if no session or no player-id
+    """
+    player_id: str | None = request.session.get("player-id")
+    if not player_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="No session found - please login",
+        )
+    return player_id
+
+
+def _get_player_from_session(request: Request) -> Player:
+    """Get Player object from session
+
+    Args:
+        request: The FastAPI request object containing session data
+
+    Returns:
+        The Player object for the session
+
+    Raises:
+        HTTPException: 401 if no session, 404 if player not found
+    """
+    player_id: str = _get_player_id(request)
+    player: Player | None = game_service.get_player(player_id)
+    if not player:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Player not found",
+        )
+    return player
+
+
 def _get_validated_player_name(request: Request, claimed_name: str) -> str:
     """Verify the session owns this player name
 
@@ -53,13 +96,8 @@ def _get_validated_player_name(request: Request, claimed_name: str) -> str:
     Raises:
         HTTPException: 401 if no session, 403 if session doesn't own player
     """
-    session_name: str | None = request.session.get("player_name")
-    if not session_name:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="No session found - please login",
-        )
-    if session_name != claimed_name:
+    player: Player = _get_player_from_session(request)
+    if player.name != claimed_name:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Session does not own this player",
@@ -67,17 +105,16 @@ def _get_validated_player_name(request: Request, claimed_name: str) -> str:
     return claimed_name
 
 
-def _build_lobby_url(player_name: str) -> str:
-    """Build lobby URL with player name parameter"""
-    return f"/lobby?player_name={player_name.strip()}"
+# TODO: don't really need this function
+def _build_lobby_url() -> str:
+    """Build lobby URL without player name parameter (uses session)"""
+    return "/lobby"
 
 
-def _build_start_game_url(player_name: str, opponent_name: str = "") -> str:
-    """Build game URL with player name parameter"""
-    if not opponent_name:
-        return f"/start-game?player_name={player_name.strip()}"
-    else:
-        return f"/start-game?player_name={player_name.strip()}&opponent_name={opponent_name.strip()}"
+# TODO: don't really need this function
+def _build_start_game_url() -> str:
+    """Build game URL (player and opponent from session/lobby state)"""
+    return "/start-game"
 
 
 # TODO: this is specific to the login page, so it should either be renamed or moved somewhere else
@@ -148,10 +185,10 @@ async def login_submit(
         if game_mode == "human":
             # TODO: Add the player object to lobby not the player_name
             lobby_service.join_lobby(player_name)  # Add the player to the lobby
-            redirect_url = _build_lobby_url(player_name)
+            redirect_url = _build_lobby_url()
 
         elif game_mode == "computer":
-            redirect_url = _build_start_game_url(player_name)
+            redirect_url = _build_start_game_url()
         else:
             raise ValueError(f"Invalid game mode: {game_mode}")
 
@@ -228,12 +265,16 @@ def _map_error_message_for_ui(
 
 # TODO: rename this /place-ships
 @app.get("/ship-placement", response_class=HTMLResponse)
-async def ship_placement_page(request: Request, player_name: str = "") -> HTMLResponse:
+async def ship_placement_page(request: Request) -> HTMLResponse:
+    # Get player from session
+    player: Player = _get_player_from_session(request)
+
+    # TODO: look into why we need to pass player name to this template
     return templates.TemplateResponse(
         request,
         "ship_placement.html",
         {
-            "player_name": player_name,
+            "player_name": player.name,
             "placed_ships": {},
         },
     )
@@ -259,15 +300,14 @@ async def place_ship(
         # Replace hyphens with underscores for enum member lookup
         orient: Orientation = Orientation[orientation.upper().replace("-", "_")]
 
-        # FIXME: Replace with call to game manaager when it's implemented
+        # FIXME: Replace with call to game manager when it's implemented
         # For now this will get the game board for the player or create a new one
         validated_player_name: str = _get_validated_player_name(request, player_name)
-        # board: GameBoard = games.get(validated_player_name, GameBoard())
         board: GameBoard = game_service.get_game_board(
             player_id=_get_player_id(request)
         )
         board.place_ship(ship, start, orient)
-        games[validated_player_name] = board
+        # Board is already stored in game_service, no need to store separately
 
     except (
         ValueError,
@@ -280,7 +320,13 @@ async def place_ship(
 
         # Get current board state to show what's already placed
         validated_player_name: str = _get_validated_player_name(request, player_name)
-        board: GameBoard = games.get(validated_player_name, GameBoard())
+        try:
+            board: GameBoard = game_service.get_game_board(
+                player_id=_get_player_id(request)
+            )
+        except Exception:
+            # If no board exists yet, create empty one for error display
+            board = GameBoard()
         placed_ships: dict[str, dict[str, list[str]]] = _get_placed_ships_from_board(
             board
         )
@@ -334,36 +380,40 @@ async def place_ship(
 
 
 @app.get("/start-game", response_class=HTMLResponse)
-async def start_game_page(
-    request: Request, player_name: str | None = None, opponent_name: str = ""
-) -> HTMLResponse:
+async def start_game_page(request: Request) -> HTMLResponse:
     """Start game confirmation page
 
     Args:
         request: The FastAPI request object
-        player_name: Required player name
-        opponent_name: Optional opponent name for two-player mode
 
     Returns:
         HTMLResponse with start game confirmation page or error
     """
-    # Validate player_name is provided
-    if not player_name:
-        return templates.TemplateResponse(
-            request=request,
-            name="validation_error.html",
-            context={
-                "error_message": "Player name is required",
-            },
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        )
+    # Get player from session
+    player: Player = _get_player_from_session(request)
+
+    # Get opponent from lobby if player is in a multiplayer game
+    # Only check lobby if player status is IN_GAME
+    opponent_name: str = ""
+    try:
+        # Check if player is in lobby and has IN_GAME status
+        player_status: PlayerStatus = lobby_service.get_player_status(player.name)
+        if player_status == PlayerStatus.IN_GAME:
+            opponent_name_from_lobby: str | None = lobby_service.get_opponent(
+                player.name
+            )
+            if opponent_name_from_lobby:
+                opponent_name = opponent_name_from_lobby
+    except ValueError:
+        # Player not in lobby - single player mode
+        pass
 
     game_mode: str = "Two Player" if opponent_name else "Single Player"
     return templates.TemplateResponse(
         request=request,
         name="start_game.html",
         context={
-            "player_name": player_name,
+            "player_name": player.name,
             "opponent_name": opponent_name,
             "game_mode": game_mode,
         },
@@ -372,24 +422,19 @@ async def start_game_page(
 
 @app.post("/start-game", response_model=None)
 async def start_game_submit(
-    request: Request, player_name: str = Form(), action: str = Form(default="")
+    request: Request, action: str = Form(default="")
 ) -> RedirectResponse:
     """Handle start game confirmation form submission
 
     Args:
         request: The FastAPI request object
-        player_name: The player name from form
         action: The action to perform (start_game, return_to_login, exit)
 
     Returns:
         RedirectResponse to appropriate page based on action
     """
-    # Validate player_name is provided
-    if not player_name:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Player name is required",
-        )
+    # Get player from session
+    player: Player = _get_player_from_session(request)
 
     # Validate action parameter
     valid_actions: list[str] = ["start_game", "return_to_login", "exit"]
@@ -402,7 +447,7 @@ async def start_game_submit(
     # Route based on action
     redirect_url: str
     if action == "start_game":
-        redirect_url = f"/ship-placement?player_name={player_name}"
+        redirect_url = "/ship-placement"
     elif action == "return_to_login":
         redirect_url = "/"
     elif action == "exit":
@@ -454,10 +499,13 @@ async def health_check() -> dict[str, str]:
 
 
 @app.get("/lobby", response_class=HTMLResponse)
-async def lobby_page(request: Request, player_name: str = "") -> HTMLResponse:
+async def lobby_page(request: Request) -> HTMLResponse:
+    # Get player from session
+    player: Player = _get_player_from_session(request)
+
     # Default template context
     template_context: dict[str, str] = {
-        "player_name": player_name,
+        "player_name": player.name,
     }
 
     return templates.TemplateResponse(
@@ -469,18 +517,18 @@ async def lobby_page(request: Request, player_name: str = "") -> HTMLResponse:
 
 @app.post("/select-opponent", response_model=None)
 async def select_opponent(
-    request: Request, player_name: str = Form(), opponent_name: str = Form()
+    request: Request, opponent_name: str = Form()
 ) -> HTMLResponse | Response:
     """Handle opponent selection and return updated lobby view"""
 
-    # Validate session owns this player
-    _get_validated_player_name(request, player_name)
+    # Get player from session
+    player: Player = _get_player_from_session(request)
 
     try:
-        lobby_service.send_game_request(player_name, opponent_name)
+        lobby_service.send_game_request(player.name, opponent_name)
 
         # Return updated lobby status (same as long poll endpoint)
-        return await _render_lobby_status(request, player_name)
+        return await _render_lobby_status(request, player.name)
 
     except ValueError as e:
         # Handle validation errors (player not available, etc.)
@@ -488,16 +536,14 @@ async def select_opponent(
 
 
 @app.post("/leave-lobby", response_model=None)
-async def leave_lobby(
-    request: Request, player_name: str = Form()
-) -> RedirectResponse | HTMLResponse | Response:
+async def leave_lobby(request: Request) -> RedirectResponse | HTMLResponse | Response:
     """Handle player leaving the lobby"""
 
-    # Validate session owns this player
-    _get_validated_player_name(request, player_name)
+    # Get player from session
+    player: Player = _get_player_from_session(request)
 
     try:
-        lobby_service.leave_lobby(player_name)
+        lobby_service.leave_lobby(player.name)
         # TODO: add event here
 
         if request.headers.get("HX-Request"):
@@ -520,20 +566,18 @@ async def leave_lobby(
         return _create_error_response(request, str(e))
 
 
-@app.get("/lobby/status/{player_name}", response_model=None)
-async def lobby_status_component(
-    request: Request, player_name: str
-) -> HTMLResponse | Response:
+@app.get("/lobby/status", response_model=None)
+async def lobby_status_component(request: Request) -> HTMLResponse | Response:
     """Return partial HTML with polling for status updates and available for current player"""
-    # Validate session owns this player
-    _get_validated_player_name(request, player_name)
+    # Get player from session
+    player: Player = _get_player_from_session(request)
 
-    return await _render_lobby_status(request, player_name)
+    return await _render_lobby_status(request, player.name)
 
 
-@app.get("/lobby/status/{player_name}/long-poll", response_model=None)
+@app.get("/lobby/status/long-poll", response_model=None)
 async def lobby_status_long_poll(
-    request: Request, player_name: str, timeout: int = 30, version: int | None = None
+    request: Request, timeout: int = 30, version: int | None = None
 ) -> HTMLResponse | Response:
     """Long polling endpoint for lobby status updates.
 
@@ -544,15 +588,15 @@ async def lobby_status_long_poll(
     Otherwise waits up to `timeout` seconds for a state change.
     """
 
-    # Validate session owns this player
-    _get_validated_player_name(request, player_name)
+    # Get player from session
+    player: Player = _get_player_from_session(request)
 
     # Validate player exists
     try:
-        lobby_service.get_player_status(player_name)
+        lobby_service.get_player_status(player.name)
     except ValueError:
         return Response(
-            content=f"Player '{player_name}' not found in lobby",
+            content=f"Player '{player.name}' not found in lobby",
             status_code=status.HTTP_404_NOT_FOUND,
         )
 
@@ -562,7 +606,7 @@ async def lobby_status_long_poll(
     # If no version provided or version has changed, return immediately
     if version is None or current_version != version:
         # Return current state immediately
-        return await _render_lobby_status(request, player_name)
+        return await _render_lobby_status(request, player.name)
 
     # Version matches - wait for changes or timeout
     try:
@@ -571,10 +615,10 @@ async def lobby_status_long_poll(
             lobby_service.wait_for_lobby_change(version), timeout=timeout
         )
         # State changed, return new state
-        return await _render_lobby_status(request, player_name)
+        return await _render_lobby_status(request, player.name)
     except asyncio.TimeoutError:
         # Timeout reached, return current state
-        return await _render_lobby_status(request, player_name)
+        return await _render_lobby_status(request, player.name)
 
 
 async def _render_lobby_status(
@@ -619,7 +663,7 @@ async def _render_lobby_status(
                         context=template_context,
                     )
 
-                game_url: str = _build_start_game_url(player_name, opponent_name)
+                game_url: str = _build_start_game_url()
 
                 # Return HTMX redirect
                 return Response(
@@ -673,30 +717,29 @@ async def _render_lobby_status(
 @app.post("/decline-game-request")
 async def decline_game_request(
     request: Request,
-    player_name: str = Form(),
     show_confirmation: str = Form(default=""),
 ) -> HTMLResponse:
     """Decline a game request and return to lobby"""
 
-    # Validate session owns this player
-    _get_validated_player_name(request, player_name)
+    # Get player from session
+    player: Player = _get_player_from_session(request)
 
     try:
         # Decline the game request
-        sender: str = lobby_service.decline_game_request(player_name)
+        sender: str = lobby_service.decline_game_request(player.name)
         # TODO: add event here
 
         # Get updated lobby data
         lobby_data: list[Player] = lobby_service.get_lobby_players_for_player(
-            player_name
+            player.name
         )
-        player_status: str = lobby_service.get_player_status(player_name).value
+        player_status: str = lobby_service.get_player_status(player.name).value
 
         return templates.TemplateResponse(
             request=request,
             name="components/lobby_dynamic_content.html",
             context={
-                "player_name": player_name,
+                "player_name": player.name,
                 "game_mode": "Two Player",
                 "available_players": lobby_data,
                 "decline_confirmation_message": f"Game request from {sender} declined",
@@ -712,25 +755,24 @@ async def decline_game_request(
 @app.post("/accept-game-request", response_model=None)
 async def accept_game_request(
     request: Request,
-    player_name: str = Form(),
     show_confirmation: str = Form(default=""),
 ) -> Response | RedirectResponse:
     """Accept a game request and redirect to game page"""
 
-    # Validate session owns this player
-    _get_validated_player_name(request, player_name)
+    # Get player from session
+    player: Player = _get_player_from_session(request)
 
     try:
         # Accept the game request
         sender: str
         receiver: str
-        sender, receiver = lobby_service.accept_game_request(player_name)
-        # TODO: add event here
+        sender, receiver = lobby_service.accept_game_request(player.name)
+        # TODO: add notification event to the requester that their request has been accepted
         # TODO: remove both Player objects from Lobby and add them to GameState
 
         # The player_name is the receiver, sender is the opponent_name
-        opponent_name: str = sender
-        redirect_url: str = _build_start_game_url(player_name, opponent_name)
+        # Opponent is now stored in lobby state, no need to pass via URL
+        redirect_url: str = _build_start_game_url()
 
         if request.headers.get("HX-Request"):
             response: Response = Response(

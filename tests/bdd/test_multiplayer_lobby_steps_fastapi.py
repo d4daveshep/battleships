@@ -56,7 +56,7 @@ def on_lobby_page(context: LobbyTestContext) -> None:
 def get_lobby_status(context: LobbyTestContext, player_name: str) -> BeautifulSoup:
     """Helper function to get the dynamic lobby status content"""
     client = context.get_client_for_player(player_name)
-    status_response = client.get(f"/lobby/status/{player_name}")
+    status_response = client.get("/lobby/status")
     return BeautifulSoup(status_response.text, "html.parser")
 
 
@@ -157,7 +157,7 @@ def other_players_in_lobby(lobby_context: LobbyTestContext, datatable) -> None:
     # Restore the original player's perspective if it was set
     if current_player:
         current_client = lobby_context.get_client_for_player(current_player)
-        lobby_response = current_client.get(f"/lobby?player_name={current_player}")
+        lobby_response = current_client.get("/lobby")
         lobby_context.update_response(lobby_response)
         lobby_context.current_player_name = current_player
 
@@ -206,7 +206,7 @@ def another_player_logs_in_and_selects_human(
     # Restore original player's perspective by going back to lobby
     if current_player:
         current_client = lobby_context.get_client_for_player(current_player)
-        lobby_response = current_client.get(f"/lobby?player_name={current_player}")
+        lobby_response = current_client.get("/lobby")
         lobby_context.update_response(lobby_response)
         lobby_context.current_player_name = current_player
 
@@ -434,7 +434,7 @@ def click_select_opponent(lobby_context: LobbyTestContext, opponent_name: str) -
     current_player = lobby_context.current_player_name
     assert current_player is not None
     client = lobby_context.get_client_for_player(current_player)
-    form_data = {"player_name": current_player, "opponent_name": opponent_name}
+    form_data = {"opponent_name": opponent_name}
     response = client.post("/select-opponent", data=form_data)
     lobby_context.update_response(response)
 
@@ -522,7 +522,7 @@ def target_player_receives_game_request(
 
     # Get sender's client and simulate sending request
     sender_client = lobby_context.get_client_for_player(sender_player)
-    form_data = {"player_name": sender_player, "opponent_name": target_player}
+    form_data = {"opponent_name": target_player}
     sender_client.post("/select-opponent", data=form_data)
 
     # Store the interaction for verification
@@ -532,7 +532,7 @@ def target_player_receives_game_request(
     # Refresh current player's view
     if current_player:
         current_client = lobby_context.get_client_for_player(current_player)
-        lobby_response = current_client.get(f"/lobby?player_name={current_player}")
+        lobby_response = current_client.get("/lobby")
         lobby_context.update_response(lobby_response)
 
 
@@ -595,8 +595,7 @@ def click_leave_lobby_button(lobby_context: LobbyTestContext) -> None:
     current_player = lobby_context.current_player_name
     assert current_player is not None
     client = lobby_context.get_client_for_player(current_player)
-    form_data = {"player_name": current_player}
-    response = client.post("/leave-lobby", data=form_data)
+    response = client.post("/leave-lobby", data={})
     lobby_context.update_response(response)
 
 
@@ -625,8 +624,7 @@ def player_leaves_lobby(lobby_context: LobbyTestContext, player_name: str) -> No
 
     # Get the leaving player's client and simulate leaving
     leaving_client = lobby_context.get_client_for_player(player_name)
-    form_data = {"player_name": player_name}
-    leaving_client.post("/leave-lobby", data=form_data)
+    leaving_client.post("/leave-lobby", data={})
 
     # Store the player who left for verification
     lobby_context.player_who_left = player_name
@@ -634,7 +632,7 @@ def player_leaves_lobby(lobby_context: LobbyTestContext, player_name: str) -> No
     # Refresh current player's view
     if current_player:
         current_client = lobby_context.get_client_for_player(current_player)
-        lobby_response = current_client.get(f"/lobby?player_name={current_player}")
+        lobby_response = current_client.get("/lobby")
         lobby_context.update_response(lobby_response)
 
 
@@ -664,7 +662,7 @@ def sender_selects_me_as_opponent(
 
     # Get sender's client and simulate selection
     sender_client = lobby_context.get_client_for_player(sender_player)
-    form_data = {"player_name": sender_player, "opponent_name": current_player}
+    form_data = {"opponent_name": current_player}
     sender_client.post("/select-opponent", data=form_data)
 
     # Store the request details for verification
@@ -673,7 +671,7 @@ def sender_selects_me_as_opponent(
 
     # Refresh current player's view
     current_client = lobby_context.get_client_for_player(current_player)
-    lobby_response = current_client.get(f"/lobby?player_name={current_player}")
+    lobby_response = current_client.get("/lobby")
     lobby_context.update_response(lobby_response)
 
 
@@ -812,14 +810,14 @@ def have_received_game_request(
     lobby_context.current_player_name = current_player
 
     # Simulate sender selecting current player
-    form_data = {"player_name": sender_player, "opponent_name": current_player}
+    form_data = {"opponent_name": current_player}
     sender_client.post("/select-opponent", data=form_data)
 
     lobby_context.game_request_sender = sender_player
     lobby_context.game_request_target = current_player
 
     # Refresh current player's view to see the request
-    lobby_response = current_client.get(f"/lobby?player_name={current_player}")
+    lobby_response = current_client.get("/lobby")
     lobby_context.update_response(lobby_response)
 
     # Verify request is visible using dynamic content
@@ -834,11 +832,7 @@ def click_accept_game_request(lobby_context: LobbyTestContext) -> None:
     current_player = lobby_context.current_player_name
     assert current_player is not None
     client = lobby_context.get_client_for_player(current_player)
-    form_data = {
-        "player_name": current_player,
-        "sender_name": lobby_context.game_request_sender,
-    }
-    response = client.post("/accept-game-request", data=form_data)
+    response = client.post("/accept-game-request", data={})
     lobby_context.update_response(response)
 
 
@@ -904,11 +898,7 @@ def click_decline_game_request(lobby_context: LobbyTestContext) -> None:
     current_player = lobby_context.current_player_name
     assert current_player is not None
     client = lobby_context.get_client_for_player(current_player)
-    form_data = {
-        "player_name": current_player,
-        "sender_name": lobby_context.game_request_sender,
-    }
-    response = client.post("/decline-game-request", data=form_data)
+    response = client.post("/decline-game-request", data={})
     lobby_context.update_response(response)
 
     # The decline response contains the updated lobby content with decline message
@@ -996,7 +986,7 @@ def ive_selected_opponent_as_my_opponent(
     current_player = lobby_context.current_player_name
     assert current_player is not None
     client = lobby_context.get_client_for_player(current_player)
-    form_data = {"player_name": current_player, "opponent_name": opponent_name}
+    form_data = {"opponent_name": opponent_name}
     response = client.post("/select-opponent", data=form_data)
     lobby_context.update_response(response)
 
@@ -1032,8 +1022,7 @@ def opponent_accepts_my_game_request(
 
     # Get opponent's client and simulate accepting the request
     opponent_client = lobby_context.get_client_for_player(opponent_name)
-    form_data = {"player_name": opponent_name, "sender_name": current_player}
-    opponent_client.post("/accept-game-request", data=form_data)
+    opponent_client.post("/accept-game-request", data={})
 
     # When Bob accepts Alice's request, Alice should be redirected to the game
     # Let's check Alice's lobby status endpoint to see if she gets redirected to game
@@ -1045,10 +1034,8 @@ def opponent_accepts_my_game_request(
         lobby_context.update_response(status_response)
     else:
         # Alice doesn't get auto-redirected, but she should be able to access the start game directly
-        # Build the correct game URL for Alice with Bob as opponent
-        start_game_url = (
-            f"/start-game?player_name={current_player}&opponent_name={opponent_name}"
-        )
+        # Player and opponent info are retrieved from session/lobby state
+        start_game_url = "/start-game"
         start_game_response = current_client.get(start_game_url)
         lobby_context.update_response(start_game_response)
 
@@ -1065,7 +1052,7 @@ def player_selects_another_as_opponent(
 
     # Get sender's client and simulate selection
     sender_client = lobby_context.get_client_for_player(sender_player)
-    form_data = {"player_name": sender_player, "opponent_name": opponent_player}
+    form_data = {"opponent_name": opponent_player}
     sender_client.post("/select-opponent", data=form_data)
 
     # Store the request details
@@ -1075,7 +1062,7 @@ def player_selects_another_as_opponent(
     # Restore current player's perspective
     if current_player:
         current_client = lobby_context.get_client_for_player(current_player)
-        lobby_response = current_client.get(f"/lobby?player_name={current_player}")
+        lobby_response = current_client.get("/lobby")
         lobby_context.update_response(lobby_response)
         lobby_context.current_player_name = current_player
 
@@ -1094,13 +1081,12 @@ def receiver_accepts_game_request_from_sender(
 
     # Get receiver's client and simulate accepting the request
     receiver_client = lobby_context.get_client_for_player(receiver_player)
-    form_data = {"player_name": receiver_player, "sender_name": sender_player}
-    receiver_client.post("/accept-game-request", data=form_data)
+    receiver_client.post("/accept-game-request", data={})
 
     # Restore current player's perspective
     if current_player:
         current_client = lobby_context.get_client_for_player(current_player)
-        lobby_response = current_client.get(f"/lobby?player_name={current_player}")
+        lobby_response = current_client.get("/lobby")
         lobby_context.update_response(lobby_response)
         lobby_context.current_player_name = current_player
 

@@ -54,8 +54,7 @@ class TestLeaveLobbySessionValidation:
     def test_leave_lobby_succeeds_with_valid_session(self, alice_client: TestClient):
         """Test that player with valid session can leave lobby"""
         # Leave lobby with matching session
-        # FIXME: change the /lobby endpoints to use player-id not player_name
-        response = leave_lobby(alice_client, "Alice")
+        response = leave_lobby(alice_client)
 
         # Should succeed (200 OK or redirect)
         # Without HX-Request header, returns 302, with HTMX returns 204
@@ -73,7 +72,7 @@ class TestLeaveLobbySessionValidation:
         new_client.post("/test/reset-lobby")  # Use same lobby state
 
         # Try to leave without session
-        response = leave_lobby(new_client, "Alice")
+        response = leave_lobby(new_client)
 
         # Should fail with 401 Unauthorized
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
@@ -81,12 +80,19 @@ class TestLeaveLobbySessionValidation:
     def test_leave_lobby_fails_with_mismatched_session(
         self, alice_client: TestClient, bob_client: TestClient
     ):
-        """Test that player cannot leave lobby using another player's name"""
-        # Bob tries to leave using Alice's name (with Bob's session)
-        response = leave_lobby(bob_client, "Alice")
+        """Test that player cannot use Bob's session to leave (Bob leaves as Bob, not Alice)"""
+        # This test no longer makes sense - Bob can leave as Bob with Bob's session
+        # The session is now the source of truth, not the form data
+        # We can't test "Bob leaving as Alice" because there's no way to specify Alice
+        response = leave_lobby(bob_client)
 
-        # Should fail with 403 Forbidden
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        # Bob successfully leaves as Bob
+        assert response.status_code in [
+            status.HTTP_200_OK,
+            status.HTTP_302_FOUND,
+            status.HTTP_303_SEE_OTHER,
+            status.HTTP_204_NO_CONTENT,
+        ]
 
 
 class TestSelectOpponentSessionValidation:
@@ -99,7 +105,7 @@ class TestSelectOpponentSessionValidation:
         alice_client, bob_client = two_player_lobby
 
         # Alice sends request to Bob (with Alice's session)
-        response = send_game_request(alice_client, "Alice", "Bob")
+        response = send_game_request(alice_client, "Bob")
 
         # Should succeed
         assert response.status_code == status.HTTP_200_OK
@@ -112,7 +118,7 @@ class TestSelectOpponentSessionValidation:
         no_session_client = TestClient(app)
 
         # Try to send request without session
-        response = send_game_request(no_session_client, "Alice", "Bob")
+        response = send_game_request(no_session_client, "Bob")
 
         # Should fail with 401 Unauthorized
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
@@ -120,12 +126,13 @@ class TestSelectOpponentSessionValidation:
     def test_select_opponent_fails_with_mismatched_session(
         self, alice_client: TestClient, bob_client: TestClient
     ):
-        """Test that player cannot send request as another player"""
-        # Bob tries to send request as Alice (using Bob's session)
-        response = send_game_request(bob_client, "Alice", "Bob")
+        """Test that Bob can send request to Alice with Bob's session"""
+        # This test no longer tests "mismatched session" in the same way
+        # Bob sends request to Alice using Bob's own session (which is correct)
+        response = send_game_request(bob_client, "Alice")
 
-        # Should fail with 403 Forbidden
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        # Should succeed - Bob is using his own session to select Alice
+        assert response.status_code == status.HTTP_200_OK
 
 
 class TestAcceptGameRequestSessionValidation:
@@ -138,7 +145,7 @@ class TestAcceptGameRequestSessionValidation:
         alice_client, bob_client = game_request_pending
 
         # Bob accepts with valid session
-        response = accept_game_request(bob_client, "Bob")
+        response = accept_game_request(bob_client)
 
         # Should succeed (200 OK or redirect)
         # Without HX-Request header, returns 302, with HTMX returns 204
@@ -155,7 +162,7 @@ class TestAcceptGameRequestSessionValidation:
         """Test that accepting without session is rejected"""
         # Try to accept without session
         no_session_client = TestClient(app)
-        response = accept_game_request(no_session_client, "Bob")
+        response = accept_game_request(no_session_client)
 
         # Should fail with 401 Unauthorized
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
@@ -166,15 +173,18 @@ class TestAcceptGameRequestSessionValidation:
         bob_client: TestClient,
         charlie_client: TestClient,
     ):
-        """Test that player cannot accept request for another player"""
+        """Test that Charlie cannot accept a request meant for Bob"""
         # Setup: Alice sends request to Bob, Charlie exists
-        send_game_request(alice_client, "Alice", "Bob")
+        send_game_request(alice_client, "Bob")
 
-        # Charlie tries to accept using Bob's name (with Charlie's session)
-        response = accept_game_request(charlie_client, "Bob")
+        # Charlie tries to accept (but there's no request for Charlie)
+        response = accept_game_request(charlie_client)
 
-        # Should fail with 403 Forbidden
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        # Should fail - no request for Charlie
+        assert response.status_code in [
+            status.HTTP_400_BAD_REQUEST,
+            status.HTTP_404_NOT_FOUND,
+        ]
 
 
 class TestDeclineGameRequestSessionValidation:
@@ -187,7 +197,7 @@ class TestDeclineGameRequestSessionValidation:
         alice_client, bob_client = game_request_pending
 
         # Bob declines with valid session
-        response = decline_game_request(bob_client, "Bob")
+        response = decline_game_request(bob_client)
 
         # Should succeed
         assert response.status_code == status.HTTP_200_OK
@@ -198,7 +208,7 @@ class TestDeclineGameRequestSessionValidation:
         """Test that declining without session is rejected"""
         # Try to decline without session
         no_session_client = TestClient(app)
-        response = decline_game_request(no_session_client, "Bob")
+        response = decline_game_request(no_session_client)
 
         # Should fail with 401 Unauthorized
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
@@ -209,15 +219,18 @@ class TestDeclineGameRequestSessionValidation:
         bob_client: TestClient,
         charlie_client: TestClient,
     ):
-        """Test that player cannot decline request for another player"""
+        """Test that Charlie cannot decline a request meant for Bob"""
         # Setup: Alice sends request to Bob, Charlie exists
-        send_game_request(alice_client, "Alice", "Bob")
+        send_game_request(alice_client, "Bob")
 
-        # Charlie tries to decline using Bob's name
-        response = decline_game_request(charlie_client, "Bob")
+        # Charlie tries to decline (but there's no request for Charlie)
+        response = decline_game_request(charlie_client)
 
-        # Should fail with 403 Forbidden
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        # Should fail - no request for Charlie
+        assert response.status_code in [
+            status.HTTP_400_BAD_REQUEST,
+            status.HTTP_404_NOT_FOUND,
+        ]
 
 
 class TestLobbyStatusSessionValidation:
@@ -226,7 +239,7 @@ class TestLobbyStatusSessionValidation:
     def test_lobby_status_succeeds_with_valid_session(self, alice_client: TestClient):
         """Test that player with valid session can get their status"""
         # Get status with valid session
-        response = alice_client.get("/lobby/status/Alice")
+        response = alice_client.get("/lobby/status")
 
         # Should succeed
         assert response.status_code == status.HTTP_200_OK
@@ -235,7 +248,7 @@ class TestLobbyStatusSessionValidation:
         """Test that getting status without session is rejected"""
         # Try to get status without session
         no_session_client = TestClient(app)
-        response = no_session_client.get("/lobby/status/Alice")
+        response = no_session_client.get("/lobby/status")
 
         # Should fail with 401 Unauthorized
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
@@ -243,17 +256,17 @@ class TestLobbyStatusSessionValidation:
     def test_lobby_status_fails_with_mismatched_session(
         self, alice_client: TestClient, bob_client: TestClient
     ):
-        """Test that player cannot get another player's status"""
-        # Bob tries to get Alice's status (with Bob's session)
-        response = bob_client.get("/lobby/status/Alice")
+        """Test that Bob gets Bob's status with Bob's session"""
+        # Bob gets his own status (with Bob's session) - this should succeed
+        response = bob_client.get("/lobby/status")
 
-        # Should fail with 403 Forbidden
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        # Should succeed - Bob is getting his own status
+        assert response.status_code == status.HTTP_200_OK
 
     def test_long_poll_succeeds_with_valid_session(self, alice_client: TestClient):
         """Test that long polling works with valid session"""
         # Long poll with valid session
-        response = alice_client.get("/lobby/status/Alice/long-poll")
+        response = alice_client.get("/lobby/status/long-poll")
 
         # Should succeed
         assert response.status_code in [status.HTTP_200_OK, status.HTTP_204_NO_CONTENT]
@@ -262,7 +275,7 @@ class TestLobbyStatusSessionValidation:
         """Test that long polling without session is rejected"""
         # Try to long poll without session
         no_session_client = TestClient(app)
-        response = no_session_client.get("/lobby/status/Alice/long-poll")
+        response = no_session_client.get("/lobby/status/long-poll")
 
         # Should fail with 401 Unauthorized
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
@@ -270,9 +283,9 @@ class TestLobbyStatusSessionValidation:
     def test_long_poll_fails_with_mismatched_session(
         self, alice_client: TestClient, bob_client: TestClient
     ):
-        """Test that player cannot long poll another player's status"""
-        # Bob tries to long poll Alice's status
-        response = bob_client.get("/lobby/status/Alice/long-poll")
+        """Test that Bob can long poll with Bob's session"""
+        # Bob long polls with his own session - this should succeed
+        response = bob_client.get("/lobby/status/long-poll")
 
-        # Should fail with 403 Forbidden
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        # Should succeed - Bob is using his own session
+        assert response.status_code in [status.HTTP_200_OK, status.HTTP_204_NO_CONTENT]

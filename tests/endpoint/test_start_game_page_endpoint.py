@@ -12,30 +12,32 @@ from fastapi.testclient import TestClient
 class TestEndStartGameEndpoint:
     """Tests for GET /start-game endpoint"""
 
-    def test_start_game_page_returns_200(self, client: TestClient):
+    def test_start_game_page_returns_200(self, authenticated_client: TestClient):
         """Test that start game page loads successfully"""
-        response = client.get("/start-game", params={"player_name": "Alice"})
+        response = authenticated_client.get("/start-game")
 
         assert response.status_code == status.HTTP_200_OK
         assert "text/html" in response.headers["content-type"]
 
-    def test_start_game_page_displays_player_name(self, client: TestClient):
+    def test_start_game_page_displays_player_name(
+        self, authenticated_client: TestClient
+    ):
         """Test that start game page shows the player's name"""
-        response = client.get("/start-game", params={"player_name": "TestPlayer"})
+        response = authenticated_client.get("/start-game")
 
         assert response.status_code == status.HTTP_200_OK
         soup = BeautifulSoup(response.text, "html.parser")
 
-        # Check that player name is displayed
+        # Check that player name is displayed (Alice from authenticated_client fixture)
         player_element = soup.find(attrs={"data-testid": "player-name"})
         assert player_element is not None
-        assert "TestPlayer" in player_element.text
+        assert "Alice" in player_element.text
 
     def test_start_game_page_single_player_mode_without_opponent(
-        self, client: TestClient
+        self, authenticated_client: TestClient
     ):
         """Test that start game page shows single player mode when no opponent provided"""
-        response = client.get("/start-game", params={"player_name": "Alice"})
+        response = authenticated_client.get("/start-game")
 
         assert response.status_code == status.HTTP_200_OK
         soup = BeautifulSoup(response.text, "html.parser")
@@ -49,11 +51,14 @@ class TestEndStartGameEndpoint:
         opponent_element = soup.find(attrs={"data-testid": "opponent-name"})
         assert opponent_element is None
 
-    def test_start_game_page_two_player_mode_with_opponent(self, client: TestClient):
-        """Test that start game page shows two player mode when opponent provided"""
-        response = client.get(
-            "/start-game", params={"player_name": "Alice", "opponent_name": "Bob"}
-        )
+    def test_start_game_page_two_player_mode_with_opponent(
+        self, game_paired: tuple[TestClient, TestClient]
+    ):
+        """Test that start game page shows two player mode when opponent paired via lobby"""
+        alice_client, bob_client = game_paired
+
+        # Alice accesses the start game page after pairing with Bob
+        response = alice_client.get("/start-game")
 
         assert response.status_code == status.HTTP_200_OK
         soup = BeautifulSoup(response.text, "html.parser")
@@ -75,25 +80,15 @@ class TestEndStartGameEndpoint:
     def test_start_game_page_with_no_player_name_specified_displays_error_and_redirects_to_login(
         self, client: TestClient
     ):
-        """Test that start game page rejects empty player name"""
+        """Test that start game page requires session"""
         response = client.get("/start-game")
 
-        # Should reject empty player_name with 422 status
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
-        assert "text/html" in response.headers["content-type"]
+        # Should reject no session with 401 status
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
-        # Should display an error message
-        soup = BeautifulSoup(response.text, "html.parser")
-        error_message = soup.find(attrs={"data-testid": "error-message"})
-        assert error_message is not None
-        assert (
-            "player name" in error_message.text.lower()
-            or "required" in error_message.text.lower()
-        )  # Should reject empty player_name - redirect to login
-
-    def test_start_game_page_has_title(self, client: TestClient):
+    def test_start_game_page_has_title(self, authenticated_client: TestClient):
         """Test that start game page has proper title"""
-        response = client.get("/start-game", params={"player_name": "Alice"})
+        response = authenticated_client.get("/start-game")
 
         assert response.status_code == status.HTTP_200_OK
         soup = BeautifulSoup(response.text, "html.parser")
@@ -103,9 +98,9 @@ class TestEndStartGameEndpoint:
         assert title is not None
         assert "Battleships Game" in title.text
 
-    def test_start_game_page_displays_heading(self, client: TestClient):
+    def test_start_game_page_displays_heading(self, authenticated_client: TestClient):
         """Test that start game page has proper heading"""
-        response = client.get("/start-game", params={"player_name": "Alice"})
+        response = authenticated_client.get("/start-game")
 
         assert response.status_code == status.HTTP_200_OK
         soup = BeautifulSoup(response.text, "html.parser")
@@ -118,21 +113,11 @@ class TestEndStartGameEndpoint:
     def test_start_game_page_with_only_opponent_name_displays_error_and_redirects_to_login(
         self, client: TestClient
     ):
-        """Test start game page behavior with only opponent name (no player name)"""
-        response = client.get("/start-game", params={"opponent_name": "Bob"})
+        """Test start game page behavior without session"""
+        response = client.get("/start-game")
 
-        # Should reject empty player_name with 422 status
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
-        assert "text/html" in response.headers["content-type"]
-
-        # Should display an error message
-        soup = BeautifulSoup(response.text, "html.parser")
-        error_message = soup.find(attrs={"data-testid": "error-message"})
-        assert error_message is not None
-        assert (
-            "player name" in error_message.text.lower()
-            or "required" in error_message.text.lower()
-        )
+        # Should reject no session with 401 status
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
 class TestPostStartGameEndpoint:
@@ -218,15 +203,15 @@ class TestPostStartGameEndpoint:
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_post_start_game_without_player_name_returns_422(self, client: TestClient):
-        """Test POST /start-game without player_name returns 422 Unprocessable Entity"""
+        """Test POST /start-game without session returns 401 Unauthorized"""
         response = client.post(
             "/start-game",
             data={"action": "start_game"},
             follow_redirects=False,
         )
 
-        # Should return 422 Unprocessable Entity
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        # Should return 401 Unauthorized (no session)
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
 class TestStartGamePageIntegration:
@@ -253,10 +238,8 @@ class TestStartGamePageIntegration:
         """Test that game page works after multiplayer game pairing"""
         alice_client, bob_client = game_paired
 
-        # Access start game page directly
-        start_game_response = alice_client.get(
-            "/start-game", params={"player_name": "Alice", "opponent_name": "Bob"}
-        )
+        # Access start game page directly (player and opponent from session/lobby)
+        start_game_response = alice_client.get("/start-game")
         assert start_game_response.status_code == status.HTTP_200_OK
 
         soup = BeautifulSoup(start_game_response.text, "html.parser")

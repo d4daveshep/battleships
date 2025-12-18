@@ -73,6 +73,17 @@ class GameService:
     def add_player(self, player: Player) -> None:
         self.players[player.id] = player
 
+    def get_player(self, player_id: str) -> Player | None:
+        """Get player by ID
+
+        Args:
+            player_id: The player ID to look up
+
+        Returns:
+            Player object if found, None otherwise
+        """
+        return self.players.get(player_id)
+
     def create_single_player_game(self, player_id: str) -> str:
         try:
             player = self.players[player_id]

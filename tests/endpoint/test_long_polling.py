@@ -13,12 +13,12 @@ from test_helpers import leave_lobby, send_game_request
 
 
 class TestLongPollingEndpoint:
-    """Tests for the /lobby/status/{player_name}/long-poll endpoint"""
+    """Tests for the /lobby/status/long-poll endpoint"""
 
     def test_long_poll_endpoint_exists(self, alice_client: TestClient):
         """Test that the long poll endpoint exists and returns 200 OK"""
         # Test: Call the long poll endpoint
-        response = alice_client.get("/lobby/status/Alice/long-poll")
+        response = alice_client.get("/lobby/status/long-poll")
 
         # Verify: Endpoint exists and returns OK
         assert response.status_code == status.HTTP_200_OK
@@ -32,7 +32,7 @@ class TestLongPollingEndpoint:
 
         # Test: First long poll should return immediately
         start_time = time.time()
-        response = alice_client.get("/lobby/status/Alice/long-poll")
+        response = alice_client.get("/lobby/status/long-poll")
         elapsed_time = time.time() - start_time
 
         # Verify: Returns quickly (within 1 second)
@@ -43,14 +43,14 @@ class TestLongPollingEndpoint:
     def test_long_poll_waits_for_state_change(self, alice_client: TestClient):
         """Test that long poll waits when state hasn't changed"""
         # Make initial call to get current version
-        initial_response = alice_client.get("/lobby/status/Alice/long-poll")
+        initial_response = alice_client.get("/lobby/status/long-poll")
         assert initial_response.status_code == status.HTTP_200_OK
 
         # Test: Second long poll with current version should wait (will timeout in test)
         # Version is 1 after adding Alice
         start_time = time.time()
         response = alice_client.get(
-            "/lobby/status/Alice/long-poll", params={"timeout": "2", "version": "1"}
+            "/lobby/status/long-poll", params={"timeout": "2", "version": "1"}
         )
         elapsed_time = time.time() - start_time
 
@@ -63,7 +63,7 @@ class TestLongPollingEndpoint:
     ):
         """Test that long poll returns immediately when lobby state changes"""
         # Get initial state
-        initial_response = alice_client.get("/lobby/status/Alice/long-poll")
+        initial_response = alice_client.get("/lobby/status/long-poll")
         assert initial_response.status_code == status.HTTP_200_OK
 
         # Start a long poll in background (simulate with short timeout for test)
@@ -75,7 +75,7 @@ class TestLongPollingEndpoint:
 
         start_time = time.time()
         response = alice_client.get(
-            "/lobby/status/Alice/long-poll",
+            "/lobby/status/long-poll",
             params={"version": "0", "timeout": "5"},
         )
         elapsed_time = time.time() - start_time
@@ -89,12 +89,12 @@ class TestLongPollingEndpoint:
 
     def test_long_poll_accepts_timeout_parameter(self, alice_client: TestClient):
         """Test that timeout parameter is respected"""
-        alice_client.get("/lobby/status/Alice/long-poll")  # Initial call
+        alice_client.get("/lobby/status/long-poll")  # Initial call
 
         # Test: Custom timeout of 1 second with current version
         start_time = time.time()
         response = alice_client.get(
-            "/lobby/status/Alice/long-poll", params={"timeout": "1", "version": "1"}
+            "/lobby/status/long-poll", params={"timeout": "1", "version": "1"}
         )
         elapsed_time = time.time() - start_time
 
@@ -107,9 +107,7 @@ class TestLongPollingEndpoint:
     def test_long_poll_accepts_version_parameter(self, alice_client: TestClient):
         """Test that version parameter is accepted and used for change detection"""
         # Test: Poll with version 0 (should return immediately if state changed)
-        response = alice_client.get(
-            "/lobby/status/Alice/long-poll", params={"version": "0"}
-        )
+        response = alice_client.get("/lobby/status/long-poll", params={"version": "0"})
 
         # Verify: Endpoint accepts version parameter
         assert response.status_code == status.HTTP_200_OK
@@ -122,46 +120,39 @@ class TestLongPollingEndpoint:
     ):
         """Test that multiple players can long poll concurrently"""
         # Get initial states for all
-        alice_client.get("/lobby/status/Alice/long-poll")
-        bob_client.get("/lobby/status/Bob/long-poll")
-        charlie_client.get("/lobby/status/Charlie/long-poll")
+        alice_client.get("/lobby/status/long-poll")
+        bob_client.get("/lobby/status/long-poll")
+        charlie_client.get("/lobby/status/long-poll")
 
         # Test: All should be able to poll (though TestClient is synchronous)
         # This is a basic test - async concurrent testing would need pytest-asyncio
         response_alice = alice_client.get(
-            "/lobby/status/Alice/long-poll", params={"timeout": "1"}
+            "/lobby/status/long-poll", params={"timeout": "1"}
         )
         response_bob = bob_client.get(
-            "/lobby/status/Bob/long-poll", params={"timeout": "1"}
+            "/lobby/status/long-poll", params={"timeout": "1"}
         )
 
         # Verify: All requests complete successfully
         assert response_alice.status_code == status.HTTP_200_OK
         assert response_bob.status_code == status.HTTP_200_OK
 
-    def test_long_poll_invalid_player_returns_error(self, alice_client: TestClient):
-        """Test that polling for non-existent player returns appropriate error"""
-        # Test: Poll for player that doesn't exist (but we have a valid session)
-        # This will fail session validation since Alice's session can't access NonExistent
-        response = alice_client.get("/lobby/status/NonExistent/long-poll")
+    def test_long_poll_invalid_player_returns_error(self, client: TestClient):
+        """Test that polling without a valid session returns appropriate error"""
+        # Test: Poll without any session (no login)
+        response = client.get("/lobby/status/long-poll")
 
-        # Verify: Should return error (401 for session mismatch, or 404 for not found)
-        assert response.status_code in [
-            status.HTTP_401_UNAUTHORIZED,
-            status.HTTP_403_FORBIDDEN,
-            status.HTTP_404_NOT_FOUND,
-        ]
+        # Verify: Should return 401 for no session
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
     def test_long_poll_default_timeout_is_reasonable(self, alice_client: TestClient):
         """Test that default timeout is set to a reasonable value (e.g., 30s)"""
-        alice_client.get("/lobby/status/Alice/long-poll")  # Initial call
+        alice_client.get("/lobby/status/long-poll")  # Initial call
 
         # Test: Call without timeout parameter (should use default)
         # We'll use a short timeout to avoid slow tests
         start_time = time.time()
-        response = alice_client.get(
-            "/lobby/status/Alice/long-poll", params={"timeout": "1"}
-        )
+        response = alice_client.get("/lobby/status/long-poll", params={"timeout": "1"})
         elapsed_time = time.time() - start_time
 
         # Verify: Has a reasonable default (tested with explicit param for speed)
@@ -171,7 +162,7 @@ class TestLongPollingEndpoint:
     def test_long_poll_returns_html_response(self, alice_client: TestClient):
         """Test that long poll returns HTML response suitable for HTMX"""
         # Test: Get long poll response
-        response = alice_client.get("/lobby/status/Alice/long-poll")
+        response = alice_client.get("/lobby/status/long-poll")
 
         # Verify: Returns HTML
         assert response.status_code == status.HTTP_200_OK
@@ -188,7 +179,7 @@ class TestLongPollingStateChangeDetection:
     ):
         """Test that long poll detects when a new player joins"""
         # Setup: Create Alice
-        initial = alice_client.get("/lobby/status/Alice/long-poll")
+        initial = alice_client.get("/lobby/status/long-poll")
         assert initial.status_code == status.HTTP_200_OK
 
         # Test: Bob joins while Alice is polling
@@ -197,7 +188,7 @@ class TestLongPollingStateChangeDetection:
         # Poll with old version - should return immediately
         start_time = time.time()
         response = alice_client.get(
-            "/lobby/status/Alice/long-poll",
+            "/lobby/status/long-poll",
             params={"version": "1", "timeout": "5"},
         )
         elapsed = time.time() - start_time
@@ -212,16 +203,16 @@ class TestLongPollingStateChangeDetection:
     ):
         """Test that long poll detects when a player leaves"""
         # Setup: Create Alice and Bob
-        initial = alice_client.get("/lobby/status/Alice/long-poll")
+        initial = alice_client.get("/lobby/status/long-poll")
         assert "Bob" in initial.text
 
         # Test: Bob leaves
-        leave_lobby(bob_client, "Bob")
+        leave_lobby(bob_client)
 
         # Poll with old version - should return immediately
         start_time = time.time()
         response = alice_client.get(
-            "/lobby/status/Alice/long-poll",
+            "/lobby/status/long-poll",
             params={"version": "2", "timeout": "5"},
         )
         elapsed = time.time() - start_time
@@ -236,16 +227,16 @@ class TestLongPollingStateChangeDetection:
     ):
         """Test that long poll detects when a game request is sent"""
         # Setup: Create Alice and Bob
-        initial = bob_client.get("/lobby/status/Bob/long-poll")
+        initial = bob_client.get("/lobby/status/long-poll")
         assert initial.status_code == status.HTTP_200_OK
 
         # Test: Alice sends game request to Bob
-        send_game_request(alice_client, "Alice", "Bob")
+        send_game_request(alice_client, "Bob")
 
         # Poll with old version - should return immediately
         start_time = time.time()
         response = bob_client.get(
-            "/lobby/status/Bob/long-poll",
+            "/lobby/status/long-poll",
             params={"version": "2", "timeout": "5"},
         )
         elapsed = time.time() - start_time

@@ -111,7 +111,7 @@ def game_request_pending(
     Returns:
         Tuple of (alice_client, bob_client) with request pending
     """
-    send_game_request(alice_client, "Alice", "Bob")
+    send_game_request(alice_client, "Bob")
     return (alice_client, bob_client)
 
 
@@ -128,6 +128,6 @@ def game_paired(
     Returns:
         Tuple of (alice_client, bob_client) with game paired
     """
-    send_game_request(alice_client, "Alice", "Bob")
-    accept_game_request(bob_client, "Bob")
+    send_game_request(alice_client, "Bob")
+    accept_game_request(bob_client)
     return (alice_client, bob_client)

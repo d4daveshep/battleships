@@ -12,50 +12,6 @@ class GameStateManager:
     def __init__(self):
         self.active_games: dict[str, Game] = {}
 
-    def start_multiplayer_game(self, player1: str, player2: str) -> tuple[Game, Game]:
-        """Start a multiplayer game between two players"""
-        if player1 in self.active_games:
-            raise ValueError(f"Player {player1} is already in a game")
-        if player2 in self.active_games:
-            raise ValueError(f"Player {player2} is already in a game")
-
-        game_state1 = Game(
-            player_name=player1, game_mode=GameMode.MULTIPLAYER, opponent_name=player2
-        )
-        game_state2 = Game(
-            player_name=player2, game_mode=GameMode.MULTIPLAYER, opponent_name=player1
-        )
-
-        self.active_games[player1] = game_state1
-        self.active_games[player2] = game_state2
-
-        return game_state1, game_state2
-
-    def get_game_state(self, player_name: str) -> Optional[Game]:
-        """Get the current game state for a player"""
-        return self.active_games.get(player_name)
-
-    def is_player_in_game(self, player_name: str) -> bool:
-        """Check if a player is currently in a game"""
-        return player_name in self.active_games
-
-    def end_game(self, player_name: str) -> Optional[str]:
-        """End the game for a player and their opponent (if multiplayer)"""
-        if player_name not in self.active_games:
-            return None
-
-        game_state = self.active_games[player_name]
-        opponent_name = game_state.opponent_name
-
-        # Remove the player's game
-        del self.active_games[player_name]
-
-        # If multiplayer, also remove opponent's game
-        if opponent_name and opponent_name in self.active_games:
-            del self.active_games[opponent_name]
-
-        return opponent_name
-
     def clear_all_games(self) -> None:
         """Clear all active games"""
         self.active_games.clear()
@@ -63,42 +19,6 @@ class GameStateManager:
 
 class TestGameStateManager:
     """Unit tests for GameStateManager class"""
-
-    def test_start_multiplayer_game_success(self):
-        # Test starting a multiplayer game
-        manager = GameStateManager()
-
-        game_state1, game_state2 = manager.start_multiplayer_game("Alice", "Bob")
-
-        # Verify Alice's game state
-        assert game_state1.player_name == "Alice"
-        assert game_state1.game_mode == GameMode.MULTIPLAYER
-        assert game_state1.opponent_name == "Bob"
-
-        # Verify Bob's game state
-        assert game_state2.player_name == "Bob"
-        assert game_state2.game_mode == GameMode.MULTIPLAYER
-        assert game_state2.opponent_name == "Alice"
-
-        # Verify both are in game
-        assert manager.is_player_in_game("Alice")
-        assert manager.is_player_in_game("Bob")
-
-    def test_start_multiplayer_game_player1_already_in_game(self):
-        # Test that starting multiplayer game fails if player1 already in game
-        manager = GameStateManager()
-        manager.start_single_player_game("Alice")
-
-        with pytest.raises(ValueError, match="Player Alice is already in a game"):
-            manager.start_multiplayer_game("Alice", "Bob")
-
-    def test_start_multiplayer_game_player2_already_in_game(self):
-        # Test that starting multiplayer game fails if player2 already in game
-        manager = GameStateManager()
-        manager.start_single_player_game("Bob")
-
-        with pytest.raises(ValueError, match="Player Bob is already in a game"):
-            manager.start_multiplayer_game("Alice", "Bob")
 
     def test_get_game_state_existing_player(self):
         # Test getting game state for existing player

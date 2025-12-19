@@ -1,6 +1,6 @@
 import pytest
 
-from game.game_service import Game, GameMode
+from game.game_service import Game, GameMode, GameStatus
 from game.player import Player, PlayerStatus
 
 
@@ -8,10 +8,27 @@ class TestGameModeEnum:
     """Unit tests for GameMode enumeration"""
 
     def test_game_mode_values(self):
-        # Test that GameMode has expected values
-        assert GameMode.SINGLE_PLAYER == "Single Player"
-        assert GameMode.TWO_PLAYER == "Two Player"
-        assert len(GameMode) == 2
+        expected_modes = {
+            GameMode.SINGLE_PLAYER,
+            GameMode.TWO_PLAYER,
+        }
+        actual_modes: set[GameMode] = {mode for mode in GameMode}
+        assert expected_modes == actual_modes
+
+
+class TestGameStatusEnum:
+    """Unit tests for GameStatus enumeration"""
+
+    def test_game_status_values(self):
+        expected_statuses = {
+            GameStatus.CREATED,
+            GameStatus.SETUP,
+            GameStatus.PLAYING,
+            GameStatus.FINISHED,
+            GameStatus.ABANDONED,
+        }
+        actual_statuses: set[GameStatus] = {status for status in GameStatus}
+        assert expected_statuses == actual_statuses
 
 
 class TestGameModel:

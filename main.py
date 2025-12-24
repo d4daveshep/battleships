@@ -436,7 +436,7 @@ async def start_game_submit(
     player: Player = _get_player_from_session(request)
 
     # Validate action parameter
-    valid_actions: list[str] = ["start_game", "return_to_login", "exit"]
+    valid_actions: list[str] = ["start_game", "abandon_game"]
     if not action or action not in valid_actions:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -447,10 +447,8 @@ async def start_game_submit(
     redirect_url: str
     if action == "start_game":
         redirect_url = "/ship-placement"
-    elif action == "return_to_login":
+    elif action == "abandon_game":
         redirect_url = "/"
-    elif action == "exit":
-        redirect_url = "/goodbye"
     else:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

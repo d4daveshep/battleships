@@ -140,14 +140,14 @@ class TestPostStartGameEndpoint:
         assert redirect_url is not None
         assert "ship-placement" in redirect_url
 
-    def test_post_start_game_with_return_to_login_action_redirects_to_login(
+    def test_post_start_game_with_abandon_game_redirects_to_login(
         self, authenticated_client: TestClient
     ):
-        """Test POST /start-game with action=return_to_login redirects to login page"""
+        """Test POST /start-game with action=abandon_game redirects to login page"""
         # Submit start game form with return_to_login action
         response = authenticated_client.post(
             "/start-game",
-            data={"player_name": "Alice", "action": "return_to_login"},
+            data={"player_name": "Alice", "action": "abandon_game"},
             follow_redirects=False,
         )
 
@@ -156,23 +156,6 @@ class TestPostStartGameEndpoint:
         redirect_url = response.headers.get("location")
         assert redirect_url is not None
         assert redirect_url == "/" or "login" in redirect_url
-
-    def test_post_start_game_with_exit_action_redirects_to_goodbye(
-        self, authenticated_client: TestClient
-    ):
-        """Test POST /start-game with action=exit redirects to goodbye page"""
-        # Submit start game form with exit action
-        response = authenticated_client.post(
-            "/start-game",
-            data={"player_name": "Alice", "action": "exit"},
-            follow_redirects=False,
-        )
-
-        # Should redirect with 303 status
-        assert response.status_code == status.HTTP_303_SEE_OTHER
-        redirect_url = response.headers.get("location")
-        assert redirect_url is not None
-        assert "goodbye" in redirect_url
 
     def test_post_start_game_without_action_returns_400(
         self, authenticated_client: TestClient

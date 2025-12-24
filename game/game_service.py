@@ -196,10 +196,7 @@ class GameService:
         return game.status
 
     def get_game_id_by_player_id(self, player_id: str) -> str:
-        raise NotImplementedError
+        raise NotImplementedError("Complete unit tests first")
 
     def abandon_game_by_player_id(self, player_id: str) -> None:
-        raise NotImplementedError
-
-    def abandon_game_by_game_id(self, game_id: str) -> None:
-        raise NotImplementedError
+        raise NotImplementedError("Complete unit tests first")

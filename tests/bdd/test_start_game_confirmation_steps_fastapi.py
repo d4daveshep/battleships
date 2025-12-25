@@ -140,18 +140,18 @@ def redirected_to_ship_placement(
     assert h1_element and "Ship Placement" in h1_element.get_text()
 
 
-# === Scenario: Return to login page ===
+# === Scenario: Abandon game ===
 
 
-@when('I choose "Return to Login"')
-def choose_return_to_login(
+@when('I choose "Abandon Game"')
+def choose_abandon_game(
     client: TestClient, confirmation_context: StartGameConfirmationContext
 ) -> None:
-    """Click the Return to Login button"""
-    # Submit form with return to login action
+    """Click the Abandon Game button"""
+    # Submit form with abandon game action
     form_data = {
         "player_name": confirmation_context.player_name,
-        "action": "return_to_login",
+        "action": "abandon_game",
     }
     response = client.post("/start-game", data=form_data)
     confirmation_context.update_response(response)
@@ -176,41 +176,3 @@ def redirected_to_login_page(
     assert confirmation_context.soup is not None
     h1_element = confirmation_context.soup.find("h1")
     assert h1_element and "Battleships Login" in h1_element.get_text()
-
-
-# === Scenario: Exit completely ===
-
-
-@when('I choose "Exit"')
-def choose_exit(
-    client: TestClient, confirmation_context: StartGameConfirmationContext
-) -> None:
-    """Click the Exit button"""
-    # Submit form with exit action
-    form_data = {
-        "player_name": confirmation_context.player_name,
-        "action": "exit",
-    }
-    response = client.post("/start-game", data=form_data)
-    confirmation_context.update_response(response)
-
-
-@then("I should be redirected to the goodbye page")
-def redirected_to_goodbye_page(
-    client: TestClient, confirmation_context: StartGameConfirmationContext
-) -> None:
-    """Verify redirect to goodbye page"""
-    assert confirmation_context.response is not None
-    assert confirmation_context.response.status_code == 303
-    redirect_url = confirmation_context.response.headers.get("location")
-    assert redirect_url is not None
-    assert "goodbye" in redirect_url
-
-    # Follow the redirect and verify we arrive at goodbye page
-    target_response = client.get(redirect_url)
-    confirmation_context.update_response(target_response)
-
-    assert confirmation_context.response.status_code == 200
-    assert confirmation_context.soup is not None
-    h1_element = confirmation_context.soup.find("h1")
-    assert h1_element and "Goodbye" in h1_element.get_text()

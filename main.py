@@ -4,6 +4,7 @@ from typing import Any
 
 from fastapi import FastAPI, Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import Response
@@ -27,6 +28,7 @@ from services.lobby_service import LobbyService
 
 app: FastAPI = FastAPI()
 app.add_middleware(SessionMiddleware, secret_key="your-secret-key-here")
+app.mount("/static", StaticFiles(directory="static"), name="static")
 templates: Jinja2Templates = Jinja2Templates(directory="templates")
 
 
@@ -299,10 +301,9 @@ async def place_ship(
         # Replace hyphens with underscores for enum member lookup
         orient: Orientation = Orientation[orientation.upper().replace("-", "_")]
 
-        # FIXME: Replace with call to game manager when it's implemented
-        # For now this will get the game board for the player or create a new one
+        # Get or create board for ship placement
         validated_player_name: str = _get_validated_player_name(request, player_name)
-        board: GameBoard = game_service.get_game_board(
+        board: GameBoard = game_service.get_or_create_ship_placement_board(
             player_id=_get_player_id(request)
         )
         board.place_ship(ship, start, orient)
@@ -320,7 +321,7 @@ async def place_ship(
         # Get current board state to show what's already placed
         validated_player_name: str = _get_validated_player_name(request, player_name)
         try:
-            board: GameBoard = game_service.get_game_board(
+            board: GameBoard = game_service.get_or_create_ship_placement_board(
                 player_id=_get_player_id(request)
             )
         except Exception:
@@ -363,11 +364,9 @@ async def place_ship(
             status_code=status.HTTP_200_OK,
         )
 
-    # FIXME: Change this data structure when I design the proper ship board screens
-    cells: list[str] = [coord.name for coord in ship.positions]
-    placed_ships: dict[str, dict[str, list[str]]] = {
-        ship.ship_type.ship_name: {"cells": cells}
-    }
+    # Get all placed ships from the board to display
+    placed_ships: dict[str, dict[str, list[str]]] = _get_placed_ships_from_board(board)
+
     return templates.TemplateResponse(
         request,
         "ship_placement.html",

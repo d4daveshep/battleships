@@ -17,6 +17,36 @@ Feature: Ship Placement
     And the "My Ships and Shots Received" board is displayed
     And I have not placed any ships yet
 
+  # === Grid Visualization ===
+
+  Scenario: Ship placement screen displays 10x10 grid
+    Given I am on the ship placement screen
+    Then I should see a 10x10 grid displayed
+    And the grid should have row labels "A" through "J"
+    And the grid should have column labels "1" through "10"
+    And all grid cells should be empty
+
+  Scenario: Placed ship is visually marked on the grid
+    Given I select the "Destroyer" ship to place
+    When I place it horizontally starting at "A1"
+    Then cells "A1" and "A2" should be visually marked on the grid
+    And the marked cells should be clearly distinguishable from empty cells
+
+  Scenario: Multiple ships are visually distinguished on the grid
+    Given I have placed a "Destroyer" horizontally starting at "A1"
+    And I have placed a "Cruiser" vertically starting at "C3"
+    Then I should be able to identify which cells belong to which ship on the grid
+
+  Scenario: Vertically placed ship is correctly displayed on grid
+    Given I select the "Battleship" ship to place
+    When I place it vertically starting at "B2"
+    Then cells "B2", "C2", "D2", and "E2" should be marked on the grid
+
+  Scenario: Diagonally placed ship is correctly displayed on grid
+    Given I select the "Cruiser" ship to place
+    When I place it diagonally-down starting at "A1"
+    Then cells "A1", "B2", and "C3" should be marked on the grid
+
   # === Horizontal Placement ===
 
   Scenario: Successfully place Destroyer horizontally

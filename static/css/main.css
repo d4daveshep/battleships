@@ -1,0 +1,456 @@
+/* ============================================
+   Battleships Game - Main Stylesheet
+   ============================================ */
+
+/* ============================================
+   CSS Variables (Design Tokens)
+   ============================================ */
+:root {
+  /* Color Palette - Naval Theme */
+  --color-navy-dark: #0a1929;
+  --color-navy: #1a2332;
+  --color-navy-light: #2d3e50;
+  --color-ocean: #1e3a5f;
+  --color-ocean-light: #3d5a80;
+  --color-water: #5b8db8;
+  --color-foam: #e8f4f8;
+  
+  /* Ship Colors - Each ship type has unique color */
+  --color-carrier: #8b4513;        /* Saddle Brown */
+  --color-battleship: #2f4f4f;     /* Dark Slate Gray */
+  --color-cruiser: #4682b4;        /* Steel Blue */
+  --color-submarine: #556b2f;      /* Dark Olive Green */
+  --color-destroyer: #8b0000;      /* Dark Red */
+  
+  /* Grid Colors */
+  --color-grid-water: #e3f2fd;     /* Light Blue */
+  --color-grid-border: #90a4ae;    /* Blue Gray */
+  --color-grid-header: #b0bec5;    /* Light Blue Gray */
+  --color-grid-hover: #bbdefb;     /* Lighter Blue */
+  
+  /* Status Colors */
+  --color-hit: #e63946;
+  --color-miss: #a8dadc;
+  --color-success: #2a9d8f;
+  --color-warning: #e9c46a;
+  --color-error: #e76f51;
+  
+  /* Neutrals */
+  --color-white: #ffffff;
+  --color-gray-100: #f8f9fa;
+  --color-gray-200: #e9ecef;
+  --color-gray-300: #dee2e6;
+  --color-gray-400: #ced4da;
+  --color-gray-500: #adb5bd;
+  --color-gray-600: #6c757d;
+  --color-gray-700: #495057;
+  --color-gray-800: #343a40;
+  --color-gray-900: #212529;
+  
+  /* Spacing Scale */
+  --space-xs: 0.25rem;    /* 4px */
+  --space-sm: 0.5rem;     /* 8px */
+  --space-md: 1rem;       /* 16px */
+  --space-lg: 1.5rem;     /* 24px */
+  --space-xl: 2rem;       /* 32px */
+  --space-2xl: 3rem;      /* 48px */
+  
+  /* Typography */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "Courier New", Consolas, Monaco, monospace;
+  
+  --font-size-xs: 0.75rem;    /* 12px */
+  --font-size-sm: 0.875rem;   /* 14px */
+  --font-size-base: 1rem;     /* 16px */
+  --font-size-lg: 1.125rem;   /* 18px */
+  --font-size-xl: 1.25rem;    /* 20px */
+  --font-size-2xl: 1.5rem;    /* 24px */
+  
+  /* Border Radius */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 1rem;
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+  --shadow-inset: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+  
+  /* Transitions */
+  --transition-fast: 150ms ease-in-out;
+  --transition-base: 250ms ease-in-out;
+  --transition-slow: 350ms ease-in-out;
+}
+
+/* ============================================
+   Reset & Base Styles
+   ============================================ */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-base);
+  line-height: 1.6;
+  color: var(--color-gray-900);
+  background: linear-gradient(135deg, var(--color-ocean) 0%, var(--color-ocean-light) 100%);
+  min-height: 100vh;
+  padding: var(--space-lg);
+}
+
+/* ============================================
+   Ship Placement Grid Styles
+   ============================================ */
+
+/* Board Container */
+.ship-board-container {
+  background-color: var(--color-white);
+  border: 2px solid var(--color-ocean);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  margin: var(--space-lg) 0;
+  box-shadow: var(--shadow-lg);
+}
+
+.ship-board-container h3 {
+  color: var(--color-navy-dark);
+  margin-bottom: var(--space-md);
+  font-size: var(--font-size-xl);
+  border-bottom: 2px solid var(--color-ocean);
+  padding-bottom: var(--space-sm);
+}
+
+/* Grid Table */
+.ship-grid {
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: var(--space-md) auto;
+  box-shadow: var(--shadow-md);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background-color: var(--color-ocean);
+}
+
+/* Grid Headers (Row/Column Labels) */
+.ship-grid thead th,
+.ship-grid tbody th {
+  background: linear-gradient(135deg, var(--color-ocean) 0%, var(--color-ocean-light) 100%);
+  color: var(--color-white);
+  border: 1px solid var(--color-ocean-light);
+  padding: var(--space-sm);
+  text-align: center;
+  font-weight: 700;
+  font-size: var(--font-size-sm);
+  min-width: 35px;
+  height: 35px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Grid Cells */
+.ship-grid-cell {
+  border: 1px solid var(--color-grid-border);
+  padding: 0;
+  width: 40px;
+  height: 40px;
+  text-align: center;
+  background-color: var(--color-grid-water);
+  position: relative;
+  transition: all var(--transition-fast);
+  cursor: default;
+  font-weight: 700;
+  font-size: var(--font-size-base);
+  vertical-align: middle;
+}
+
+/* Empty cell hover effect */
+.ship-grid-cell:not([data-ship]):hover {
+  background-color: var(--color-grid-hover);
+  transform: scale(1.05);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Ship Cell Base Styles */
+.ship-grid-cell[data-ship] {
+  color: var(--color-white);
+  font-weight: 900;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+  position: relative;
+}
+
+/* Ship Cell Hover Effect */
+.ship-grid-cell[data-ship]:hover {
+  transform: scale(1.08);
+  box-shadow: var(--shadow-md);
+  z-index: 10;
+}
+
+/* Individual Ship Type Styles */
+.ship-grid-cell[data-ship="carrier"] {
+  background: linear-gradient(135deg, var(--color-carrier) 0%, #a0522d 100%);
+  border-color: #6b3410;
+}
+
+.ship-grid-cell[data-ship="battleship"] {
+  background: linear-gradient(135deg, var(--color-battleship) 0%, #3d5f5f 100%);
+  border-color: #1f2f2f;
+}
+
+.ship-grid-cell[data-ship="cruiser"] {
+  background: linear-gradient(135deg, var(--color-cruiser) 0%, #5a9bd4 100%);
+  border-color: #2f5f8f;
+}
+
+.ship-grid-cell[data-ship="submarine"] {
+  background: linear-gradient(135deg, var(--color-submarine) 0%, #6b8e23 100%);
+  border-color: #3a4f1a;
+}
+
+.ship-grid-cell[data-ship="destroyer"] {
+  background: linear-gradient(135deg, var(--color-destroyer) 0%, #a52a2a 100%);
+  border-color: #5f0000;
+}
+
+/* Ship Cell Pattern Overlay (adds texture) */
+.ship-grid-cell[data-ship]::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: 
+    repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 2px,
+      rgba(255, 255, 255, 0.05) 2px,
+      rgba(255, 255, 255, 0.05) 4px
+    );
+  pointer-events: none;
+}
+
+/* Ship Cell Active/Focus State */
+.ship-grid-cell[data-ship]:active {
+  transform: scale(0.98);
+}
+
+/* ============================================
+   Ship Legend Styles
+   ============================================ */
+.ship-legend {
+  margin: var(--space-md) 0;
+  padding: var(--space-md);
+  background-color: var(--color-gray-100);
+  border-radius: var(--radius-md);
+  border-left: 4px solid var(--color-ocean);
+}
+
+.ship-legend strong {
+  display: block;
+  margin-bottom: var(--space-sm);
+  color: var(--color-navy-dark);
+  font-size: var(--font-size-base);
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  margin-right: var(--space-lg);
+  margin-bottom: var(--space-xs);
+  font-size: var(--font-size-sm);
+}
+
+.legend-color {
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  margin-right: var(--space-xs);
+  border: 2px solid var(--color-gray-400);
+  box-shadow: var(--shadow-sm);
+}
+
+.legend-color.carrier {
+  background: linear-gradient(135deg, var(--color-carrier) 0%, #a0522d 100%);
+}
+
+.legend-color.battleship {
+  background: linear-gradient(135deg, var(--color-battleship) 0%, #3d5f5f 100%);
+}
+
+.legend-color.cruiser {
+  background: linear-gradient(135deg, var(--color-cruiser) 0%, #5a9bd4 100%);
+}
+
+.legend-color.submarine {
+  background: linear-gradient(135deg, var(--color-submarine) 0%, #6b8e23 100%);
+}
+
+.legend-color.destroyer {
+  background: linear-gradient(135deg, var(--color-destroyer) 0%, #a52a2a 100%);
+}
+
+/* ============================================
+   Placement Status Styles
+   ============================================ */
+.placement-status {
+  background-color: var(--color-foam);
+  border: 2px solid var(--color-ocean);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  margin: var(--space-md) 0;
+  text-align: center;
+}
+
+.placement-status p {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--color-navy-dark);
+}
+
+/* ============================================
+   Error Message Styles
+   ============================================ */
+.placement-error {
+  background-color: #fef2f2;
+  border: 2px solid var(--color-error);
+  border-left: 4px solid var(--color-error);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  margin: var(--space-md) 0;
+  color: #991b1b;
+  font-weight: 600;
+}
+
+/* ============================================
+   Responsive Design
+   ============================================ */
+
+/* Tablet */
+@media (max-width: 768px) {
+  .ship-grid thead th,
+  .ship-grid tbody th {
+    min-width: 30px;
+    height: 30px;
+    padding: var(--space-xs);
+    font-size: var(--font-size-xs);
+  }
+  
+  .ship-grid-cell {
+    width: 32px;
+    height: 32px;
+    font-size: var(--font-size-sm);
+  }
+  
+  .ship-board-container {
+    padding: var(--space-md);
+  }
+  
+  .legend-item {
+    display: block;
+    margin-bottom: var(--space-sm);
+  }
+}
+
+/* Mobile */
+@media (max-width: 480px) {
+  body {
+    padding: var(--space-sm);
+  }
+  
+  .ship-grid thead th,
+  .ship-grid tbody th {
+    min-width: 24px;
+    height: 24px;
+    padding: 2px;
+    font-size: 0.65rem;
+  }
+  
+  .ship-grid-cell {
+    width: 26px;
+    height: 26px;
+    font-size: 0.7rem;
+  }
+  
+  .ship-board-container {
+    padding: var(--space-sm);
+  }
+  
+  .ship-board-container h3 {
+    font-size: var(--font-size-lg);
+  }
+  
+  .ship-legend {
+    padding: var(--space-sm);
+  }
+  
+  .legend-color {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+/* ============================================
+   Accessibility
+   ============================================ */
+
+/* Focus visible for keyboard navigation */
+.ship-grid-cell:focus-visible {
+  outline: 3px solid var(--color-ocean);
+  outline-offset: 2px;
+  z-index: 20;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .ship-grid-cell {
+    border-width: 2px;
+  }
+  
+  .ship-grid-cell[data-ship] {
+    border-width: 3px;
+  }
+}
+
+/* ============================================
+   Print Styles
+   ============================================ */
+@media print {
+  body {
+    background: white;
+    padding: 0;
+  }
+  
+  .ship-board-container {
+    box-shadow: none;
+    border: 2px solid black;
+  }
+  
+  .ship-grid-cell:hover {
+    transform: none;
+    box-shadow: none;
+  }
+}

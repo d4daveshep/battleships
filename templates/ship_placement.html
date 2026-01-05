@@ -7,18 +7,85 @@
 <p>Player: {{ player_name }}</p>
 
 {% if placement_error %}
-<div data-testid="placement-error" style="color: red; margin: 10px 0;">
+<div data-testid="placement-error" class="placement-error">
     {{ placement_error }}
 </div>
 {% endif %}
 
-<div data-testid="ship-placement-status">
+<div data-testid="ship-placement-status" class="placement-status">
     <p data-testid="ship-placement-count">{{ placed_ships|length }} of 5 ships placed</p>
 </div>
 
-<div data-testid="my-ships-board" style="border: 1px solid #ccc; padding: 10px; min-height: 100px;">
+<div data-testid="my-ships-board" class="ship-board-container">
     <h3>My Ships and Shots Received</h3>
     
+    {# Build a lookup map of cell -> ship name for quick access #}
+    {% set cell_to_ship = {} %}
+    {% for ship_name, ship_data in placed_ships.items() %}
+        {% for cell in ship_data.cells %}
+            {% set _ = cell_to_ship.update({cell: ship_name}) %}
+        {% endfor %}
+    {% endfor %}
+    
+    {# 10x10 Grid Visualization #}
+    <table data-testid="ship-grid" class="ship-grid">
+        <thead>
+            <tr>
+                <th></th>
+                {% for col in range(1, 11) %}
+                <th>{{ col }}</th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% set rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'] %}
+            {% for row in rows %}
+            <tr>
+                <th>{{ row }}</th>
+                {% for col in range(1, 11) %}
+                    {% set coord = row ~ col %}
+                    {% set ship_name = cell_to_ship.get(coord) %}
+                    <td data-testid="grid-cell-{{ coord }}" 
+                        class="ship-grid-cell"
+                        {% if ship_name %}data-ship="{{ ship_name.lower() }}"{% endif %}>
+                        {% if ship_name %}
+                            {# Show ship abbreviation: first letter of ship name #}
+                            {{ ship_name[0] }}
+                        {% endif %}
+                    </td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    
+    {# Ship Legend #}
+    <div class="ship-legend">
+        <strong>Ship Legend:</strong>
+        <div class="legend-item">
+            <span class="legend-color carrier"></span>
+            <span>C = Carrier (5 cells)</span>
+        </div>
+        <div class="legend-item">
+            <span class="legend-color battleship"></span>
+            <span>B = Battleship (4 cells)</span>
+        </div>
+        <div class="legend-item">
+            <span class="legend-color cruiser"></span>
+            <span>C = Cruiser (3 cells)</span>
+        </div>
+        <div class="legend-item">
+            <span class="legend-color submarine"></span>
+            <span>S = Submarine (3 cells)</span>
+        </div>
+        <div class="legend-item">
+            <span class="legend-color destroyer"></span>
+            <span>D = Destroyer (2 cells)</span>
+        </div>
+    </div>
+    
+    {# Keep existing ship list for reference #}
+    <h4>Placed Ships:</h4>
     {% if placed_ships %}
         {% for ship_name, ship_data in placed_ships.items() %}
         <div data-testid="placed-ship-{{ ship_name.lower() }}">

@@ -755,3 +755,209 @@ def both_players_proceed_to_round_1(ship_context: ShipPlacementContext) -> None:
     """Verify game is at Round 1"""
     # This would check the game state
     pass
+
+
+# === Grid Visualization ===
+
+
+@then("I should see a 10x10 grid displayed")
+def should_see_10x10_grid(ship_context: ShipPlacementContext) -> None:
+    """Verify 10x10 grid is displayed"""
+    assert ship_context.soup is not None
+    grid_table: Tag | NavigableString | None = ship_context.soup.find(
+        attrs={"data-testid": "ship-grid"}
+    )
+    assert grid_table is not None, "Grid table should be present"
+
+    # Verify it's a table element
+    assert isinstance(grid_table, Tag)
+    assert grid_table.name == "table"
+
+    # Count rows in tbody (should be 10 rows A-J)
+    tbody: Tag | NavigableString | None = grid_table.find("tbody")
+    assert tbody is not None
+    assert isinstance(tbody, Tag)
+    rows: list[Tag] = tbody.find_all("tr")
+    assert len(rows) == 10, "Grid should have 10 rows"
+
+    # Verify each row has 11 cells (1 header + 10 data cells)
+    for row in rows:
+        cells: list[Tag] = row.find_all(["th", "td"])
+        assert len(cells) == 11, "Each row should have 11 cells (1 header + 10 data)"
+
+
+@then('the grid should have row labels "A" through "J"')
+def grid_should_have_row_labels(ship_context: ShipPlacementContext) -> None:
+    """Verify grid has row labels A through J"""
+    assert ship_context.soup is not None
+    grid_table: Tag | NavigableString | None = ship_context.soup.find(
+        attrs={"data-testid": "ship-grid"}
+    )
+    assert grid_table is not None
+    assert isinstance(grid_table, Tag)
+
+    tbody: Tag | NavigableString | None = grid_table.find("tbody")
+    assert tbody is not None
+    assert isinstance(tbody, Tag)
+
+    expected_rows: list[str] = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"]
+    rows: list[Tag] = tbody.find_all("tr")
+
+    for i, row in enumerate(rows):
+        row_header: Tag | NavigableString | None = row.find("th")
+        assert row_header is not None
+        assert isinstance(row_header, Tag)
+        assert row_header.get_text().strip() == expected_rows[i]
+
+
+@then('the grid should have column labels "1" through "10"')
+def grid_should_have_column_labels(ship_context: ShipPlacementContext) -> None:
+    """Verify grid has column labels 1 through 10"""
+    assert ship_context.soup is not None
+    grid_table: Tag | NavigableString | None = ship_context.soup.find(
+        attrs={"data-testid": "ship-grid"}
+    )
+    assert grid_table is not None
+    assert isinstance(grid_table, Tag)
+
+    thead: Tag | NavigableString | None = grid_table.find("thead")
+    assert thead is not None
+    assert isinstance(thead, Tag)
+
+    header_row: Tag | NavigableString | None = thead.find("tr")
+    assert header_row is not None
+    assert isinstance(header_row, Tag)
+
+    column_headers: list[Tag] = header_row.find_all("th")
+    # First header is empty, then 1-10
+    assert len(column_headers) == 11, "Should have 11 column headers (empty + 1-10)"
+
+    for i in range(1, 11):
+        assert column_headers[i].get_text().strip() == str(i)
+
+
+@then("all grid cells should be empty")
+def all_grid_cells_should_be_empty(ship_context: ShipPlacementContext) -> None:
+    """Verify all grid cells are empty (no ships placed)"""
+    assert ship_context.soup is not None
+    grid_table: Tag | NavigableString | None = ship_context.soup.find(
+        attrs={"data-testid": "ship-grid"}
+    )
+    assert grid_table is not None
+    assert isinstance(grid_table, Tag)
+
+    # Find all cells with data-ship attribute
+    occupied_cells: list[Tag] = grid_table.find_all(attrs={"data-ship": True})
+    assert len(occupied_cells) == 0, (
+        "All cells should be empty (no data-ship attribute)"
+    )
+
+
+@then(
+    parsers.parse('cells "{cell1}" and "{cell2}" should be visually marked on the grid')
+)
+def cells_should_be_visually_marked_two(
+    ship_context: ShipPlacementContext, cell1: str, cell2: str
+) -> None:
+    """Verify two cells are visually marked on the grid"""
+    assert ship_context.soup is not None
+    cells: list[str] = [cell1, cell2]
+
+    for cell in cells:
+        cell_element: Tag | NavigableString | None = ship_context.soup.find(
+            attrs={"data-testid": f"grid-cell-{cell}", "data-ship": True}
+        )
+        assert cell_element is not None, f"Cell {cell} should be marked on the grid"
+        assert isinstance(cell_element, Tag)
+        assert cell_element.get("data-ship") is not None
+
+
+@then("the marked cells should be clearly distinguishable from empty cells")
+def marked_cells_distinguishable_from_empty(ship_context: ShipPlacementContext) -> None:
+    """Verify marked cells have data-ship attribute that distinguishes them"""
+    assert ship_context.soup is not None
+    grid_table: Tag | NavigableString | None = ship_context.soup.find(
+        attrs={"data-testid": "ship-grid"}
+    )
+    assert grid_table is not None
+    assert isinstance(grid_table, Tag)
+
+    # Find cells with data-ship attribute (marked)
+    marked_cells: list[Tag] = grid_table.find_all(attrs={"data-ship": True})
+    assert len(marked_cells) > 0, "Should have at least one marked cell"
+
+    # Find cells without data-ship attribute (empty)
+    all_cells: list[Tag] = grid_table.find_all("td", attrs={"data-testid": True})
+    empty_cells: list[Tag] = [cell for cell in all_cells if not cell.get("data-ship")]
+    assert len(empty_cells) > 0, "Should have at least one empty cell"
+
+    # Verify marked cells have data-ship attribute
+    for cell in marked_cells:
+        assert cell.get("data-ship") is not None
+
+
+@then("I should be able to identify which cells belong to which ship on the grid")
+def should_identify_cells_by_ship(ship_context: ShipPlacementContext) -> None:
+    """Verify cells have data-ship attributes identifying which ship they belong to"""
+    assert ship_context.soup is not None
+    grid_table: Tag | NavigableString | None = ship_context.soup.find(
+        attrs={"data-testid": "ship-grid"}
+    )
+    assert grid_table is not None
+    assert isinstance(grid_table, Tag)
+
+    # Find all cells with data-ship attribute
+    marked_cells: list[Tag] = grid_table.find_all(attrs={"data-ship": True})
+    assert len(marked_cells) > 0, "Should have marked cells"
+
+    # Group cells by ship name
+    ships_found: dict[str, int] = {}
+    for cell in marked_cells:
+        ship_name_attr: str | list[str] | None = cell.get("data-ship")
+        assert ship_name_attr is not None
+        # BeautifulSoup returns str or list[str] for attributes
+        ship_name: str = (
+            ship_name_attr if isinstance(ship_name_attr, str) else ship_name_attr[0]
+        )
+        ships_found[ship_name] = ships_found.get(ship_name, 0) + 1
+
+    # Should have at least 2 different ships (Destroyer and Cruiser from scenario)
+    assert len(ships_found) >= 2, "Should have at least 2 different ships on grid"
+
+
+@then(
+    parsers.re(
+        r'cells "(?P<cell1>[A-J]\d+)", "(?P<cell2>[A-J]\d+)", "(?P<cell3>[A-J]\d+)", and "(?P<cell4>[A-J]\d+)" should be marked on the grid'
+    )
+)
+def cells_should_be_marked_four(
+    ship_context: ShipPlacementContext, cell1: str, cell2: str, cell3: str, cell4: str
+) -> None:
+    """Verify four cells are marked on the grid"""
+    assert ship_context.soup is not None
+    cells: list[str] = [cell1, cell2, cell3, cell4]
+
+    for cell in cells:
+        cell_element: Tag | NavigableString | None = ship_context.soup.find(
+            attrs={"data-testid": f"grid-cell-{cell}", "data-ship": True}
+        )
+        assert cell_element is not None, f"Cell {cell} should be marked on the grid"
+
+
+@then(
+    parsers.re(
+        r'cells "(?P<cell1>[A-J]\d+)", "(?P<cell2>[A-J]\d+)", and "(?P<cell3>[A-J]\d+)" should be marked on the grid'
+    )
+)
+def cells_should_be_marked_three(
+    ship_context: ShipPlacementContext, cell1: str, cell2: str, cell3: str
+) -> None:
+    """Verify three cells are marked on the grid"""
+    assert ship_context.soup is not None
+    cells: list[str] = [cell1, cell2, cell3]
+
+    for cell in cells:
+        cell_element: Tag | NavigableString | None = ship_context.soup.find(
+            attrs={"data-testid": f"grid-cell-{cell}", "data-ship": True}
+        )
+        assert cell_element is not None, f"Cell {cell} should be marked on the grid"

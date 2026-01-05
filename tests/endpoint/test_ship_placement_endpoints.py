@@ -12,25 +12,29 @@ from fastapi.testclient import TestClient
 class TestShipPlacementPageEndpoint:
     """Tests for GET /ship-placement endpoint"""
 
-    def test_ship_placement_page_returns_200(self, client: TestClient):
+    def test_ship_placement_page_returns_200(self, authenticated_client: TestClient):
         """Test that ship placement page loads successfully"""
-        response = client.get("/ship-placement", params={"player_name": "Alice"})
+        response = authenticated_client.get("/ship-placement")
 
         assert response.status_code == status.HTTP_200_OK
         assert "text/html" in response.headers["content-type"]
 
-    def test_ship_placement_page_displays_player_name(self, client: TestClient):
+    def test_ship_placement_page_displays_player_name(
+        self, authenticated_client: TestClient
+    ):
         """Test that ship placement page shows the player's name"""
-        response = client.get("/ship-placement", params={"player_name": "TestPlayer"})
+        response = authenticated_client.get("/ship-placement")
 
         assert response.status_code == status.HTTP_200_OK
 
         # Check that player name is displayed
-        assert "TestPlayer" in response.text
+        assert "Alice" in response.text
 
-    def test_ship_placement_page_shows_empty_state(self, client: TestClient):
+    def test_ship_placement_page_shows_empty_state(
+        self, authenticated_client: TestClient
+    ):
         """Test that ship placement page shows no ships initially"""
-        response = client.get("/ship-placement", params={"player_name": "Alice"})
+        response = authenticated_client.get("/ship-placement")
 
         assert response.status_code == status.HTTP_200_OK
         soup = BeautifulSoup(response.text, "html.parser")
@@ -40,9 +44,11 @@ class TestShipPlacementPageEndpoint:
         assert status_element is not None
         assert "0 of 5 ships placed" in status_element.text
 
-    def test_ship_placement_page_has_placement_form(self, client: TestClient):
+    def test_ship_placement_page_has_placement_form(
+        self, authenticated_client: TestClient
+    ):
         """Test that ship placement page contains the placement form"""
-        response = client.get("/ship-placement", params={"player_name": "Alice"})
+        response = authenticated_client.get("/ship-placement")
 
         assert response.status_code == status.HTTP_200_OK
         soup = BeautifulSoup(response.text, "html.parser")
@@ -62,9 +68,11 @@ class TestShipPlacementPageEndpoint:
         assert orientation_select is not None
         assert player_name_input is not None
 
-    def test_ship_placement_page_has_ship_selection_buttons(self, client: TestClient):
+    def test_ship_placement_page_has_ship_selection_buttons(
+        self, authenticated_client: TestClient
+    ):
         """Test that ship placement page has buttons for all ship types"""
-        response = client.get("/ship-placement", params={"player_name": "Alice"})
+        response = authenticated_client.get("/ship-placement")
 
         assert response.status_code == status.HTTP_200_OK
         soup = BeautifulSoup(response.text, "html.parser")
@@ -75,16 +83,20 @@ class TestShipPlacementPageEndpoint:
             button = soup.find(attrs={"data-testid": f"select-ship-{ship}"})
             assert button is not None, f"Missing button for {ship}"
 
-    def test_ship_placement_page_works_without_player_name(self, client: TestClient):
+    def test_ship_placement_page_works_without_player_name(
+        self, authenticated_client: TestClient
+    ):
         """Test that ship placement page works even without player name parameter"""
-        response = client.get("/ship-placement")
+        response = authenticated_client.get("/ship-placement")
 
         assert response.status_code == status.HTTP_200_OK
         assert "text/html" in response.headers["content-type"]
 
-    def test_ship_placement_page_has_action_buttons(self, client: TestClient):
+    def test_ship_placement_page_has_action_buttons(
+        self, authenticated_client: TestClient
+    ):
         """Test that ship placement page has action buttons for game flow"""
-        response = client.get("/ship-placement", params={"player_name": "Alice"})
+        response = authenticated_client.get("/ship-placement")
 
         assert response.status_code == status.HTTP_200_OK
         soup = BeautifulSoup(response.text, "html.parser")

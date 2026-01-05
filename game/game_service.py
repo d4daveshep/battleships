@@ -88,6 +88,9 @@ class GameService:
         self.games: dict[str, Game] = {}  # game_id->Game
         self.games_by_player: dict[str, Game] = {}  # player_id->Game
         self.players: dict[str, Player] = {}  # player_id->Player
+        self.ship_placement_boards: dict[
+            str, GameBoard
+        ] = {}  # player_id->GameBoard for ship placement phase
 
     def add_player(self, player: Player) -> None:
         self.players[player.id] = player
@@ -174,6 +177,40 @@ class GameService:
                 f"Player {player.name} with id:{player_id} exists but is not in a game"
             )
         return game.board[player]
+
+    def get_or_create_ship_placement_board(self, player_id: str) -> GameBoard:
+        """Get or create a game board for ship placement phase.
+
+        This is used during ship placement before a game is officially created.
+        Once the game starts, the board is transferred to the Game object.
+
+        Args:
+            player_id: The player ID
+
+        Returns:
+            GameBoard for the player to place ships on
+
+        Raises:
+            UnknownPlayerException: If player doesn't exist
+        """
+        try:
+            player: Player = self.players[player_id]
+        except KeyError:
+            raise UnknownPlayerException(f"Player with id:{player_id} does not exist")
+
+        # If player already has a ship placement board, return it
+        if player_id in self.ship_placement_boards:
+            return self.ship_placement_boards[player_id]
+
+        # If player is already in a game, return their game board
+        if player_id in self.games_by_player:
+            game: Game = self.games_by_player[player_id]
+            return game.board[player]
+
+        # Create a new ship placement board
+        new_board: GameBoard = GameBoard()
+        self.ship_placement_boards[player_id] = new_board
+        return new_board
 
     def get_game_status_by_player_id(self, player_id: str) -> GameStatus:
         try:

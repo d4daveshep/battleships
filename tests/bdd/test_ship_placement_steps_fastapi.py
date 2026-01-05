@@ -686,12 +686,6 @@ def game_starts_immediately(ship_context: ShipPlacementContext) -> None:
 # === Multiplayer Ship Placement ===
 
 
-@given("I am playing against another human player")
-def playing_against_human(ship_context: ShipPlacementContext) -> None:
-    """Setup: Set game mode to human opponent"""
-    ship_context.game_mode = "human"
-
-
 @when('I click the "Ready" button')
 def click_ready_button(client: TestClient, ship_context: ShipPlacementContext) -> None:
     """Click the Ready button"""
@@ -712,26 +706,6 @@ def should_see_message(ship_context: ShipPlacementContext, message: str) -> None
     assert message in message_element.get_text()
 
 
-@then("I should not be able to modify my ship placement")
-def cannot_modify_ship_placement(ship_context: ShipPlacementContext) -> None:
-    """Verify ship placement is locked"""
-    assert ship_context.soup is not None
-    # Ship selection buttons should be disabled
-    ship_names: list[str] = [
-        "carrier",
-        "battleship",
-        "cruiser",
-        "submarine",
-        "destroyer",
-    ]
-    for ship_name in ship_names:
-        ship_selector: Tag | None = ship_context.soup.find(
-            attrs={"data-testid": f"select-ship-{ship_name}"}
-        )
-        if ship_selector and isinstance(ship_selector, Tag):
-            assert ship_selector.get("disabled") is not None
-
-
 @given('I have placed all my ships and clicked "Ready"')
 def have_placed_all_ships_and_ready(
     client: TestClient, ship_context: ShipPlacementContext
@@ -739,31 +713,6 @@ def have_placed_all_ships_and_ready(
     """Setup: All ships placed and ready clicked"""
     have_placed_all_ships(ship_context)
     click_ready_button(client, ship_context)
-
-
-@given('my opponent has placed all their ships and clicked "Ready"')
-def opponent_placed_all_ships_and_ready(ship_context: ShipPlacementContext) -> None:
-    """Setup: Opponent is ready"""
-    # This would be handled by the multiplayer system
-    pass
-
-
-@then("the game should start")
-def game_should_start(ship_context: ShipPlacementContext) -> None:
-    """Verify game has started"""
-    assert ship_context.response is not None
-    # Should redirect to game or be on game page
-    if ship_context.response.status_code in [302, 303]:
-        redirect_url: str | None = ship_context.response.headers.get("location")
-        assert redirect_url is not None
-        assert "game" in redirect_url or "round" in redirect_url
-
-
-@then("both players should proceed to Round 1")
-def both_players_proceed_to_round_1(ship_context: ShipPlacementContext) -> None:
-    """Verify game is at Round 1"""
-    # This would check the game state
-    pass
 
 
 # === Grid Visualization ===

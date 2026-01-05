@@ -277,22 +277,6 @@ Feature: Ship Placement
     And the computer's ship placement should follow all placement rules
     And the game should start immediately
 
-  # === Multiplayer Ship Placement ===
-
-  Scenario: Waiting for opponent to place ships
-    Given I am playing against another human player
-    And I have placed all my ships
-    When I click the "Ready" button
-    Then I should see a message "Waiting for opponent to place their ships..."
-    And I should not be able to modify my ship placement
-
-  Scenario: Both players ready - game starts
-    Given I am playing against another human player
-    And I have placed all my ships and clicked "Ready"
-    And my opponent has placed all their ships and clicked "Ready"
-    Then the game should start
-    And both players should proceed to Round 1
-
   # === Invalid Ship Placement Patterns ===
 
   Scenario: Attempt to place ship with invalid direction

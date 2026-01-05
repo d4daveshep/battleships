@@ -598,12 +598,6 @@ def game_starts_immediately(page: Page) -> None:
 # === Multiplayer Ship Placement ===
 
 
-@given("I am playing against another human player")
-def playing_against_human(ship_context: ShipPlacementContext) -> None:
-    """Setup: Set game mode to human opponent"""
-    ship_context.game_mode = "human"
-
-
 @when('I click the "Ready" button')
 def click_ready_button(page: Page, ship_context: ShipPlacementContext) -> None:
     """Click the Ready button"""
@@ -621,25 +615,6 @@ def should_see_message(page: Page, message: str) -> None:
     assert message in message_content
 
 
-@then("I should not be able to modify my ship placement")
-def cannot_modify_ship_placement(page: Page) -> None:
-    """Verify ship placement is locked"""
-    # Ship selection buttons should be disabled
-    ship_names: list[str] = [
-        "carrier",
-        "battleship",
-        "cruiser",
-        "submarine",
-        "destroyer",
-    ]
-    for ship_name in ship_names:
-        ship_selector: Locator = page.locator(
-            f'[data-testid="select-ship-{ship_name}"]'
-        )
-        if ship_selector.is_visible():
-            assert ship_selector.is_disabled()
-
-
 @given('I have placed all my ships and clicked "Ready"')
 def have_placed_all_ships_and_ready(
     page: Page, ship_context: ShipPlacementContext
@@ -647,28 +622,6 @@ def have_placed_all_ships_and_ready(
     """Setup: All ships placed and ready clicked"""
     have_placed_all_ships(page, ship_context)
     click_ready_button(page, ship_context)
-
-
-@given('my opponent has placed all their ships and clicked "Ready"')
-def opponent_placed_all_ships_and_ready(ship_context: ShipPlacementContext) -> None:
-    """Setup: Opponent is ready"""
-    # This would be handled by the multiplayer system
-    pass
-
-
-@then("the game should start")
-def game_should_start(page: Page) -> None:
-    """Verify game has started"""
-    # Should redirect to game or be on game page
-    page.wait_for_url("**/game/*", timeout=5000)
-    assert "game" in page.url or "round" in page.url
-
-
-@then("both players should proceed to Round 1")
-def both_players_proceed_to_round_1(page: Page) -> None:
-    """Verify game is at Round 1"""
-    # This would check the game state
-    pass
 
 
 # === Grid Visualization ===

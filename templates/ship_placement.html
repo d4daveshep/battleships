@@ -132,15 +132,26 @@
         <input type="text" id="start_coordinate" name="start_coordinate" required placeholder="e.g., A1">
     </div>
     
-    <div>
-        <label for="orientation">Orientation:</label>
-        <select id="orientation" name="orientation" required>
-            <option value="">Select orientation</option>
-            <option value="horizontal">Horizontal</option>
-            <option value="vertical">Vertical</option>
-            <option value="diagonal-down">Diagonal Down</option>
-            <option value="diagonal-up">Diagonal Up</option>
-        </select>
+    <div class="orientation-selection">
+        <label>Orientation:</label>
+        <div class="orientation-buttons">
+            <label class="orientation-radio-label">
+                <input type="radio" name="orientation" value="horizontal" id="orientation-horizontal" required>
+                <span class="orientation-radio-button">Horizontal →</span>
+            </label>
+            <label class="orientation-radio-label">
+                <input type="radio" name="orientation" value="vertical" id="orientation-vertical" required>
+                <span class="orientation-radio-button">Vertical ↓</span>
+            </label>
+            <label class="orientation-radio-label">
+                <input type="radio" name="orientation" value="diagonal-down" id="orientation-diagonal-down" required>
+                <span class="orientation-radio-button">Diagonal ↘</span>
+            </label>
+            <label class="orientation-radio-label">
+                <input type="radio" name="orientation" value="diagonal-up" id="orientation-diagonal-up" required>
+                <span class="orientation-radio-button">Diagonal ↗</span>
+            </label>
+        </div>
     </div>
     
     <button type="submit" data-testid="place-ship-button">Place Ship</button>

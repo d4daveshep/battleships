@@ -57,17 +57,21 @@ class TestShipPlacementPageEndpoint:
         form = soup.find("form", action="/place-ship")
         assert form is not None
 
-        # Verify form has required fields (ship_name is now radio buttons)
+        # Verify form has required fields (ship_name and orientation are now radio buttons)
         start_coord_input = form.find("input", {"name": "start_coordinate"})  # type: ignore
-        orientation_select = form.find("select", {"name": "orientation"})  # type: ignore
         player_name_input = form.find("input", {"name": "player_name"})  # type: ignore
 
         # Check for ship selection radio buttons
         ship_radios = soup.find_all("input", {"name": "ship_name", "type": "radio"})
 
+        # Check for orientation radio buttons
+        orientation_radios = soup.find_all(
+            "input", {"name": "orientation", "type": "radio"}
+        )
+
         assert len(ship_radios) > 0, "Should have radio buttons for ship selection"
+        assert len(orientation_radios) == 4, "Should have 4 orientation radio buttons"
         assert start_coord_input is not None
-        assert orientation_select is not None
         assert player_name_input is not None
 
     def test_ship_placement_page_has_ship_selection_buttons(

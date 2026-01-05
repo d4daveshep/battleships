@@ -46,11 +46,11 @@ def client() -> TestClient:
 @pytest.fixture(autouse=True)
 def reset_games_state() -> Generator[None, None, None]:
     """Reset games state for FastAPI TestClient tests"""
-    from main import games
+    from main import game_service
 
-    games.clear()
+    game_service.ship_placement_boards.clear()
     yield
-    games.clear()
+    game_service.ship_placement_boards.clear()
 
 
 # FIXME: Fix this function so it takes the user to the ship placement page (after the "start game" page)

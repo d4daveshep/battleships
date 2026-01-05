@@ -1,7 +1,8 @@
+import random
 import secrets
 from enum import StrEnum
 
-from game.model import GameBoard
+from game.model import Coord, GameBoard, Orientation, Ship, ShipType
 from game.player import Player, PlayerStatus
 
 
@@ -91,6 +92,7 @@ class GameService:
         self.ship_placement_boards: dict[
             str, GameBoard
         ] = {}  # player_id->GameBoard for ship placement phase
+        self.ready_players: set[str] = set()
 
     def add_player(self, player: Player) -> None:
         self.players[player.id] = player
@@ -211,6 +213,106 @@ class GameService:
         new_board: GameBoard = GameBoard()
         self.ship_placement_boards[player_id] = new_board
         return new_board
+
+    def place_ships_randomly(self, player_id: str) -> None:
+        """Place all 5 ships randomly on the board following placement rules.
+
+        Clears any existing ships and places all ships randomly.
+
+        Args:
+            player_id: The player ID
+
+        Raises:
+            UnknownPlayerException: If player doesn_t exist
+        """
+
+        # Get or create the board
+        board = self.get_or_create_ship_placement_board(player_id)
+
+        # Clear existing ships
+        board.clear_all_ships()
+
+        # All ship types to place
+        ship_types = [
+            ShipType.CARRIER,
+            ShipType.BATTLESHIP,
+            ShipType.CRUISER,
+            ShipType.SUBMARINE,
+            ShipType.DESTROYER,
+        ]
+
+        # All possible coordinates and orientations
+        all_coords = list(Coord)
+        all_orientations = list(Orientation)
+
+        # Place each ship
+        for ship_type in ship_types:
+            ship = Ship(ship_type)
+            placed = False
+            max_attempts = 1000
+            attempts = 0
+
+            while not placed and attempts < max_attempts:
+                attempts += 1
+                # Pick random start position and orientation
+                start = random.choice(all_coords)
+                orientation = random.choice(all_orientations)
+
+                try:
+                    board.place_ship(ship, start, orientation)
+                    placed = True
+                except Exception:
+                    # Try again with different position/orientation
+                    continue
+
+            if not placed:
+                # Retry the whole process if we get stuck
+                board.clear_all_ships()
+                self.place_ships_randomly(player_id)
+                return
+
+    def set_player_ready(self, player_id: str) -> None:
+        """Mark a player as ready for game."""
+        self.ready_players.add(player_id)
+
+    def is_player_ready(self, player_id: str) -> bool:
+        """Check if a player is ready for game."""
+        return player_id in self.ready_players
+
+    def start_single_player_game(self, player_id: str) -> str:
+        """Start a single player game against computer.
+
+        Args:
+            player_id: The player ID
+
+        Returns:
+            The game ID
+        """
+
+        # Create computer player
+        computer = Player(name="Computer", status=PlayerStatus.AVAILABLE)
+        self.add_player(computer)
+        computer_id = computer.id
+
+        # Create game (using TWO_PLAYER mode to support 2 boards)
+        game_id = self.create_two_player_game(player_id, computer_id)
+        game = self.games[game_id]
+        player = self.players[player_id]
+
+        # Transfer player_s board
+        if player_id in self.ship_placement_boards:
+            game.board[player] = self.ship_placement_boards[player_id]
+            del self.ship_placement_boards[player_id]
+
+        # Place computer ships randomly
+        self.place_ships_randomly(computer_id)
+
+        # Transfer computer_s board
+        if computer_id in self.ship_placement_boards:
+            game.board[computer] = self.ship_placement_boards[computer_id]
+            del self.ship_placement_boards[computer_id]
+
+        return game_id
 
     def get_game_status_by_player_id(self, player_id: str) -> GameStatus:
         try:

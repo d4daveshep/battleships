@@ -409,11 +409,49 @@ async def remove_ship(
         ship_type: ShipType = ShipType.from_ship_name(ship_name)
         board.remove_ship(ship_type)
     except ValueError:
-        # Invalid ship name - just ignore and return current state
+        # FIXME: Invalid ship name - just ignore and return current state
         pass
 
     # Get updated placed ships
     placed_ships: dict[str, dict[str, Any]] = _get_placed_ships_from_board(board)
+
+    return templates.TemplateResponse(
+        request,
+        "ship_placement.html",
+        {
+            "player_name": player_name,
+            "placed_ships": placed_ships,
+        },
+    )
+
+
+@app.post("/random-ship-placement", response_class=HTMLResponse)
+async def random_ship_placement(
+    request: Request,
+    player_name: str = Form(),
+) -> HTMLResponse:
+    """Place all ships randomly on the board
+
+    Args:
+        request: The FastAPI request object
+        player_name: The player_s name (for validation)
+
+    Returns:
+        HTMLResponse with ship placement page showing randomly placed ships
+    """
+    # Validate player owns this session
+    validated_player_name = _get_validated_player_name(request, player_name)
+
+    # Place ships randomly
+    game_service.place_ships_randomly(player_id=_get_player_id(request))
+
+    # Get the board with placed ships
+    board = game_service.get_or_create_ship_placement_board(
+        player_id=_get_player_id(request)
+    )
+
+    # Get placed ships for template
+    placed_ships = _get_placed_ships_from_board(board)
 
     return templates.TemplateResponse(
         request,
@@ -503,13 +541,16 @@ async def start_game_page(request: Request) -> HTMLResponse:
 
 @app.post("/start-game", response_model=None)
 async def start_game_submit(
-    request: Request, action: str = Form(default="")
+    request: Request,
+    action: str = Form(default=""),
+    player_name: str = Form(default=""),
 ) -> RedirectResponse:
     """Handle start game confirmation form submission
 
     Args:
         request: The FastAPI request object
-        action: The action to perform (start_game, return_to_login, exit)
+        action: The action to perform (start_game, abandon_game)
+        player_name: The player name (optional, from ship placement)
 
     Returns:
         RedirectResponse to appropriate page based on action
@@ -518,7 +559,7 @@ async def start_game_submit(
     player: Player = _get_player_from_session(request)
 
     # Validate action parameter
-    valid_actions: list[str] = ["start_game", "abandon_game"]
+    valid_actions: list[str] = ["start_game", "abandon_game", "launch_game"]
     if not action or action not in valid_actions:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -529,6 +570,13 @@ async def start_game_submit(
     redirect_url: str
     if action == "start_game":
         redirect_url = "/ship-placement"
+    elif action == "launch_game":
+        # Start single player game
+        # TODO: Handle multiplayer game start
+        game_id = game_service.start_single_player_game(player.id)
+        return RedirectResponse(
+            url=f"/game/{game_id}", status_code=status.HTTP_303_SEE_OTHER
+        )
     elif action == "abandon_game":
         redirect_url = "/"
     else:
@@ -538,6 +586,53 @@ async def start_game_submit(
         )
 
     return RedirectResponse(url=redirect_url, status_code=status.HTTP_303_SEE_OTHER)
+
+
+@app.post("/ready-for-game", response_class=HTMLResponse)
+async def ready_for_game(
+    request: Request,
+    player_name: str = Form(),
+) -> HTMLResponse:
+    """Handle player ready state
+
+    Args:
+        request: The FastAPI request object
+        player_name: The player_s name
+
+    Returns:
+        HTMLResponse with ship placement page in ready state
+    """
+    # Validate player
+    validated_player_name = _get_validated_player_name(request, player_name)
+    player_id = _get_player_id(request)
+
+    # Mark player as ready
+    game_service.set_player_ready(player_id)
+
+    # Get board state
+    board = game_service.get_or_create_ship_placement_board(player_id)
+    placed_ships = _get_placed_ships_from_board(board)
+
+    return templates.TemplateResponse(
+        request,
+        "ship_placement.html",
+        {
+            "player_name": player_name,
+            "placed_ships": placed_ships,
+            "is_ready": True,
+            "status_message": "Waiting for opponent to place their ships...",
+        },
+    )
+
+
+@app.get("/game/{game_id}", response_class=HTMLResponse)
+async def game_page(request: Request, game_id: str) -> HTMLResponse:
+    """Game page placeholder"""
+    return templates.TemplateResponse(
+        request=request,
+        name="base.html",
+        context={"request": request},
+    )
 
 
 @app.post("/player-name")

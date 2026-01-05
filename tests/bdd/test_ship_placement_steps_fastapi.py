@@ -197,7 +197,9 @@ def attempt_place_ship_direction_starting_at(
 
 
 @when(
-    parsers.parse('I attempt to place it with invalid direction starting at "{start}"')
+    parsers.parse(
+        'I attempt to place it starting at "{start}" with an invalid direction'
+    )
 )
 def attempt_place_ship_invalid_direction(
     client: TestClient, ship_context: ShipPlacementContext, start: str
@@ -461,14 +463,18 @@ def place_the_ship(
 
 
 @given("I have placed 4 out of 5 ships")
-def have_placed_4_ships(ship_context: ShipPlacementContext) -> None:
+def have_placed_4_ships(client: TestClient, ship_context: ShipPlacementContext) -> None:
     """Setup: 4 ships placed"""
-    ship_context.placed_ships = {
-        "Destroyer": ["A1", "horizontal"],
-        "Submarine": ["C3", "vertical"],
-        "Cruiser": ["E5", "horizontal"],
-        "Battleship": ["G1", "horizontal"],
-    }
+    ships_to_place = [
+        ("Destroyer", "A1", "horizontally"),
+        ("Submarine", "C3", "vertically"),
+        ("Cruiser", "E5", "horizontally"),
+        ("Battleship", "G1", "horizontally"),
+    ]
+
+    for ship_name, start, direction in ships_to_place:
+        ship_context.selected_ship = ship_name
+        place_ship_with_direction(client, ship_context, start, direction)
 
 
 @when(parsers.parse("I place the 5th ship"))
@@ -642,7 +648,10 @@ def click_start_game_button(
 ) -> None:
     """Click the Start Game button"""
     assert ship_context.player_name is not None
-    form_data: dict[str, str] = {"player_name": ship_context.player_name}
+    form_data: dict[str, str] = {
+        "player_name": ship_context.player_name,
+        "action": "launch_game",
+    }
     response: Response = client.post("/start-game", data=form_data)
     ship_context.update_response(response)
 

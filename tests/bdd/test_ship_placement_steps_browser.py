@@ -113,9 +113,19 @@ def place_ship_with_direction(
     orientation: str = orientation_map.get(direction, direction)
 
     # Fill in the form fields
-    page.locator('input[name="ship_name"]').fill(ship_context.selected_ship)
+    # Select ship using radio button (click the label/span)
+    assert ship_context.selected_ship is not None
+    page.locator(
+        f'[data-testid="select-ship-{ship_context.selected_ship.lower()}"] + span.ship-radio-button'
+    ).click()
+
+    # Fill coordinate
     page.locator('input[name="start_coordinate"]').fill(start)
-    page.locator('select[name="orientation"]').select_option(orientation)
+
+    # Select orientation using radio button (click the label/span)
+    page.locator(
+        f'input[name="orientation"][value="{orientation}"] + span.orientation-radio-button'
+    ).click()
 
     # Submit the form
     page.locator('button[type="submit"][data-testid="place-ship-button"]').click()
@@ -146,7 +156,9 @@ def attempt_place_ship_direction_starting_at(
 
 
 @when(
-    parsers.parse('I attempt to place it with invalid direction starting at "{start}"')
+    parsers.parse(
+        'I attempt to place it starting at "{start}" with an invalid direction'
+    )
 )
 def attempt_place_ship_invalid_direction(
     page: Page, ship_context: ShipPlacementContext, start: str
@@ -155,10 +167,21 @@ def attempt_place_ship_invalid_direction(
     assert ship_context.current_player_name is not None
     assert ship_context.selected_ship is not None
 
-    # Fill in the form fields with invalid values
-    page.locator('input[name="ship_name"]').fill(ship_context.selected_ship)
+    # Select ship
+    page.locator(
+        f'[data-testid="select-ship-{ship_context.selected_ship.lower()}"] + span.ship-radio-button'
+    ).click()
+
+    # Fill coordinate
     page.locator('input[name="start_coordinate"]').fill(start)
-    page.locator('select[name="orientation"]').select_option("")  # Empty/invalid
+
+    # Hack: Use JS to change the value of the first orientation radio button to "invalid"
+    # and then click it. This simulates a hacked form submission.
+    page.evaluate("""
+        const radio = document.querySelector('input[name="orientation"]');
+        radio.value = "invalid_direction";
+        radio.checked = true;
+    """)
 
     # Submit the form
     page.locator('button[type="submit"][data-testid="place-ship-button"]').click()
@@ -399,14 +422,20 @@ def place_the_ship(
 
 
 @given("I have placed 4 out of 5 ships")
-def have_placed_4_ships(ship_context: ShipPlacementContext) -> None:
+def have_placed_4_ships(page: Page, ship_context: ShipPlacementContext) -> None:
     """Setup: 4 ships placed"""
-    ship_context.placed_ships = {
-        "Destroyer": ["A1", "horizontal"],
-        "Submarine": ["C3", "vertical"],
-        "Cruiser": ["E5", "horizontal"],
-        "Battleship": ["G1", "horizontal"],
-    }
+    ships_to_place = [
+        ("Destroyer", "A1", "horizontally"),
+        ("Submarine", "C3", "vertically"),
+        ("Cruiser", "E5", "horizontally"),
+        ("Battleship", "G1", "horizontally"),
+    ]
+
+    for name, start, direction in ships_to_place:
+        ship_context.selected_ship = name
+        place_ship_with_direction(
+            page, ship_context, start, direction, is_attempt=False
+        )
 
 
 @when(parsers.parse("I place the 5th ship"))
@@ -458,10 +487,11 @@ def ship_removed_from_board(page: Page, ship_name: str) -> None:
 @then(parsers.parse("the {ship_name} should be available to place again"))
 def ship_available_to_place_again(page: Page, ship_name: str) -> None:
     """Verify ship is available for placement"""
-    ship_selector: Locator = page.locator(
-        f'[data-testid="select-ship-{ship_name.lower()}"]'
+    # Check the visible span since the input might be hidden
+    ship_span: Locator = page.locator(
+        f'[data-testid="select-ship-{ship_name.lower()}"] + span.ship-radio-button'
     )
-    assert ship_selector.is_visible()
+    assert ship_span.is_visible()
 
 
 @then(parsers.parse('the ship count should show "{count_text}"'))
@@ -478,13 +508,19 @@ def ship_count_should_show(page: Page, count_text: str) -> None:
 
 
 @given("I have placed 3 ships on the board")
-def have_placed_3_ships(ship_context: ShipPlacementContext) -> None:
+def have_placed_3_ships(page: Page, ship_context: ShipPlacementContext) -> None:
     """Setup: 3 ships placed"""
-    ship_context.placed_ships = {
-        "Destroyer": ["A1", "horizontal"],
-        "Submarine": ["C3", "vertical"],
-        "Cruiser": ["E5", "horizontal"],
-    }
+    ships_to_place = [
+        ("Destroyer", "A1", "horizontally"),
+        ("Submarine", "C3", "vertically"),
+        ("Cruiser", "E5", "horizontally"),
+    ]
+
+    for name, start, direction in ships_to_place:
+        ship_context.selected_ship = name
+        place_ship_with_direction(
+            page, ship_context, start, direction, is_attempt=False
+        )
 
 
 @when('I click the "Reset All Ships" button')
@@ -509,12 +545,12 @@ def all_ships_removed_from_board(page: Page) -> None:
     ]
     for ship_name in ship_names:
         ship_element: Locator = page.locator(f'[data-testid="placed-ship-{ship_name}"]')
-        assert not ship_element.is_visible(), f"{ship_name} should be removed"
+        assert not ship_element.is_visible()
 
 
 @then("all ships should be available to place again")
 def all_ships_available_to_place_again(page: Page) -> None:
-    """Verify all ships are available for placement"""
+    """Verify all ships are available"""
     ship_names: list[str] = [
         "carrier",
         "battleship",
@@ -523,31 +559,11 @@ def all_ships_available_to_place_again(page: Page) -> None:
         "destroyer",
     ]
     for ship_name in ship_names:
-        ship_selector: Locator = page.locator(
-            f'[data-testid="select-ship-{ship_name}"]'
+        # Check the visible span since the input might be hidden
+        ship_span: Locator = page.locator(
+            f'[data-testid="select-ship-{ship_name}"] + span.ship-radio-button'
         )
-        assert ship_selector.is_visible(), f"{ship_name} should be available"
-
-
-# === Computer Opponent ===
-
-
-@given("I am playing against a computer opponent")
-def playing_against_computer(ship_context: ShipPlacementContext) -> None:
-    """Setup: Set game mode to computer opponent"""
-    ship_context.game_mode = "computer"
-
-
-@given("I have placed all my ships")
-def have_placed_all_ships(ship_context: ShipPlacementContext) -> None:
-    """Setup: All 5 ships placed"""
-    ship_context.placed_ships = {
-        "Carrier": ["A1", "horizontal"],
-        "Battleship": ["C1", "horizontal"],
-        "Cruiser": ["E1", "horizontal"],
-        "Submarine": ["G1", "horizontal"],
-        "Destroyer": ["I1", "horizontal"],
-    }
+        assert ship_span.is_visible()
 
 
 @when('I click the "Start Game" button')
@@ -575,7 +591,7 @@ def computer_ships_follow_rules(page: Page) -> None:
 @then("the game should start immediately")
 def game_starts_immediately(page: Page) -> None:
     """Verify game has started"""
-    page.wait_for_url("**/game**", timeout=5000)
+    page.wait_for_url("**/game/*", timeout=5000)
     assert "game" in page.url or "round" in page.url
 
 
@@ -629,7 +645,7 @@ def have_placed_all_ships_and_ready(
     page: Page, ship_context: ShipPlacementContext
 ) -> None:
     """Setup: All ships placed and ready clicked"""
-    have_placed_all_ships(ship_context)
+    have_placed_all_ships(page, ship_context)
     click_ready_button(page, ship_context)
 
 
@@ -644,7 +660,7 @@ def opponent_placed_all_ships_and_ready(ship_context: ShipPlacementContext) -> N
 def game_should_start(page: Page) -> None:
     """Verify game has started"""
     # Should redirect to game or be on game page
-    page.wait_for_url("**/game**", timeout=5000)
+    page.wait_for_url("**/game/*", timeout=5000)
     assert "game" in page.url or "round" in page.url
 
 
@@ -821,3 +837,27 @@ def cells_should_be_marked_three(
             f'[data-testid="grid-cell-{cell}"][data-ship]'
         )
         assert cell_element.is_visible(), f"Cell {cell} should be marked on the grid"
+
+
+@given("I am playing against a computer opponent")
+def playing_against_computer(page: Page, ship_context: ShipPlacementContext) -> None:
+    """Ensure we are in computer mode"""
+    pass
+
+
+@given("I have placed all my ships")
+def have_placed_all_ships(page: Page, ship_context: ShipPlacementContext) -> None:
+    """Setup: All 5 ships placed"""
+    ships_to_place = [
+        ("Destroyer", "A1", "horizontally"),
+        ("Submarine", "C3", "vertically"),
+        ("Cruiser", "E5", "horizontally"),
+        ("Battleship", "G1", "horizontally"),
+        ("Carrier", "I1", "horizontally"),
+    ]
+
+    for name, start, direction in ships_to_place:
+        ship_context.selected_ship = name
+        place_ship_with_direction(
+            page, ship_context, start, direction, is_attempt=False
+        )

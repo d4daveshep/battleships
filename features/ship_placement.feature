@@ -190,7 +190,7 @@ Feature: Ship Placement
 
   Scenario: Attempt to place ship adjacent at corners
     Given I have placed a "Destroyer" horizontally starting at "C3"
-    And I select the "Destroyer" ship to place
+    And I select the "Submarine" ship to place
     When I attempt to place it horizontally starting at "D4"
     Then the placement should be rejected
     And I should see an error message "Ships must have empty space around them"
@@ -297,6 +297,6 @@ Feature: Ship Placement
 
   Scenario: Attempt to place ship with invalid direction
     Given I select the "Destroyer" ship to place
-    When I attempt to place it with invalid direction starting at "A1"
+    When I attempt to place it starting at "A1" with an invalid direction
     Then the placement should be rejected
     And I should see an error message "Invalid direction"

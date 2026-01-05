@@ -380,6 +380,86 @@ async def place_ship(
     )
 
 
+@app.post("/remove-ship", response_class=HTMLResponse)
+async def remove_ship(
+    request: Request,
+    player_name: str = Form(),
+    ship_name: str = Form(),
+) -> HTMLResponse:
+    """Remove a placed ship from the board
+
+    Args:
+        request: The FastAPI request object
+        player_name: The player's name (for validation)
+        ship_name: The name of the ship to remove
+
+    Returns:
+        HTMLResponse with ship placement page showing updated board
+    """
+    # Validate player owns this session
+    validated_player_name: str = _get_validated_player_name(request, player_name)
+
+    # Get the board
+    board: GameBoard = game_service.get_or_create_ship_placement_board(
+        player_id=_get_player_id(request)
+    )
+
+    # Remove the ship if it exists
+    try:
+        ship_type: ShipType = ShipType.from_ship_name(ship_name)
+        board.remove_ship(ship_type)
+    except ValueError:
+        # Invalid ship name - just ignore and return current state
+        pass
+
+    # Get updated placed ships
+    placed_ships: dict[str, dict[str, Any]] = _get_placed_ships_from_board(board)
+
+    return templates.TemplateResponse(
+        request,
+        "ship_placement.html",
+        {
+            "player_name": player_name,
+            "placed_ships": placed_ships,
+        },
+    )
+
+
+@app.post("/reset-all-ships", response_class=HTMLResponse)
+async def reset_all_ships(
+    request: Request,
+    player_name: str = Form(),
+) -> HTMLResponse:
+    """Reset all placed ships (clear the board)
+
+    Args:
+        request: The FastAPI request object
+        player_name: The player's name (for validation)
+
+    Returns:
+        HTMLResponse with ship placement page showing empty board
+    """
+    # Validate player owns this session
+    validated_player_name: str = _get_validated_player_name(request, player_name)
+
+    # Get the board
+    board: GameBoard = game_service.get_or_create_ship_placement_board(
+        player_id=_get_player_id(request)
+    )
+
+    # Clear all ships
+    board.clear_all_ships()
+
+    return templates.TemplateResponse(
+        request,
+        "ship_placement.html",
+        {
+            "player_name": player_name,
+            "placed_ships": {},
+        },
+    )
+
+
 @app.get("/start-game", response_class=HTMLResponse)
 async def start_game_page(request: Request) -> HTMLResponse:
     """Start game confirmation page

@@ -483,8 +483,6 @@ body {
 .orientation-radio-label {
   position: relative;
   cursor: pointer;
-  flex: 1;
-  min-width: 120px;
 }
 
 .orientation-radio-label input[type="radio"] {
@@ -527,8 +525,12 @@ body {
 
 /* Responsive: Stack orientation buttons on mobile */
 @media (max-width: 480px) {
+  .orientation-buttons {
+    flex-direction: column;
+  }
+  
   .orientation-radio-label {
-    flex: 1 1 45%;
+    width: 100%;
   }
 }
 

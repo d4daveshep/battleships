@@ -1236,6 +1236,294 @@ p {
 }
 
 /* ============================================
+   Gameplay Screen Styles
+   ============================================ */
+
+/* Round Indicator - Prominent heading with glow effect */
+.round-indicator,
+h1[data-testid="round-indicator"] {
+  color: var(--color-white);
+  font-size: var(--font-size-4xl);
+  font-weight: 900;
+  text-align: center;
+  margin-bottom: var(--space-xl);
+  text-shadow: 
+    0 0 10px rgba(255, 255, 255, 0.5),
+    0 0 20px rgba(91, 141, 184, 0.4),
+    2px 2px 4px rgba(0, 0, 0, 0.3);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  animation: subtle-glow 3s ease-in-out infinite;
+}
+
+@keyframes subtle-glow {
+  0%, 100% {
+    text-shadow: 
+      0 0 10px rgba(255, 255, 255, 0.5),
+      0 0 20px rgba(91, 141, 184, 0.4),
+      2px 2px 4px rgba(0, 0, 0, 0.3);
+  }
+  50% {
+    text-shadow: 
+      0 0 15px rgba(255, 255, 255, 0.7),
+      0 0 30px rgba(91, 141, 184, 0.6),
+      2px 2px 4px rgba(0, 0, 0, 0.3);
+  }
+}
+
+/* Game Info Card - Enhanced styling */
+.game-info-card {
+  background: linear-gradient(135deg, var(--color-white) 0%, var(--color-gray-100) 100%);
+  border: 3px solid var(--color-ocean);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  box-shadow: var(--shadow-lg);
+  margin-bottom: var(--space-xl);
+}
+
+.game-info-card .card-title {
+  color: var(--color-navy-dark);
+  font-size: var(--font-size-2xl);
+  font-weight: 700;
+  margin-bottom: var(--space-md);
+  border-bottom: 3px solid var(--color-ocean);
+  padding-bottom: var(--space-sm);
+}
+
+.game-info-card .game-info-item {
+  font-size: var(--font-size-lg);
+  margin-bottom: var(--space-sm);
+  color: var(--color-gray-900);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.game-info-card .game-info-item strong {
+  color: var(--color-navy-dark);
+  min-width: 100px;
+  font-weight: 700;
+}
+
+/* Game Info Item - Game ID de-emphasized */
+.game-info-card .game-info-item:last-child {
+  font-size: var(--font-size-sm);
+  color: var(--color-gray-600);
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--color-gray-300);
+}
+
+/* Two-Board Layout - Grid container */
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-xl);
+  margin: var(--space-xl) 0;
+}
+
+/* Board Container - Enhanced for gameplay */
+.board-container,
+.ship-board-container {
+  background-color: var(--color-white);
+  border: 3px solid var(--color-ocean);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  box-shadow: var(--shadow-lg);
+  transition: all var(--transition-base);
+}
+
+.board-container:hover,
+.ship-board-container:hover {
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+}
+
+.board-container h3,
+.ship-board-container h3 {
+  color: var(--color-navy-dark);
+  font-size: var(--font-size-2xl);
+  font-weight: 700;
+  margin-bottom: var(--space-sm);
+  border-bottom: 3px solid var(--color-ocean);
+  padding-bottom: var(--space-sm);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.board-container p,
+.ship-board-container p {
+  color: var(--color-gray-700);
+  font-size: var(--font-size-sm);
+  margin-bottom: var(--space-md);
+  font-style: italic;
+}
+
+/* Opponent's Board - Slightly different styling */
+.ship-board-container:nth-child(2) {
+  border-color: var(--color-ocean-light);
+}
+
+.ship-board-container:nth-child(2) h3 {
+  border-bottom-color: var(--color-ocean-light);
+}
+
+/* Board Grid - Ensure consistent sizing */
+.board-grid,
+.ship-grid {
+  margin: var(--space-md) auto;
+  max-width: 100%;
+}
+
+/* Game Actions Section - Enhanced styling */
+.game-actions,
+.actions-section {
+  background: linear-gradient(135deg, var(--color-white) 0%, var(--color-foam) 100%);
+  border: 3px solid var(--color-ocean);
+  border-radius: var(--radius-lg);
+  padding: var(--space-xl);
+  margin: var(--space-xl) 0;
+  box-shadow: var(--shadow-lg);
+  text-align: center;
+}
+
+.game-actions h2,
+.actions-section h2 {
+  color: var(--color-navy-dark);
+  font-size: var(--font-size-2xl);
+  font-weight: 700;
+  margin-bottom: var(--space-lg);
+  border-bottom: 3px solid var(--color-ocean);
+  padding-bottom: var(--space-md);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.game-actions .btn-group,
+.actions-section .btn-group {
+  justify-content: center;
+  margin-top: var(--space-lg);
+}
+
+/* Disabled button styling for "Coming Soon" features */
+.game-actions button:disabled,
+.actions-section button:disabled {
+  background-color: var(--color-gray-300);
+  color: var(--color-gray-600);
+  border-color: var(--color-gray-400);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.game-actions button:disabled:hover,
+.actions-section button:disabled:hover {
+  background-color: var(--color-gray-300);
+  transform: none;
+  box-shadow: none;
+}
+
+/* Game Status Alert - Enhanced visibility */
+.alert[data-testid="game-status"] {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  text-align: center;
+  padding: var(--space-lg);
+  margin: var(--space-xl) 0;
+  animation: slide-in-fade 0.4s ease-out;
+}
+
+/* Responsive Design for Gameplay Screen */
+@media (max-width: 1024px) {
+  .grid-2 {
+    gap: var(--space-lg);
+  }
+  
+  .board-container h3,
+  .ship-board-container h3 {
+    font-size: var(--font-size-xl);
+  }
+  
+  .round-indicator,
+  h1[data-testid="round-indicator"] {
+    font-size: var(--font-size-3xl);
+  }
+}
+
+/* Tablet - Stack boards vertically */
+@media (max-width: 768px) {
+  .grid-2 {
+    grid-template-columns: 1fr;
+    gap: var(--space-lg);
+  }
+  
+  .round-indicator,
+  h1[data-testid="round-indicator"] {
+    font-size: var(--font-size-2xl);
+  }
+  
+  .game-info-card .game-info-item {
+    font-size: var(--font-size-base);
+  }
+  
+  .game-info-card .game-info-item strong {
+    min-width: 80px;
+  }
+  
+  .board-container,
+  .ship-board-container {
+    padding: var(--space-md);
+  }
+  
+  .game-actions,
+  .actions-section {
+    padding: var(--space-lg);
+  }
+}
+
+/* Mobile - Further optimizations */
+@media (max-width: 480px) {
+  .round-indicator,
+  h1[data-testid="round-indicator"] {
+    font-size: var(--font-size-xl);
+    letter-spacing: 1px;
+  }
+  
+  .game-info-card {
+    padding: var(--space-md);
+  }
+  
+  .game-info-card .card-title {
+    font-size: var(--font-size-xl);
+  }
+  
+  .game-info-card .game-info-item {
+    font-size: var(--font-size-sm);
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-xs);
+  }
+  
+  .game-info-card .game-info-item strong {
+    min-width: auto;
+  }
+  
+  .board-container h3,
+  .ship-board-container h3 {
+    font-size: var(--font-size-lg);
+  }
+  
+  .game-actions h2,
+  .actions-section h2 {
+    font-size: var(--font-size-xl);
+  }
+  
+  .game-actions,
+  .actions-section {
+    padding: var(--space-md);
+  }
+}
+
+/* ============================================
    Accessibility & Reduced Motion
    ============================================ */
 

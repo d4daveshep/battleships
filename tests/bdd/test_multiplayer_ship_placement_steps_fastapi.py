@@ -530,9 +530,12 @@ def game_starts_auto(context: MultiplayerShipContext) -> None:
 
     # Poll for status, should redirect to game
     # The long poll endpoint returns HX-Redirect header when game starts
-    resp = context.player_client.get(
+    resp: Response = context.player_client.get(
         "/ship-placement/opponent-status", headers={"HX-Request": "true"}
     )
+
+    # Store response for next step
+    context.update_player_response(resp)
 
     # Check for redirect or game content
     if resp.status_code in [204, 302, 303] and "HX-Redirect" in resp.headers:
@@ -553,14 +556,32 @@ def redirected_to_gameplay(context: MultiplayerShipContext) -> None:
 
 @then('I should see "Round 1" displayed')
 def see_round_1(context: MultiplayerShipContext) -> None:
-    """Verify game content"""
-    # If we were redirected, we need to follow it
+    """Verify game content shows Round 1"""
     assert context.player_client is not None
+    assert context.player_response is not None
 
-    # Assuming the game URL is /game/{game_id} or similar
-    # For now, let's assume we can get the game page
-    # Since we don't know the exact URL, we might need to rely on the previous response
-    pass
+    # If we got a redirect, follow it to get the game page
+    game_soup: BeautifulSoup
+    if context.player_response.status_code in [302, 303]:
+        game_url: str = context.player_response.headers["location"]
+        game_resp: Response = context.player_client.get(game_url)
+        game_soup = BeautifulSoup(game_resp.text, "html.parser")
+    elif "HX-Redirect" in context.player_response.headers:
+        game_url = context.player_response.headers["HX-Redirect"]
+        game_resp = context.player_client.get(game_url)
+        game_soup = BeautifulSoup(game_resp.text, "html.parser")
+    else:
+        # Already on the game page
+        assert context.player_soup is not None, "No soup available"
+        game_soup = context.player_soup
+
+    # Check for Round 1 text in the page
+    round_indicator = game_soup.find(attrs={"data-testid": "round-indicator"})
+    assert round_indicator is not None, "Round indicator not found on game page"
+    assert isinstance(round_indicator, Tag), "Round indicator is not a Tag"
+
+    text: str = round_indicator.get_text(strip=True)
+    assert "Round 1" in text or "ROUND 1" in text, f"Expected 'Round 1' but got: {text}"
 
 
 @given('my opponent has already clicked "Ready"')

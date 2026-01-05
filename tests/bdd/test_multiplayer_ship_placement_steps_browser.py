@@ -378,10 +378,14 @@ def redirected_to_gameplay(context: MultiplayerBrowserContext) -> None:
 
 @then('I should see "Round 1" displayed')
 def see_round_1(context: MultiplayerBrowserContext) -> None:
-    """Verify game content"""
-    # Game page is a placeholder, so just verify we're on the game URL
-    # In a full implementation, this would check for "Round 1" text
+    """Verify game content shows Round 1"""
+    # Verify we're on the game page
     expect(context.p1).to_have_url(re.compile(r".*/game/.*"))
+
+    # Check for Round 1 text
+    round_indicator = context.p1.locator('[data-testid="round-indicator"]')
+    expect(round_indicator).to_be_visible()
+    expect(round_indicator).to_contain_text(re.compile(r"Round 1", re.IGNORECASE))
 
 
 @given('my opponent has already clicked "Ready"')

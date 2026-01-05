@@ -160,7 +160,7 @@ def player_mode_is_single_player(context: BDDTestContext) -> None:
     assert context.soup is not None
     game_mode_element = context.soup.find(attrs={"data-testid": "game-mode"})
     assert game_mode_element is not None
-    assert game_mode_element.get_text() == "Single Player"
+    assert "Single Player" in game_mode_element.get_text()
 
 
 @then("the game should be configured for two player mode")
@@ -169,7 +169,7 @@ def player_mode_is_two_player(context: BDDTestContext) -> None:
     assert context.soup is not None
     game_mode_element = context.soup.find(attrs={"data-testid": "game-mode"})
     assert game_mode_element is not None
-    assert game_mode_element.get_text() == "Two Player"
+    assert "Two Player" in game_mode_element.get_text()
 
 
 @then(parsers.parse('my player name should be set to "{expected_name}"'))

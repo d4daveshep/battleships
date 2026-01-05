@@ -403,7 +403,69 @@ body {
 }
 
 /* ============================================
-   Accessibility
+   Ship Selection Radio Buttons
+   ============================================ */
+.ship-selection {
+  margin: var(--space-lg) 0;
+}
+
+.ship-selection-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  margin-top: var(--space-md);
+}
+
+.ship-radio-label {
+  position: relative;
+  cursor: pointer;
+}
+
+.ship-radio-label input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.ship-radio-button {
+  display: inline-block;
+  padding: var(--space-md) var(--space-lg);
+  background: var(--color-gray-200);
+  border: 2px solid var(--color-gray-400);
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  transition: all var(--transition-base);
+  user-select: none;
+}
+
+.ship-radio-label:hover .ship-radio-button {
+  background: var(--color-gray-300);
+  border-color: var(--color-ocean);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.ship-radio-label input[type="radio"]:checked + .ship-radio-button {
+  background: var(--color-ocean);
+  color: var(--color-white);
+  border-color: var(--color-ocean-light);
+  box-shadow: var(--shadow-md);
+}
+
+.ship-radio-label input[type="radio"]:focus + .ship-radio-button {
+  outline: 2px solid var(--color-ocean);
+  outline-offset: 2px;
+}
+
+.ship-radio-label input[type="radio"]:disabled + .ship-radio-button {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: var(--color-gray-100);
+}
+
+/* ============================================
+   Accessibility & Reduced Motion
    ============================================ */
 
 /* Focus visible for keyboard navigation */

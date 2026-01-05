@@ -102,23 +102,29 @@
     {% endif %}
 </div>
 
-<h2>Ship Selection</h2>
-<div>
-    {% set ship_list = ["Carrier", "Battleship", "Cruiser", "Submarine", "Destroyer"] %}
-    {% for ship in ship_list %}
-    <button type="button" data-testid="select-ship-{{ ship.lower() }}" {% if ship in placed_ships %}disabled{% endif %}>
-        {{ ship }} {% if ship in placed_ships %}(Placed){% endif %}
-    </button>
-    {% endfor %}
-</div>
-
 <h2>Place Ship</h2>
-<form method="POST" action="/place-ship">
+<form method="POST" action="/place-ship" id="place-ship-form">
     <input type="hidden" name="player_name" value="{{ player_name }}">
     
-    <div>
-        <label for="ship_name">Ship Name:</label>
-        <input type="text" id="ship_name" name="ship_name" required>
+    <div class="ship-selection">
+        <label>Select Ship to Place:</label>
+        <div class="ship-selection-buttons">
+            {% set ship_list = ["Carrier", "Battleship", "Cruiser", "Submarine", "Destroyer"] %}
+            {% set ship_lengths = {"Carrier": 5, "Battleship": 4, "Cruiser": 3, "Submarine": 3, "Destroyer": 2} %}
+            {% for ship in ship_list %}
+            {% if ship not in placed_ships %}
+            <label class="ship-radio-label">
+                <input type="radio" 
+                       name="ship_name" 
+                       value="{{ ship }}" 
+                       id="ship-{{ ship.lower() }}"
+                       data-testid="select-ship-{{ ship.lower() }}"
+                       required>
+                <span class="ship-radio-button">{{ ship }} ({{ ship_lengths[ship] }})</span>
+            </label>
+            {% endif %}
+            {% endfor %}
+        </div>
     </div>
     
     <div>

@@ -214,12 +214,15 @@ async def login_submit(
 
 
 # TODO: Refactor this into the GameBoard class
-def _get_placed_ships_from_board(board: GameBoard) -> dict[str, dict[str, list[str]]]:
+def _get_placed_ships_from_board(board: GameBoard) -> dict[str, dict[str, Any]]:
     """Extract placed ships from GameBoard into template-friendly format"""
-    placed_ships: dict[str, dict[str, list[str]]] = {}
+    placed_ships: dict[str, dict[str, Any]] = {}
     for ship in board.ships:
         cells: list[str] = [coord.name for coord in ship.positions]
-        placed_ships[ship.ship_type.ship_name] = {"cells": cells}
+        placed_ships[ship.ship_type.ship_name] = {
+            "cells": cells,
+            "code": ship.ship_type.code,
+        }
     return placed_ships
 
 

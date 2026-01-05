@@ -163,6 +163,7 @@ class GameService:
         self.games_by_player[player_2_id] = new_game
         player_1.status = PlayerStatus.IN_GAME
         player_2.status = PlayerStatus.IN_GAME
+        self._notify_placement_change()
 
         return new_game.id
 

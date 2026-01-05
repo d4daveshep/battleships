@@ -749,6 +749,7 @@ async def ready_for_game(
             "player_name": player_name,
             "placed_ships": placed_ships,
             "is_ready": True,
+            "is_multiplayer": True,
             "status_message": "Waiting for opponent to place their ships...",
         },
     )

@@ -349,3 +349,26 @@ class TestMultiplayerShipPlacement:
         # Bob becomes ready
         game_service.set_player_ready(bob.id)
         assert game_service.are_both_players_ready(game_id) is True
+
+    def test_placement_version_increments_when_game_created(
+        self, game_service: GameService
+    ) -> None:
+        """When a two-player game is created, placement version should increment to notify waiting players"""
+        alice = Player(name="Alice", status=PlayerStatus.AVAILABLE)
+        bob = Player(name="Bob", status=PlayerStatus.AVAILABLE)
+        game_service.add_player(alice)
+        game_service.add_player(bob)
+        
+        # Get initial version
+        initial_version = game_service.get_placement_version()
+        
+        # Create a two-player game (simulating both players ready scenario)
+        game_id = game_service.create_two_player_game(alice.id, bob.id)
+        
+        # Version should have incremented to notify waiting players
+        # This is critical for Player 1 who is waiting via long-polling
+        current_version = game_service.get_placement_version()
+        assert current_version > initial_version, (
+            "Placement version should increment when game is created "
+            "to wake up waiting long-poll requests"
+        )

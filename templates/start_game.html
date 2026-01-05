@@ -3,15 +3,21 @@
 {% block title %}Battleships Game{% endblock %}
 
 {% block content %}
-<h1>Start Game Confirmation</h1>
-<div data-testid="game-mode">{{ game_mode }}</div>
-<div data-testid="player-name">Player: {{ player_name }}</div>
-{% if opponent_name %}
-<div data-testid="opponent-name">Opponent: {{ opponent_name }}</div>
-{% endif %}
-
-<form method="post" action="/start-game">
-    <button type="submit" name="action" value="start_game">Start Game</button>
-    <button type="submit" name="action" value="abandon_game">Abandon Game</button>
-</form>
+<div class="container">
+    <h1>Start Game Confirmation</h1>
+    
+    <p data-testid="game-mode"><strong>Game Mode:</strong> {{ game_mode }}</p>
+    <p data-testid="player-name"><strong>Player:</strong> {{ player_name }}</p>
+    {% if opponent_name %}
+    <p data-testid="opponent-name"><strong>Opponent:</strong> {{ opponent_name }}</p>
+    {% endif %}
+        
+    <div class="actions-section">
+        <h2>Actions</h2>
+        <form method="post" action="/start-game" class="inline-form btn-group">
+            <button type="submit" name="action" value="start_game" class="btn btn-success">Start Game</button>
+            <button type="submit" name="action" value="abandon_game" class="btn btn-danger">Abandon Game</button>
+        </form>
+    </div>
+</div>
 {% endblock %}

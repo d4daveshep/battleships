@@ -283,3 +283,69 @@ class TestGameService:
         unknown_game_id: str = "unknown_game_id_12345"
         with pytest.raises(UnknownGameException):
             game_service.get_game_status_by_game_id(unknown_game_id)
+
+
+class TestMultiplayerShipPlacement:
+    """Tests for multiplayer ship placement functionality"""
+
+    @pytest.fixture
+    def game_service(self) -> GameService:
+        return GameService()
+
+    @pytest.fixture
+    def two_players_in_game(self, game_service: GameService) -> tuple[Player, Player, str]:
+        """Setup two players in a multiplayer game"""
+        alice = Player(name="Alice", status=PlayerStatus.AVAILABLE)
+        bob = Player(name="Bob", status=PlayerStatus.AVAILABLE)
+        game_service.add_player(alice)
+        game_service.add_player(bob)
+        game_id = game_service.create_two_player_game(alice.id, bob.id)
+        return alice, bob, game_id
+
+    def test_get_opponent_ready_status_returns_false_initially(
+        self, game_service: GameService, two_players_in_game: tuple[Player, Player, str]
+    ) -> None:
+        """When a multiplayer game starts, opponent should not be ready"""
+        alice, bob, game_id = two_players_in_game
+
+        # Alice checks if Bob is ready - should be False initially
+        is_opponent_ready = game_service.is_opponent_ready(alice.id)
+        assert is_opponent_ready is False
+
+        # Bob checks if Alice is ready - should be False initially
+        is_opponent_ready = game_service.is_opponent_ready(bob.id)
+        assert is_opponent_ready is False
+
+    def test_get_opponent_ready_status_returns_true_when_opponent_is_ready(
+        self, game_service: GameService, two_players_in_game: tuple[Player, Player, str]
+    ) -> None:
+        """When opponent marks themselves as ready, player should see them as ready"""
+        alice, bob, game_id = two_players_in_game
+
+        # Bob marks himself as ready
+        game_service.set_player_ready(bob.id)
+
+        # Alice checks if Bob is ready - should be True now
+        is_opponent_ready = game_service.is_opponent_ready(alice.id)
+        assert is_opponent_ready is True
+
+        # Bob checks if Alice is ready - should still be False
+        is_opponent_ready = game_service.is_opponent_ready(bob.id)
+        assert is_opponent_ready is False
+
+    def test_both_players_ready_check(
+        self, game_service: GameService, two_players_in_game: tuple[Player, Player, str]
+    ) -> None:
+        """Check if both players in a game are ready"""
+        alice, bob, game_id = two_players_in_game
+
+        # Initially neither is ready
+        assert game_service.are_both_players_ready(game_id) is False
+
+        # Alice becomes ready
+        game_service.set_player_ready(alice.id)
+        assert game_service.are_both_players_ready(game_id) is False
+
+        # Bob becomes ready
+        game_service.set_player_ready(bob.id)
+        assert game_service.are_both_players_ready(game_id) is True

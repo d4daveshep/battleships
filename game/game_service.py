@@ -1,3 +1,4 @@
+import asyncio
 import random
 import secrets
 from enum import StrEnum
@@ -274,6 +275,7 @@ class GameService:
     def set_player_ready(self, player_id: str) -> None:
         """Mark a player as ready for game."""
         self.ready_players.add(player_id)
+        self._notify_placement_change()
 
     def is_player_ready(self, player_id: str) -> bool:
         """Check if a player is ready for game."""
@@ -339,3 +341,105 @@ class GameService:
 
     def abandon_game_by_player_id(self, player_id: str) -> None:
         raise NotImplementedError("Complete unit tests first")
+
+    def get_opponent_id(self, player_id: str) -> str | None:
+        """Get the opponent's ID for a player in a game.
+
+        Args:
+            player_id: The player ID
+
+        Returns:
+            The opponent's player ID, or None if not in a game or no opponent
+        """
+        if player_id not in self.games_by_player:
+            return None
+
+        game = self.games_by_player[player_id]
+        player = self.players.get(player_id)
+
+        if game.player_1 == player:
+            return game.player_2.id if game.player_2 else None
+        elif game.player_2 == player:
+            return game.player_1.id
+        return None
+
+    def is_opponent_ready(self, player_id: str) -> bool:
+        """Check if the opponent is ready for game.
+
+        Args:
+            player_id: The player ID to check opponent for
+
+        Returns:
+            True if opponent is ready, False otherwise
+        """
+        opponent_id = self.get_opponent_id(player_id)
+        if not opponent_id:
+            return False
+        return self.is_player_ready(opponent_id)
+
+    def are_both_players_ready(self, game_id: str) -> bool:
+        """Check if both players in a game are ready.
+
+        Args:
+            game_id: The game ID
+
+        Returns:
+            True if both players are ready, False otherwise
+        """
+        if game_id not in self.games:
+            return False
+
+        game = self.games[game_id]
+        player_1_ready = self.is_player_ready(game.player_1.id)
+
+        if not game.player_2:
+            return player_1_ready
+
+        player_2_ready = self.is_player_ready(game.player_2.id)
+        return player_1_ready and player_2_ready
+
+    def get_placement_version(self) -> int:
+        """Get the current version of ship placement state.
+
+        Returns:
+            Current version number for change detection
+        """
+        if not hasattr(self, '_placement_version'):
+            self._placement_version = 0
+            self._placement_change_event = asyncio.Event()
+        return self._placement_version
+
+    def _notify_placement_change(self) -> None:
+        """Increment version and notify waiters of placement state change."""
+        if not hasattr(self, '_placement_version'):
+            self._placement_version = 0
+            self._placement_change_event = asyncio.Event()
+        self._placement_version += 1
+        self._placement_change_event.set()
+
+    async def wait_for_placement_change(self, since_version: int) -> None:
+        """Wait for placement state to change from the given version.
+
+        Args:
+            since_version: The version to wait for changes from
+
+        Returns immediately if the current version is different from since_version.
+        Otherwise, waits for the change_event to be set.
+        """
+        if not hasattr(self, '_placement_version'):
+            self._placement_version = 0
+            self._placement_change_event = asyncio.Event()
+
+        # If version already changed, return immediately
+        if self.get_placement_version() != since_version:
+            return
+
+        # Clear the event for this wait cycle
+        self._placement_change_event.clear()
+
+        # Check version again after clearing (in case it changed)
+        if self.get_placement_version() != since_version:
+            return
+
+        # Wait for the event to be set
+        await self._placement_change_event.wait()

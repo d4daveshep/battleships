@@ -14,6 +14,23 @@
 
 <div data-testid="ship-placement-status" class="placement-status">
     <p data-testid="ship-placement-count">{{ placed_ships|length }} of 5 ships placed</p>
+    {# Placement guidance message #}
+    <p data-testid="placement-guidance" class="placement-guidance">
+        {% if is_ready %}
+        Waiting for opponent...
+        {% elif placed_ships|length >= 5 %}
+        All ships placed - click Ready when done
+        {% else %}
+        Place all ships to continue
+        {% endif %}
+    </p>
+    
+    {% if is_multiplayer %}
+    <div hx-get="/ship-placement/opponent-status" hx-trigger="load" hx-swap="outerHTML">
+        <!-- Placeholder for opponent status -->
+        <div data-testid="opponent-status">Loading opponent status...</div>
+    </div>
+    {% endif %}
 </div>
 
 <div data-testid="my-ships-board" class="ship-board-container">
@@ -97,11 +114,15 @@
             <span data-testid="cell-{{ cell }}" data-ship="{{ ship_name.lower() }}">{{ cell }}</span>
             {% endfor %}
             </span>
+            {% if not is_ready %}
             <form method="POST" action="/remove-ship" class="inline-form">
                 <input type="hidden" name="player_name" value="{{ player_name }}">
                 <input type="hidden" name="ship_name" value="{{ ship_name }}">
                 <button type="submit" class="btn-small btn-danger" data-testid="remove-ship-{{ ship_name.lower() }}">Remove</button>
             </form>
+            {% else %}
+            <button type="button" class="btn-small btn-danger" data-testid="remove-ship-{{ ship_name.lower() }}" disabled>Remove</button>
+            {% endif %}
         </div>
         {% endfor %}
         </div>

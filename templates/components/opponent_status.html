@@ -1,0 +1,19 @@
+{# Opponent status component for multiplayer ship placement #}
+<div data-testid="opponent-status" 
+     class="opponent-status"
+     hx-get="/ship-placement/opponent-status/long-poll?version={{ version }}"
+     hx-trigger="load delay:1s"
+     hx-swap="outerHTML">
+    {% if opponent_left %}
+    <div class="alert alert-danger">
+        <p class="status-left">⚠️ Opponent has left the game</p>
+        <form action="/leave-placement" method="POST">
+            <button type="submit" class="btn btn-primary">Return to Lobby</button>
+        </form>
+    </div>
+    {% elif opponent_ready %}
+    <p class="status-ready">✓ Opponent is ready</p>
+    {% else %}
+    <p class="status-placing">⏳ Opponent is placing ships...</p>
+    {% endif %}
+</div>

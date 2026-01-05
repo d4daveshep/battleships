@@ -94,7 +94,11 @@
             {% for cell in ship_data.cells %}
             <span data-testid="cell-{{ cell }}" data-ship="{{ ship_name.lower() }}">{{ cell }}</span>
             {% endfor %}
-            <button type="button" data-testid="remove-ship-{{ ship_name.lower() }}">Remove</button>
+            <form method="POST" action="/remove-ship" style="display: inline;">
+                <input type="hidden" name="player_name" value="{{ player_name }}">
+                <input type="hidden" name="ship_name" value="{{ ship_name }}">
+                <button type="submit" data-testid="remove-ship-{{ ship_name.lower() }}">Remove</button>
+            </form>
         </div>
         {% endfor %}
     {% else %}

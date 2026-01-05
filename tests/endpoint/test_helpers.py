@@ -26,14 +26,11 @@ def create_player(client: TestClient, name: str, game_mode: str = "human") -> Re
     return client.post("/", data={"player_name": name, "game_mode": game_mode})
 
 
-def send_game_request(
-    client: TestClient, player_name: str, opponent_name: str
-) -> Response:
+def send_game_request(client: TestClient, opponent_name: str) -> Response:
     """Helper function to send a game request
 
     Args:
         client: TestClient instance for the requesting player
-        player_name: Name of the player sending the request
         opponent_name: Name of the opponent to send request to
 
     Returns:
@@ -41,18 +38,15 @@ def send_game_request(
     """
     return client.post(
         "/select-opponent",
-        data={"player_name": player_name, "opponent_name": opponent_name},
+        data={"opponent_name": opponent_name},
     )
 
 
-def accept_game_request(
-    client: TestClient, player_name: str, follow_redirects: bool = True
-) -> Response:
+def accept_game_request(client: TestClient, follow_redirects: bool = True) -> Response:
     """Helper function to accept a game request
 
     Args:
         client: TestClient instance for the player accepting
-        player_name: Name of the player accepting the request
         follow_redirects: Whether to follow redirects (defaults to True)
 
     Returns:
@@ -60,35 +54,33 @@ def accept_game_request(
     """
     return client.post(
         "/accept-game-request",
-        data={"player_name": player_name},
+        data={},
         follow_redirects=follow_redirects,
     )
 
 
-def decline_game_request(client: TestClient, player_name: str) -> Response:
+def decline_game_request(client: TestClient) -> Response:
     """Helper function to decline a game request
 
     Args:
         client: TestClient instance for the player declining
-        player_name: Name of the player declining the request
 
     Returns:
         Response from the decline-game-request endpoint
     """
-    return client.post("/decline-game-request", data={"player_name": player_name})
+    return client.post("/decline-game-request", data={})
 
 
-def leave_lobby(client: TestClient, player_name: str) -> Response:
+def leave_lobby(client: TestClient) -> Response:
     """Helper function to leave the lobby
 
     Args:
         client: TestClient instance for the player leaving
-        player_name: Name of the player leaving
 
     Returns:
         Response from the leave-lobby endpoint
     """
-    return client.post("/leave-lobby", data={"player_name": player_name})
+    return client.post("/leave-lobby", data={})
 
 
 def decode_session(session_cookie: str) -> dict[str, str]:

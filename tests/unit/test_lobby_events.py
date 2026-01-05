@@ -8,7 +8,8 @@ Tests should fail initially as the event system is not yet implemented.
 import asyncio
 import pytest
 from game.lobby import Lobby
-from game.player import PlayerStatus
+from game.player import PlayerStatus, Player
+from tests.unit.conftest import make_player
 
 
 class TestLobbyEventNotifications:
@@ -17,15 +18,19 @@ class TestLobbyEventNotifications:
     def test_lobby_has_change_event(self):
         """Test that Lobby has an asyncio.Event for change notifications"""
         lobby = Lobby()
-        assert hasattr(lobby, "change_event"), "Lobby should have a change_event attribute"
-        assert isinstance(
-            lobby.change_event, asyncio.Event
-        ), "change_event should be an asyncio.Event"
+        assert hasattr(lobby, "change_event"), (
+            "Lobby should have a change_event attribute"
+        )
+        assert isinstance(lobby.change_event, asyncio.Event), (
+            "change_event should be an asyncio.Event"
+        )
 
     def test_change_event_initially_not_set(self):
         """Test that change_event is not set initially"""
         lobby = Lobby()
-        assert not lobby.change_event.is_set(), "change_event should not be set initially"
+        assert not lobby.change_event.is_set(), (
+            "change_event should not be set initially"
+        )
 
     @pytest.mark.asyncio
     async def test_add_player_sets_change_event(self):
@@ -34,88 +39,101 @@ class TestLobbyEventNotifications:
         lobby.change_event.clear()
 
         # Add player
-        lobby.add_player("Alice", PlayerStatus.AVAILABLE)
+        alice = make_player("Alice", PlayerStatus.AVAILABLE)
+        lobby.add_player(alice)
 
         # Event should be set
-        assert lobby.change_event.is_set(), "change_event should be set after adding player"
+        assert lobby.change_event.is_set(), (
+            "change_event should be set after adding player"
+        )
 
     @pytest.mark.asyncio
     async def test_remove_player_sets_change_event(self):
         """Test that removing a player sets the change event"""
         lobby = Lobby()
-        lobby.add_player("Alice", PlayerStatus.AVAILABLE)
+        alice = make_player("Alice", PlayerStatus.AVAILABLE)
+        lobby.add_player(alice)
         lobby.change_event.clear()
 
         # Remove player
-        lobby.remove_player("Alice")
+        lobby.remove_player(alice.id)
 
         # Event should be set
-        assert lobby.change_event.is_set(), "change_event should be set after removing player"
+        assert lobby.change_event.is_set(), (
+            "change_event should be set after removing player"
+        )
 
     @pytest.mark.asyncio
     async def test_update_player_status_sets_change_event(self):
         """Test that updating player status sets the change event"""
         lobby = Lobby()
-        lobby.add_player("Alice", PlayerStatus.AVAILABLE)
+        alice = make_player("Alice", PlayerStatus.AVAILABLE)
+        lobby.add_player(alice)
         lobby.change_event.clear()
 
         # Update status
-        lobby.update_player_status("Alice", PlayerStatus.REQUESTING_GAME)
+        lobby.update_player_status(alice.id, PlayerStatus.REQUESTING_GAME)
 
         # Event should be set
-        assert (
-            lobby.change_event.is_set()
-        ), "change_event should be set after status update"
+        assert lobby.change_event.is_set(), (
+            "change_event should be set after status update"
+        )
 
     @pytest.mark.asyncio
     async def test_send_game_request_sets_change_event(self):
         """Test that sending game request sets the change event"""
         lobby = Lobby()
-        lobby.add_player("Alice", PlayerStatus.AVAILABLE)
-        lobby.add_player("Bob", PlayerStatus.AVAILABLE)
+        alice = make_player("Alice", PlayerStatus.AVAILABLE)
+        lobby.add_player(alice)
+        bob = make_player("Bob", PlayerStatus.AVAILABLE)
+        lobby.add_player(bob)
         lobby.change_event.clear()
 
         # Send game request
-        lobby.send_game_request("Alice", "Bob")
+        lobby.send_game_request(alice.id, bob.id)
 
         # Event should be set
-        assert (
-            lobby.change_event.is_set()
-        ), "change_event should be set after sending game request"
+        assert lobby.change_event.is_set(), (
+            "change_event should be set after sending game request"
+        )
 
     @pytest.mark.asyncio
     async def test_accept_game_request_sets_change_event(self):
         """Test that accepting game request sets the change event"""
         lobby = Lobby()
-        lobby.add_player("Alice", PlayerStatus.AVAILABLE)
-        lobby.add_player("Bob", PlayerStatus.AVAILABLE)
-        lobby.send_game_request("Alice", "Bob")
+        alice = make_player("Alice", PlayerStatus.AVAILABLE)
+        lobby.add_player(alice)
+        bob = make_player("Bob", PlayerStatus.AVAILABLE)
+        lobby.add_player(bob)
+        lobby.send_game_request(alice.id, bob.id)
         lobby.change_event.clear()
 
         # Accept game request
-        lobby.accept_game_request("Bob")
+        lobby.accept_game_request(bob.id)
 
         # Event should be set
-        assert (
-            lobby.change_event.is_set()
-        ), "change_event should be set after accepting game request"
+        assert lobby.change_event.is_set(), (
+            "change_event should be set after accepting game request"
+        )
 
     @pytest.mark.asyncio
     async def test_decline_game_request_sets_change_event(self):
         """Test that declining game request sets the change event"""
         lobby = Lobby()
-        lobby.add_player("Alice", PlayerStatus.AVAILABLE)
-        lobby.add_player("Bob", PlayerStatus.AVAILABLE)
-        lobby.send_game_request("Alice", "Bob")
+        alice = make_player("Alice", PlayerStatus.AVAILABLE)
+        lobby.add_player(alice)
+        bob = make_player("Bob", PlayerStatus.AVAILABLE)
+        lobby.add_player(bob)
+        lobby.send_game_request(alice.id, bob.id)
         lobby.change_event.clear()
 
         # Decline game request
-        lobby.decline_game_request("Bob")
+        lobby.decline_game_request(bob.id)
 
         # Event should be set
-        assert (
-            lobby.change_event.is_set()
-        ), "change_event should be set after declining game request"
+        assert lobby.change_event.is_set(), (
+            "change_event should be set after declining game request"
+        )
 
     @pytest.mark.asyncio
     async def test_wait_for_change_completes_when_event_set(self):
@@ -126,7 +144,8 @@ class TestLobbyEventNotifications:
         async def trigger_change():
             # Wait a bit then trigger a change
             await asyncio.sleep(0.1)
-            lobby.add_player("Alice", PlayerStatus.AVAILABLE)
+            alice: Player = make_player("Alice", PlayerStatus.AVAILABLE)
+            lobby.add_player(alice)
 
         # Start waiting for change
         wait_task = asyncio.create_task(lobby.wait_for_change(initial_version))
@@ -145,7 +164,8 @@ class TestLobbyEventNotifications:
         initial_version = lobby.get_version()
 
         # Make a change
-        lobby.add_player("Alice", PlayerStatus.AVAILABLE)
+        alice = make_player("Alice", PlayerStatus.AVAILABLE)
+        lobby.add_player(alice)
 
         # Wait for change with old version - should return immediately
         import time
@@ -154,7 +174,9 @@ class TestLobbyEventNotifications:
         await lobby.wait_for_change(initial_version)
         elapsed = time.time() - start
 
-        assert elapsed < 0.1, "wait_for_change should return immediately if version changed"
+        assert elapsed < 0.1, (
+            "wait_for_change should return immediately if version changed"
+        )
 
     @pytest.mark.asyncio
     async def test_wait_for_change_waits_if_version_unchanged(self):
@@ -193,7 +215,8 @@ class TestLobbyEventNotifications:
         await asyncio.sleep(0.05)
 
         # Trigger a change
-        lobby.add_player("Alice", PlayerStatus.AVAILABLE)
+        alice = make_player("Alice", PlayerStatus.AVAILABLE)
+        lobby.add_player(alice)
 
         # Give time for notification
         await asyncio.sleep(0.05)
@@ -210,7 +233,8 @@ class TestLobbyEventNotifications:
         initial_version = lobby.get_version()
 
         # Add player (triggers event)
-        lobby.add_player("Alice", PlayerStatus.AVAILABLE)
+        alice = make_player("Alice", PlayerStatus.AVAILABLE)
+        lobby.add_player(alice)
 
         # Event should be set
         assert lobby.change_event.is_set()
@@ -222,7 +246,8 @@ class TestLobbyEventNotifications:
 
         # Make another change
         lobby.get_version()
-        lobby.add_player("Bob", PlayerStatus.AVAILABLE)
+        bob = make_player("Bob", PlayerStatus.AVAILABLE)
+        lobby.add_player(bob)
 
         # Event should be set again for the new change
         assert lobby.change_event.is_set(), "Event should be set for new changes"

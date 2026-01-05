@@ -2,3 +2,4 @@
 .coverage
 games/
 *.egg-info
+.ruff_cache/

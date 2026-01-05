@@ -42,14 +42,14 @@ uv remove <package>       # Remove dependency
 ### Running Tests
 
 ```bash
-uv run pytest                     # Run all tests
+uv run pytest                     # Run all tests (excludes WIP scenarios by default)
 uv run pytest --cov              # Run tests with coverage
 uv run pytest -v                 # Run tests with verbose output
-uv run pytest -k "test_name"     # Run specific test
+uv run pytest -k "test_name"     # Run specific test by name pattern
 uv run pytest features/          # Run BDD feature tests
-uv run pytest -m wip             # Run work-in-progress tests
+uv run pytest -m wip             # Run ONLY work-in-progress tests (marked with @pytest.mark.wip)
 uv run pytest tests/unit/        # Run unit tests only
-uv run pytest tests/integration/ # Run integration tests only
+uv run pytest tests/endpoint/    # Run endpoint/integration tests only
 uv run pytest tests/bdd/         # Run BDD step definitions
 ```
 
@@ -65,12 +65,15 @@ uv run python main.py                      # Alternative way to start server
 ### Core Application Files
 - `main.py` - FastAPI application entry point with all routes
 - `game/` - Core game logic and models
-  - `lobby.py` - Multiplayer lobby management
-  - `player.py` - Player models and game requests
+  - `model.py` - Ship types, coordinates, game board, and placement rules
+  - `player.py` - Player models, statuses, and game requests
+  - `lobby.py` - Multiplayer lobby with version-based change tracking
+  - `game_service.py` - Game creation and state management
 - `services/` - Business logic services
-  - `auth_service.py` - Player authentication and validation
+  - `auth_service.py` - Player authentication and name validation
   - `lobby_service.py` - Lobby operations and real-time updates
-- `templates/` - Jinja2 HTML templates and components
+- `templates/` - Jinja2 HTML templates
+  - `components/` - Reusable HTMX-compatible components for dynamic updates
 
 ### Testing Structure
 - `features/` - BDD feature files (Gherkin syntax)
@@ -78,9 +81,10 @@ uv run python main.py                      # Alternative way to start server
   - `ship_placement.feature` - Ship placement rules and validation
   - `multiplayer_lobby.feature` - Lobby functionality
   - `long_polling_updates.feature` - Real-time update scenarios
-- `tests/bdd/` - BDD step definitions and test implementations
-- `tests/unit/` - Unit tests for individual components
-- `tests/integration/` - Integration tests for service interactions
+  - `start_game_confirmation_page.feature` - Game mode selection confirmation
+- `tests/bdd/` - BDD step definitions (both FastAPI and browser-based)
+- `tests/unit/` - Unit tests for individual components (models, services, game logic)
+- `tests/endpoint/` - Integration tests for FastAPI endpoints
 
 ## BDD/TDD Workflow
 
@@ -92,6 +96,12 @@ The project follows behavior-driven development with comprehensive Gherkin featu
 - Multiplayer lobby with real-time updates
 - Long-polling for live game state synchronization
 
+### Test Infrastructure
+- **Session-scoped FastAPI server**: BDD tests start a real server (port 8000) for the entire test session
+- **Dual test approaches**: Each feature has both FastAPI-based (HTTP client) and browser-based (Playwright) test implementations
+- **Automatic lobby reset**: The `reset_lobby` fixture ensures clean state before each scenario via `/test/reset-lobby` endpoint
+- **Long-polling timeouts**: Page fixtures configured with 40s timeout to accommodate 35s long-poll operations
+
 ## Architecture Notes
 
 ### Web Application Architecture
@@ -101,10 +111,12 @@ The project follows behavior-driven development with comprehensive Gherkin featu
 - **Template Rendering**: Server-side rendering with Jinja2 and HTMX for dynamic updates
 
 ### Game State Management
-- **Global Lobby**: Centralized lobby instance for multiplayer coordination
-- **Player Status Tracking**: Available, Busy, In-Game states with transitions
+- **Global Lobby**: Centralized lobby instance (`_game_lobby` in main.py) for multiplayer coordination
+- **Player Status Tracking**: Four states: AVAILABLE, REQUESTING_GAME, PENDING_RESPONSE, IN_GAME
 - **Game Requests**: Async request/accept/decline workflow for player matching
-- **Version-based Updates**: Lobby versioning for efficient long-polling
+- **Version-based Updates**: Lobby versioning with `asyncio.Event` for efficient long-polling
+- **Session-based Authentication**: Player IDs stored in session cookies (using Starlette SessionMiddleware)
+- **Game Instances**: Tracked separately from lobby once players are matched
 
 ### Frontend Architecture
 - **HATEOAS Principles**: Hypermedia-driven navigation and state transitions
@@ -112,9 +124,19 @@ The project follows behavior-driven development with comprehensive Gherkin featu
 - **Component Templates**: Reusable template components for dynamic UI parts
 - **Form Handling**: Both HTMX and standard form submission support
 
+### Domain Model
+- **Coordinates**: Enum-based system (A1-J10) with row/column indexing
+- **Ship Types**: Carrier (5), Battleship (4), Cruiser (3), Submarine (3), Destroyer (2)
+- **Orientations**: Horizontal, Vertical, Diagonal Up, Diagonal Down
+- **Placement Rules**:
+  - Ships cannot overlap or be adjacent (must have at least 1 cell spacing)
+  - Each ship type can only be placed once per board
+  - Ships must stay within 10x10 grid boundaries
+
 ### Key Features
-- Player login with comprehensive name validation
+- Player login with comprehensive name validation (length, characters, profanity checks)
 - Dual game modes: single-player vs computer, multiplayer vs humans
 - Real-time multiplayer lobby with live player status updates
 - Complex ship placement rules (horizontal, vertical, diagonal with spacing requirements)
 - Long-polling for efficient real-time updates without WebSockets
+- Auto-generated unique player IDs using cryptographic tokens

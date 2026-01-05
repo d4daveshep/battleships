@@ -823,7 +823,7 @@ def click_accept_game_request(page: Page) -> None:
 @then("I should be redirected to the start game confirmation page")
 def redirected_to_game_interface(page: Page) -> None:
     # Verify redirection to the game page
-    page.wait_for_url("**/game*", timeout=5000)
+    page.wait_for_url("**/start-game", timeout=5000)
 
     # Verify start game confirmaiton page elements are present
     game_title = page.locator("h1").text_content()
@@ -997,7 +997,7 @@ def opponent_accepts_my_game_request(page: Page, opponent_name: str) -> None:
 
     # Wait for the long poll UI to update with the acceptance
     # The page should redirect to game, so wait for that
-    page.wait_for_url("**/game*", timeout=10000)
+    page.wait_for_url("**/start-game", timeout=10000)
 
 
 @given(parsers.parse('"{sender_player}" selects "{opponent_player}" as his opponent'))

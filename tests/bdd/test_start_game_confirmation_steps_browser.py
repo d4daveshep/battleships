@@ -98,16 +98,16 @@ def redirected_to_ship_placement(page: Page) -> None:
     assert "Ship Placement" in h1_text
 
 
-# === Scenario: Return to login page ===
+# === Scenario: Abandon game ===
 
 
-@when('I choose "Return to Login"')
-def choose_return_to_login(page: Page) -> None:
-    """Click the Return to Login button"""
-    return_to_login_button: Locator = page.locator(
-        'button[type="submit"][value="return_to_login"]'
+@when('I choose "Abandon Game"')
+def choose_abandon_game(page: Page) -> None:
+    """Click the Abandon Game button"""
+    abandon_game_button: Locator = page.locator(
+        'button[type="submit"][name="action"][value="abandon_game"]'
     )
-    return_to_login_button.click()
+    abandon_game_button.click()
     page.wait_for_load_state("networkidle")
 
 
@@ -122,27 +122,3 @@ def redirected_to_login_page(page: Page) -> None:
     h1_text: str | None = h1_element.text_content()
     assert h1_text is not None
     assert "Battleships Login" in h1_text
-
-
-# === Scenario: Exit completely ===
-
-
-@when('I choose "Exit"')
-def choose_exit(page: Page) -> None:
-    """Click the Exit button"""
-    exit_button: Locator = page.locator('button[type="submit"][value="exit"]')
-    exit_button.click()
-    page.wait_for_load_state("networkidle")
-
-
-@then("I should be redirected to the goodbye page")
-def redirected_to_goodbye_page(page: Page) -> None:
-    """Verify redirect to goodbye page"""
-    page.wait_for_url("**/goodbye**")
-    assert "goodbye" in page.url
-
-    # Verify we're on the goodbye page
-    h1_element: Locator = page.locator("h1")
-    h1_text: str | None = h1_element.text_content()
-    assert h1_text is not None
-    assert "Goodbye" in h1_text

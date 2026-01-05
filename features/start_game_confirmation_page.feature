@@ -12,10 +12,7 @@ Scenario: Start game
   When I choose "Start Game"
   Then I should be redirected to the ship placement page
 
-Scenario: Return to login page
-  When I choose "Return to Login"
+Scenario: Abandon game
+  When I choose "Abandon Game"
   Then I should be redirected to the login page
 
-Scenario: Exit completely
-  When I choose "Exit"
-  Then I should be redirected to the goodbye page

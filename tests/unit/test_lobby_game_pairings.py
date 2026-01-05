@@ -3,12 +3,11 @@ Unit tests for Lobby game pairing functionality.
 
 These tests follow the TDD RED phase for tracking matched player pairs
 when a game request is accepted.
-
-Tests should fail initially as the pairing system is not yet implemented.
 """
 
 from game.lobby import Lobby
 from game.player import PlayerStatus
+from tests.unit.conftest import make_player
 
 
 class TestLobbyGamePairings:
@@ -30,18 +29,20 @@ class TestLobbyGamePairings:
     def test_accept_game_request_creates_pairing(self):
         """Test that accepting a game request creates a bidirectional pairing"""
         lobby = Lobby()
-        lobby.add_player("Alice", PlayerStatus.AVAILABLE)
-        lobby.add_player("Bob", PlayerStatus.AVAILABLE)
-        lobby.send_game_request("Alice", "Bob")
+        alice = make_player("Alice", PlayerStatus.AVAILABLE)
+        bob = make_player("Bob", PlayerStatus.AVAILABLE)
+        lobby.add_player(alice)
+        lobby.add_player(bob)
+        lobby.send_game_request(alice.id, bob.id)
 
         # Accept the request
-        lobby.accept_game_request("Bob")
+        lobby.accept_game_request(bob.id)
 
         # Both players should be paired with each other
-        assert "Alice" in lobby.active_games, "Alice should be in active_games"
-        assert "Bob" in lobby.active_games, "Bob should be in active_games"
-        assert lobby.active_games["Alice"] == "Bob", "Alice should be paired with Bob"
-        assert lobby.active_games["Bob"] == "Alice", "Bob should be paired with Alice"
+        assert alice.id in lobby.active_games, "Alice should be in active_games"
+        assert bob.id in lobby.active_games, "Bob should be in active_games"
+        assert lobby.active_games[alice.id] == bob.id, "Alice should be paired with Bob"
+        assert lobby.active_games[bob.id] == alice.id, "Bob should be paired with Alice"
 
     def test_get_opponent_method_exists(self):
         """Test that Lobby has a get_opponent method"""
@@ -52,24 +53,27 @@ class TestLobbyGamePairings:
     def test_get_opponent_returns_paired_player(self):
         """Test that get_opponent returns the correct opponent for a paired player"""
         lobby = Lobby()
-        lobby.add_player("Alice", PlayerStatus.AVAILABLE)
-        lobby.add_player("Bob", PlayerStatus.AVAILABLE)
-        lobby.send_game_request("Alice", "Bob")
-        lobby.accept_game_request("Bob")
+        alice = make_player("Alice", PlayerStatus.AVAILABLE)
+        bob = make_player("Bob", PlayerStatus.AVAILABLE)
+        lobby.add_player(alice)
+        lobby.add_player(bob)
+        lobby.send_game_request(alice.id, bob.id)
+        lobby.accept_game_request(bob.id)
 
         # Get opponent for each player
-        alice_opponent = lobby.get_opponent("Alice")
-        bob_opponent = lobby.get_opponent("Bob")
+        alice_opponent = lobby.get_opponent(alice.id)
+        bob_opponent = lobby.get_opponent(bob.id)
 
-        assert alice_opponent == "Bob", "Alice's opponent should be Bob"
-        assert bob_opponent == "Alice", "Bob's opponent should be Alice"
+        assert alice_opponent == bob.id, "Alice's opponent should be Bob"
+        assert bob_opponent == alice.id, "Bob's opponent should be Alice"
 
     def test_get_opponent_returns_none_for_unpaired_player(self):
         """Test that get_opponent returns None for a player not in a game"""
         lobby = Lobby()
-        lobby.add_player("Charlie", PlayerStatus.AVAILABLE)
+        charlie = make_player("Charlie", PlayerStatus.AVAILABLE)
+        lobby.add_player(charlie)
 
-        opponent = lobby.get_opponent("Charlie")
+        opponent = lobby.get_opponent(charlie.id)
         assert opponent is None, "Unpaired player should have no opponent"
 
     def test_get_opponent_returns_none_for_nonexistent_player(self):
@@ -83,72 +87,86 @@ class TestLobbyGamePairings:
         """Test that multiple game pairings can coexist without interference"""
         lobby = Lobby()
         # Set up two pairs of players
-        lobby.add_player("Alice", PlayerStatus.AVAILABLE)
-        lobby.add_player("Bob", PlayerStatus.AVAILABLE)
-        lobby.add_player("Charlie", PlayerStatus.AVAILABLE)
-        lobby.add_player("Diana", PlayerStatus.AVAILABLE)
+        alice = make_player("Alice", PlayerStatus.AVAILABLE)
+        bob = make_player("Bob", PlayerStatus.AVAILABLE)
+        charlie = make_player("Charlie", PlayerStatus.AVAILABLE)
+        diana = make_player("Diana", PlayerStatus.AVAILABLE)
+        
+        lobby.add_player(alice)
+        lobby.add_player(bob)
+        lobby.add_player(charlie)
+        lobby.add_player(diana)
 
         # Create two game requests
-        lobby.send_game_request("Alice", "Bob")
-        lobby.accept_game_request("Bob")
+        lobby.send_game_request(alice.id, bob.id)
+        lobby.accept_game_request(bob.id)
 
-        lobby.send_game_request("Charlie", "Diana")
-        lobby.accept_game_request("Diana")
+        lobby.send_game_request(charlie.id, diana.id)
+        lobby.accept_game_request(diana.id)
 
         # Verify both pairings are tracked correctly
-        assert lobby.get_opponent("Alice") == "Bob"
-        assert lobby.get_opponent("Bob") == "Alice"
-        assert lobby.get_opponent("Charlie") == "Diana"
-        assert lobby.get_opponent("Diana") == "Charlie"
+        assert lobby.get_opponent(alice.id) == bob.id
+        assert lobby.get_opponent(bob.id) == alice.id
+        assert lobby.get_opponent(charlie.id) == diana.id
+        assert lobby.get_opponent(diana.id) == charlie.id
 
     def test_pairing_created_before_request_deleted(self):
         """Test that pairing is created even though game request is deleted"""
         lobby = Lobby()
-        lobby.add_player("Alice", PlayerStatus.AVAILABLE)
-        lobby.add_player("Bob", PlayerStatus.AVAILABLE)
-        lobby.send_game_request("Alice", "Bob")
+        alice = make_player("Alice", PlayerStatus.AVAILABLE)
+        bob = make_player("Bob", PlayerStatus.AVAILABLE)
+        lobby.add_player(alice)
+        lobby.add_player(bob)
+        
+        lobby.send_game_request(alice.id, bob.id)
 
         # Accept the request
-        lobby.accept_game_request("Bob")
+        lobby.accept_game_request(bob.id)
 
         # Game request should be deleted
-        assert lobby.get_pending_request("Bob") is None
-        assert lobby.get_pending_request_by_sender("Alice") is None
+        assert lobby.get_pending_request(bob.id) is None
+        assert lobby.get_pending_request_by_sender(alice.id) is None
 
         # But pairing should still exist
-        assert lobby.get_opponent("Alice") == "Bob"
-        assert lobby.get_opponent("Bob") == "Alice"
+        assert lobby.get_opponent(alice.id) == bob.id
+        assert lobby.get_opponent(bob.id) == alice.id
 
     def test_pairing_not_created_when_request_declined(self):
         """Test that declining a game request does not create a pairing"""
         lobby = Lobby()
-        lobby.add_player("Alice", PlayerStatus.AVAILABLE)
-        lobby.add_player("Bob", PlayerStatus.AVAILABLE)
-        lobby.send_game_request("Alice", "Bob")
+        alice = make_player("Alice", PlayerStatus.AVAILABLE)
+        bob = make_player("Bob", PlayerStatus.AVAILABLE)
+        lobby.add_player(alice)
+        lobby.add_player(bob)
+        
+        lobby.send_game_request(alice.id, bob.id)
 
         # Decline the request
-        lobby.decline_game_request("Bob")
+        lobby.decline_game_request(bob.id)
 
         # No pairing should exist
-        assert lobby.get_opponent("Alice") is None
-        assert lobby.get_opponent("Bob") is None
+        assert lobby.get_opponent(alice.id) is None
+        assert lobby.get_opponent(bob.id) is None
         assert len(lobby.active_games) == 0
 
     def test_accept_game_request_still_returns_correct_tuple(self):
         """Test that accept_game_request still returns (sender, receiver) tuple"""
         lobby = Lobby()
-        lobby.add_player("Alice", PlayerStatus.AVAILABLE)
-        lobby.add_player("Bob", PlayerStatus.AVAILABLE)
-        lobby.send_game_request("Alice", "Bob")
+        alice = make_player("Alice", PlayerStatus.AVAILABLE)
+        bob = make_player("Bob", PlayerStatus.AVAILABLE)
+        lobby.add_player(alice)
+        lobby.add_player(bob)
+        
+        lobby.send_game_request(alice.id, bob.id)
 
         # Accept and verify return value
-        sender, receiver = lobby.accept_game_request("Bob")
+        sender_id, receiver_id = lobby.accept_game_request(bob.id)
 
-        assert sender == "Alice", "Should return sender name"
-        assert receiver == "Bob", "Should return receiver name"
+        assert sender_id == alice.id, "Should return sender ID"
+        assert receiver_id == bob.id, "Should return receiver ID"
         # And pairing should be created
-        assert lobby.get_opponent("Alice") == "Bob"
-        assert lobby.get_opponent("Bob") == "Alice"
+        assert lobby.get_opponent(alice.id) == bob.id
+        assert lobby.get_opponent(bob.id) == alice.id
 
 
 class TestLobbyServiceGamePairings:
@@ -174,46 +192,31 @@ class TestLobbyServiceGamePairings:
         lobby_service = LobbyService(lobby)
 
         # Set up game pairing via service
-        lobby_service.join_lobby("Alice")
-        lobby_service.join_lobby("Bob")
-        lobby_service.send_game_request("Alice", "Bob")
-        lobby_service.accept_game_request("Bob")
+        alice = make_player("Alice")
+        lobby_service.join_lobby(alice)
+        bob = make_player("Bob")
+        lobby_service.join_lobby(bob)
+        lobby_service.send_game_request(alice.id, bob.id)
+        lobby_service.accept_game_request(bob.id)
 
         # Get opponents via service
-        alice_opponent = lobby_service.get_opponent("Alice")
-        bob_opponent = lobby_service.get_opponent("Bob")
+        alice_opponent = lobby_service.get_opponent(alice.id)
+        bob_opponent = lobby_service.get_opponent(bob.id)
 
-        assert alice_opponent == "Bob", "Alice's opponent should be Bob"
-        assert bob_opponent == "Alice", "Bob's opponent should be Alice"
+        assert alice_opponent == bob.id, "Alice's opponent should be Bob's ID"
+        assert bob_opponent == alice.id, "Bob's opponent should be Alice's ID"
 
-    def test_lobby_service_get_opponent_validates_player_name(self):
-        """Test that LobbyService.get_opponent validates player name input"""
+    def test_lobby_service_get_opponent_validates_player_id(self):
+        """Test that LobbyService.get_opponent validates player ID input"""
         from services.lobby_service import LobbyService
 
         lobby = Lobby()
         lobby_service = LobbyService(lobby)
 
-        # Test with empty name - should handle gracefully
+        # Test with empty ID - should handle gracefully
         opponent = lobby_service.get_opponent("")
-        assert opponent is None, "Empty player name should return None"
+        assert opponent is None, "Empty player ID should return None"
 
-        # Test with whitespace - should strip and process
+        # Test with whitespace - should result in None as no such player exists
         opponent = lobby_service.get_opponent("  ")
-        assert opponent is None, "Whitespace player name should return None"
-
-    def test_lobby_service_get_opponent_strips_player_name(self):
-        """Test that LobbyService.get_opponent strips whitespace from player name"""
-        from services.lobby_service import LobbyService
-
-        lobby = Lobby()
-        lobby_service = LobbyService(lobby)
-
-        lobby_service.join_lobby("Alice")
-        lobby_service.join_lobby("Bob")
-        lobby_service.send_game_request("Alice", "Bob")
-        lobby_service.accept_game_request("Bob")
-
-        # Get opponent with whitespace
-        alice_opponent = lobby_service.get_opponent("  Alice  ")
-
-        assert alice_opponent == "Bob", "Should strip whitespace and find opponent"
+        assert opponent is None, "Whitespace player ID should return None"

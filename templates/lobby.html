@@ -13,7 +13,7 @@
     <!-- Lobby dynamic content section -->
     <!-- The component will include its own HTMX attributes for long polling -->
     <div id="lobby-status-container"
-         hx-get="/lobby/status/{{ player_name }}/long-poll"
+         hx-get="/lobby/status/long-poll"
          hx-trigger="load"
          hx-swap="innerHTML">
 
@@ -23,7 +23,6 @@
     <div data-testid="leave-lobby-section">
         <!-- <form hx-post="/leave-lobby" hx-target="body" hx-swap="innerHTML"> -->
         <form method="post" action="/leave-lobby" >
-            <input type="hidden" name="player_name" value="{{ player_name }}">
             <button type="submit" data-testid="leave-lobby-button">
                 Leave Lobby
             </button>

@@ -667,7 +667,9 @@ def ready_permanent(context: MultiplayerBrowserContext) -> None:
 @given('I select the "Cruiser" ship to place')
 def select_cruiser(context: MultiplayerBrowserContext) -> None:
     """Select cruiser"""
-    context.p1.click('[data-testid="select-ship-cruiser"]')
+    # Click the label, not the hidden radio button
+    ship_label = context.p1.locator('label:has([data-testid="select-ship-cruiser"])')
+    ship_label.click()
 
 
 @when(parsers.parse('I attempt to place it horizontally starting at "{start}"'))

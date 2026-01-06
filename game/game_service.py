@@ -167,6 +167,7 @@ class GameService:
 
         return new_game.id
 
+    # TODO: Review this function and the commonality with get_or_create_ship_placement_board to see if we need both
     def get_game_board(self, player_id: str) -> GameBoard:
         player: Player
         game: Game
@@ -182,6 +183,7 @@ class GameService:
             )
         return game.board[player]
 
+    # TODO: Review this function and the commonality with get_game_board to see if we need both
     def get_or_create_ship_placement_board(self, player_id: str) -> GameBoard:
         """Get or create a game board for ship placement phase.
 
@@ -405,14 +407,14 @@ class GameService:
         Returns:
             Current version number for change detection
         """
-        if not hasattr(self, '_placement_version'):
+        if not hasattr(self, "_placement_version"):
             self._placement_version = 0
             self._placement_change_event = asyncio.Event()
         return self._placement_version
 
     def _notify_placement_change(self) -> None:
         """Increment version and notify waiters of placement state change."""
-        if not hasattr(self, '_placement_version'):
+        if not hasattr(self, "_placement_version"):
             self._placement_version = 0
             self._placement_change_event = asyncio.Event()
         self._placement_version += 1
@@ -427,7 +429,7 @@ class GameService:
         Returns immediately if the current version is different from since_version.
         Otherwise, waits for the change_event to be set.
         """
-        if not hasattr(self, '_placement_version'):
+        if not hasattr(self, "_placement_version"):
             self._placement_version = 0
             self._placement_change_event = asyncio.Event()
 

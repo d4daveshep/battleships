@@ -231,6 +231,25 @@ class GameBoard:
 
         return True
 
+    def remove_ship(self, ship_type: ShipType) -> bool:
+        """Remove a ship from the board by ship type.
+
+        Args:
+            ship_type: The type of ship to remove
+
+        Returns:
+            True if ship was removed, False if ship wasn't on the board
+        """
+        for i, ship in enumerate(self.ships):
+            if ship.ship_type == ship_type:
+                self.ships.pop(i)
+                return True
+        return False
+
+    def clear_all_ships(self) -> None:
+        """Remove all ships from the board."""
+        self.ships.clear()
+
     def ship_type_at(self, coord: Coord) -> ShipType | None:
         # TODO: Reimplement this using a cached map of Coords to Ship.code
         for ship in self.ships:

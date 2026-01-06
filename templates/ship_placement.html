@@ -7,96 +7,220 @@
 <p>Player: {{ player_name }}</p>
 
 {% if placement_error %}
-<div data-testid="placement-error" style="color: red; margin: 10px 0;">
+<div data-testid="placement-error" class="placement-error">
     {{ placement_error }}
 </div>
 {% endif %}
 
-<div data-testid="ship-placement-status">
+<div data-testid="ship-placement-status" class="placement-status">
     <p data-testid="ship-placement-count">{{ placed_ships|length }} of 5 ships placed</p>
-</div>
-
-<div data-testid="my-ships-board" style="border: 1px solid #ccc; padding: 10px; min-height: 100px;">
-    <h3>My Ships and Shots Received</h3>
+    {# Placement guidance message #}
+    <p data-testid="placement-guidance" class="placement-guidance">
+        {% if is_ready %}
+        Waiting for opponent...
+        {% elif placed_ships|length >= 5 %}
+        All ships placed - click Ready when done
+        {% else %}
+        Place all ships to continue
+        {% endif %}
+    </p>
     
-    {% if placed_ships %}
-        {% for ship_name, ship_data in placed_ships.items() %}
-        <div data-testid="placed-ship-{{ ship_name.lower() }}">
-            <span data-testid="ship-status-{{ ship_name.lower() }}">{{ ship_name }} - Placed</span>
-            <!-- Display cells occupied by the ship -->
-            {% for cell in ship_data.cells %}
-            <span data-testid="cell-{{ cell }}" data-ship="{{ ship_name.lower() }}">{{ cell }}</span>
-            {% endfor %}
-            <button type="button" data-testid="remove-ship-{{ ship_name.lower() }}">Remove</button>
-        </div>
-        {% endfor %}
-    {% else %}
-        <p>No ships placed yet.</p>
+    {% if is_multiplayer %}
+    <div hx-get="/ship-placement/opponent-status" hx-trigger="load" hx-swap="outerHTML">
+        <!-- Placeholder for opponent status -->
+        <div data-testid="opponent-status">Loading opponent status...</div>
+    </div>
     {% endif %}
 </div>
 
-<h2>Ship Selection</h2>
-<div>
-    {% set ship_list = ["Carrier", "Battleship", "Cruiser", "Submarine", "Destroyer"] %}
-    {% for ship in ship_list %}
-    <button type="button" data-testid="select-ship-{{ ship.lower() }}" {% if ship in placed_ships %}disabled{% endif %}>
-        {{ ship }} {% if ship in placed_ships %}(Placed){% endif %}
-    </button>
-    {% endfor %}
-</div>
-
-<h2>Place Ship</h2>
-<form method="POST" action="/place-ship">
-    <input type="hidden" name="player_name" value="{{ player_name }}">
+<div data-testid="my-ships-board" class="ship-board-container">
+    <h3>My Ships and Shots Received</h3>
     
-    <div>
-        <label for="ship_name">Ship Name:</label>
-        <input type="text" id="ship_name" name="ship_name" required>
+    {# Build a lookup map of cell -> ship data for quick access #}
+    {% set cell_to_ship = {} %}
+    {% for ship_name, ship_data in placed_ships.items() %}
+        {% for cell in ship_data.cells %}
+            {% set _ = cell_to_ship.update({cell: {"name": ship_name, "code": ship_data.code}}) %}
+        {% endfor %}
+    {% endfor %}
+    
+    {# 10x10 Grid Visualization #}
+    <table data-testid="ship-grid" class="ship-grid">
+        <thead>
+            <tr>
+                <th></th>
+                {% for col in range(1, 11) %}
+                <th>{{ col }}</th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% set rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'] %}
+            {% for row in rows %}
+            <tr>
+                <th>{{ row }}</th>
+                {% for col in range(1, 11) %}
+                    {% set coord = row ~ col %}
+                    {% set ship_data = cell_to_ship.get(coord) %}
+                    <td data-testid="grid-cell-{{ coord }}" 
+                        class="ship-grid-cell"
+                        {% if ship_data %}data-ship="{{ ship_data.name.lower() }}"{% endif %}>
+                        {% if ship_data %}
+                            {# Show ship code (A=Carrier, B=Battleship, C=Cruiser, S=Submarine, D=Destroyer) #}
+                            {{ ship_data.code }}
+                        {% endif %}
+                    </td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    
+    {# Ship Legend #}
+    <div class="ship-legend">
+        <strong>Ship Legend:</strong>
+        <div class="legend-item">
+            <span class="legend-color carrier"></span>
+            <span>A = Carrier (5 cells)</span>
+        </div>
+        <div class="legend-item">
+            <span class="legend-color battleship"></span>
+            <span>B = Battleship (4 cells)</span>
+        </div>
+        <div class="legend-item">
+            <span class="legend-color cruiser"></span>
+            <span>C = Cruiser (3 cells)</span>
+        </div>
+        <div class="legend-item">
+            <span class="legend-color submarine"></span>
+            <span>S = Submarine (3 cells)</span>
+        </div>
+        <div class="legend-item">
+            <span class="legend-color destroyer"></span>
+            <span>D = Destroyer (2 cells)</span>
+        </div>
     </div>
     
-    <div>
+    {# Keep existing ship list for reference #}
+    <h4>Placed Ships:</h4>
+    {% if placed_ships %}
+        <div class="placed-ships-list">
+        {% for ship_name, ship_data in placed_ships.items() %}
+        <div class="placed-ship-item" data-testid="placed-ship-{{ ship_name.lower() }}">
+            <span data-testid="ship-status-{{ ship_name.lower() }}">{{ ship_name }} - Placed</span>
+            <!-- Display cells occupied by the ship -->
+            <span class="ship-cells">
+            {% for cell in ship_data.cells %}
+            <span data-testid="cell-{{ cell }}" data-ship="{{ ship_name.lower() }}">{{ cell }}</span>
+            {% endfor %}
+            </span>
+            {% if not is_ready %}
+            <form method="POST" action="/remove-ship" class="inline-form">
+                <input type="hidden" name="player_name" value="{{ player_name }}">
+                <input type="hidden" name="ship_name" value="{{ ship_name }}">
+                <button type="submit" class="btn-small btn-danger" data-testid="remove-ship-{{ ship_name.lower() }}">Remove</button>
+            </form>
+            {% else %}
+            <button type="button" class="btn-small btn-danger" data-testid="remove-ship-{{ ship_name.lower() }}" disabled>Remove</button>
+            {% endif %}
+        </div>
+        {% endfor %}
+        </div>
+    {% else %}
+        <p style="color: var(--color-gray-600); font-style: italic;">No ships placed yet.</p>
+    {% endif %}
+</div>
+
+{% if not is_ready %}
+<form method="POST" action="/place-ship" id="place-ship-form">
+    <h2>Place Ship</h2>
+    <input type="hidden" name="player_name" value="{{ player_name }}">
+    
+    <div class="ship-selection">
+        <label>Select Ship to Place:</label>
+        <div class="ship-selection-buttons">
+            {% set ship_list = ["Carrier", "Battleship", "Cruiser", "Submarine", "Destroyer"] %}
+            {% set ship_lengths = {"Carrier": 5, "Battleship": 4, "Cruiser": 3, "Submarine": 3, "Destroyer": 2} %}
+            {% for ship in ship_list %}
+            {% if ship not in placed_ships %}
+            <label class="ship-radio-label">
+                <input type="radio" 
+                       name="ship_name" 
+                       value="{{ ship }}" 
+                       id="ship-{{ ship.lower() }}"
+                       data-testid="select-ship-{{ ship.lower() }}"
+                       required>
+                <span class="ship-radio-button">{{ ship }} ({{ ship_lengths[ship] }})</span>
+            </label>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+    
+    <div class="form-group">
         <label for="start_coordinate">Start Coordinate:</label>
         <input type="text" id="start_coordinate" name="start_coordinate" required placeholder="e.g., A1">
     </div>
     
-    <div>
-        <label for="orientation">Orientation:</label>
-        <select id="orientation" name="orientation" required>
-            <option value="">Select orientation</option>
-            <option value="horizontal">Horizontal</option>
-            <option value="vertical">Vertical</option>
-            <option value="diagonal-down">Diagonal Down</option>
-            <option value="diagonal-up">Diagonal Up</option>
-        </select>
+    <div class="orientation-selection">
+        <label>Orientation:</label>
+        <div class="orientation-buttons">
+            <label class="orientation-radio-label">
+                <input type="radio" name="orientation" value="horizontal" id="orientation-horizontal" required>
+                <span class="orientation-radio-button">Horizontal</span>
+            </label>
+            <label class="orientation-radio-label">
+                <input type="radio" name="orientation" value="vertical" id="orientation-vertical" required>
+                <span class="orientation-radio-button">Vertical</span>
+            </label>
+            <label class="orientation-radio-label">
+                <input type="radio" name="orientation" value="diagonal-down" id="orientation-diagonal-down" required>
+                <span class="orientation-radio-button">Diagonal Down</span>
+            </label>
+            <label class="orientation-radio-label">
+                <input type="radio" name="orientation" value="diagonal-up" id="orientation-diagonal-up" required>
+                <span class="orientation-radio-button">Diagonal Up</span>
+            </label>
+        </div>
     </div>
     
-    <button type="submit" data-testid="place-ship-button">Place Ship</button>
+    <button type="submit" class="btn-primary btn-large" data-testid="place-ship-button">Place Ship</button>
 </form>
+{% endif %}
 
-<h2>Actions</h2>
-<form method="POST" action="/random-ship-placement" style="display: inline;">
-    <input type="hidden" name="player_name" value="{{ player_name }}">
-    <button type="submit" data-testid="random-placement-button">Random Placement</button>
-</form>
+<div class="actions-section">
+    <h2>Actions</h2>
+    <div class="btn-group">
+        <form method="POST" action="/random-ship-placement" class="inline-form">
+            <input type="hidden" name="player_name" value="{{ player_name }}">
+            <button type="submit" class="btn-secondary" data-testid="random-placement-button" {% if is_ready %}disabled{% endif %}>🎲 Random Placement</button>
+        </form>
 
-<form method="POST" action="/reset-all-ships" style="display: inline;">
-    <input type="hidden" name="player_name" value="{{ player_name }}">
-    <button type="submit" data-testid="reset-all-ships-button">Reset All Ships</button>
-</form>
+        <form method="POST" action="/reset-all-ships" class="inline-form">
+            <input type="hidden" name="player_name" value="{{ player_name }}">
+            <button type="submit" class="btn-warning" data-testid="reset-all-ships-button" {% if is_ready %}disabled{% endif %}>🔄 Reset All Ships</button>
+        </form>
 
-<form method="POST" action="/start-game" style="display: inline;">
-    <input type="hidden" name="player_name" value="{{ player_name }}">
-    <button type="submit" data-testid="start-game-button" {% if placed_ships|length < 5 %}disabled{% endif %}>
-        Start Game
-    </button>
-</form>
-
-<form method="POST" action="/ready-for-game" style="display: inline;">
-    <input type="hidden" name="player_name" value="{{ player_name }}">
-    <button type="submit" data-testid="ready-button" {% if placed_ships|length < 5 %}disabled{% endif %}>
-        Ready
-    </button>
-</form>
+        {% if is_multiplayer %}
+        {# Multiplayer mode - show Ready button #}
+        <form method="POST" action="/ready-for-game" class="inline-form">
+            <input type="hidden" name="player_name" value="{{ player_name }}">
+            <button type="submit" class="btn-success btn-large" data-testid="ready-button" {% if placed_ships|length < 5 or is_ready %}disabled{% endif %}>
+                ✓ Ready
+            </button>
+        </form>
+        {% else %}
+        {# Single-player mode - show Start Game button #}
+        <form method="POST" action="/start-game" class="inline-form">
+            <input type="hidden" name="player_name" value="{{ player_name }}">
+            <input type="hidden" name="action" value="launch_game">
+            <button type="submit" class="btn-success btn-large" data-testid="start-game-button" {% if placed_ships|length < 5 or is_ready %}disabled{% endif %}>
+                ⚓ Start Game
+            </button>
+        </form>
+        {% endif %}
+    </div>
+</div>
 
 <div data-testid="status-message" style="margin-top: 20px;">
     {% if status_message %}

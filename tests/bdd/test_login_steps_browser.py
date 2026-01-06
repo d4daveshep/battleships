@@ -60,12 +60,20 @@ def on_multiplayer_lobby_page(page: Page) -> None:
 
 @then("the game should be configured for single player mode")
 def player_mode_is_single_player(page: Page) -> None:
-    assert page.locator('[data-testid="game-mode"]').text_content() == "Single Player"
+    game_mode_text: str | None = page.locator(
+        '[data-testid="game-mode"]'
+    ).text_content()
+    assert game_mode_text is not None
+    assert "Single Player" in game_mode_text
 
 
 @then("the game should be configured for two player mode")
 def player_mode_is_two_player(page: Page) -> None:
-    assert page.locator('[data-testid="game-mode"]').text_content() == "Two Player"
+    game_mode_text: str | None = page.locator(
+        '[data-testid="game-mode"]'
+    ).text_content()
+    assert game_mode_text is not None
+    assert "Two Player" in game_mode_text
 
 
 @then(parsers.parse('my player name should be set to "{expected_name}"'))

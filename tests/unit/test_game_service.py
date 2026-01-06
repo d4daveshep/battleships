@@ -13,6 +13,7 @@ from game.game_service import (
     UnknownGameException,
 )
 from game.model import GameBoard
+from game.model import ShipType, Coord, CoordHelper
 
 
 class TestGameService:
@@ -283,3 +284,332 @@ class TestGameService:
         unknown_game_id: str = "unknown_game_id_12345"
         with pytest.raises(UnknownGameException):
             game_service.get_game_status_by_game_id(unknown_game_id)
+
+
+class TestMultiplayerShipPlacement:
+    """Tests for multiplayer ship placement functionality"""
+
+    @pytest.fixture
+    def game_service(self) -> GameService:
+        return GameService()
+
+    @pytest.fixture
+    def two_players_in_game(self, game_service: GameService) -> tuple[Player, Player, str]:
+        """Setup two players in a multiplayer game"""
+        alice = Player(name="Alice", status=PlayerStatus.AVAILABLE)
+        bob = Player(name="Bob", status=PlayerStatus.AVAILABLE)
+        game_service.add_player(alice)
+        game_service.add_player(bob)
+        game_id = game_service.create_two_player_game(alice.id, bob.id)
+        return alice, bob, game_id
+
+    def test_get_opponent_ready_status_returns_false_initially(
+        self, game_service: GameService, two_players_in_game: tuple[Player, Player, str]
+    ) -> None:
+        """When a multiplayer game starts, opponent should not be ready"""
+        alice, bob, game_id = two_players_in_game
+
+        # Alice checks if Bob is ready - should be False initially
+        is_opponent_ready = game_service.is_opponent_ready(alice.id)
+        assert is_opponent_ready is False
+
+        # Bob checks if Alice is ready - should be False initially
+        is_opponent_ready = game_service.is_opponent_ready(bob.id)
+        assert is_opponent_ready is False
+
+    def test_get_opponent_ready_status_returns_true_when_opponent_is_ready(
+        self, game_service: GameService, two_players_in_game: tuple[Player, Player, str]
+    ) -> None:
+        """When opponent marks themselves as ready, player should see them as ready"""
+        alice, bob, game_id = two_players_in_game
+
+        # Bob marks himself as ready
+        game_service.set_player_ready(bob.id)
+
+        # Alice checks if Bob is ready - should be True now
+        is_opponent_ready = game_service.is_opponent_ready(alice.id)
+        assert is_opponent_ready is True
+
+        # Bob checks if Alice is ready - should still be False
+        is_opponent_ready = game_service.is_opponent_ready(bob.id)
+        assert is_opponent_ready is False
+
+    def test_both_players_ready_check(
+        self, game_service: GameService, two_players_in_game: tuple[Player, Player, str]
+    ) -> None:
+        """Check if both players in a game are ready"""
+        alice, bob, game_id = two_players_in_game
+
+        # Initially neither is ready
+        assert game_service.are_both_players_ready(game_id) is False
+
+        # Alice becomes ready
+        game_service.set_player_ready(alice.id)
+        assert game_service.are_both_players_ready(game_id) is False
+
+        # Bob becomes ready
+        game_service.set_player_ready(bob.id)
+        assert game_service.are_both_players_ready(game_id) is True
+
+    def test_placement_version_increments_when_game_created(
+        self, game_service: GameService
+    ) -> None:
+        """When a two-player game is created, placement version should increment to notify waiting players"""
+        alice = Player(name="Alice", status=PlayerStatus.AVAILABLE)
+        bob = Player(name="Bob", status=PlayerStatus.AVAILABLE)
+        game_service.add_player(alice)
+        game_service.add_player(bob)
+        
+        # Get initial version
+        initial_version = game_service.get_placement_version()
+        
+        # Create a two-player game (simulating both players ready scenario)
+        game_id = game_service.create_two_player_game(alice.id, bob.id)
+        
+        # Version should have incremented to notify waiting players
+        # This is critical for Player 1 who is waiting via long-polling
+        current_version = game_service.get_placement_version()
+        assert current_version > initial_version, (
+            "Placement version should increment when game is created "
+            "to wake up waiting long-poll requests"
+        )
+
+class TestPlaceShipsRandomly:
+    """Comprehensive unit tests for GameService.place_ships_randomly()"""
+
+    @pytest.fixture
+    def game_service(self) -> GameService:
+        return GameService()
+
+    @pytest.fixture
+    def player_in_game(self, game_service: GameService) -> Player:
+        """Setup a player in a single-player game"""
+        player = Player(name="TestPlayer", status=PlayerStatus.AVAILABLE)
+        game_service.add_player(player)
+        game_service.create_single_player_game(player.id)
+        return player
+
+    def test_successfully_places_all_5_ships(
+        self, game_service: GameService, player_in_game: Player
+    ) -> None:
+        """Test that all 5 ships are placed on the board"""
+        player_id = player_in_game.id
+
+        # Place ships randomly
+        game_service.place_ships_randomly(player_id)
+
+        # Get the board
+        board = game_service.get_or_create_ship_placement_board(player_id)
+
+        # Verify all 5 ships are placed
+        assert len(board.ships) == 5, "Should have exactly 5 ships placed"
+
+        # Verify each ship type is present
+        ship_types_on_board = {ship.ship_type for ship in board.ships}
+        expected_ship_types = {
+            ShipType.CARRIER,
+            ShipType.BATTLESHIP,
+            ShipType.CRUISER,
+            ShipType.SUBMARINE,
+            ShipType.DESTROYER,
+        }
+        assert ship_types_on_board == expected_ship_types, (
+            "All 5 ship types should be present"
+        )
+
+    def test_ships_dont_overlap(
+        self, game_service: GameService, player_in_game: Player
+    ) -> None:
+        """Test that placed ships don't overlap"""
+        player_id = player_in_game.id
+
+        # Place ships randomly
+        game_service.place_ships_randomly(player_id)
+
+        # Get the board
+        board = game_service.get_or_create_ship_placement_board(player_id)
+
+        # Collect all ship positions
+        all_positions: list[Coord] = []
+        for ship in board.ships:
+            all_positions.extend(ship.positions)
+
+        # Check for duplicates (overlaps)
+        assert len(all_positions) == len(set(all_positions)), (
+            "Ships should not overlap - each position should be unique"
+        )
+
+    def test_ships_respect_spacing_rules(
+        self, game_service: GameService, player_in_game: Player
+    ) -> None:
+        """Test that ships maintain required spacing (no touching)"""
+        player_id = player_in_game.id
+
+        # Place ships randomly
+        game_service.place_ships_randomly(player_id)
+
+        # Get the board
+        board = game_service.get_or_create_ship_placement_board(player_id)
+
+        # For each ship, verify it doesn't touch other ships
+        for i, ship in enumerate(board.ships):
+            # Get adjacent coords for this ship
+            adjacent_coords = CoordHelper.coords_adjacent_to_a_coords_list(ship.positions)
+
+            # Check that no other ship occupies adjacent coords
+            for j, other_ship in enumerate(board.ships):
+                if i != j:  # Don't compare ship with itself
+                    other_ship_positions = set(other_ship.positions)
+                    touching_coords = adjacent_coords.intersection(other_ship_positions)
+                    assert len(touching_coords) == 0, (
+                        f"{ship.ship_type.name} should not touch {other_ship.ship_type.name}"
+                    )
+
+    def test_clears_existing_ships_before_placing(
+        self, game_service: GameService, player_in_game: Player
+    ) -> None:
+        """Test that existing ships are cleared before placing new random ships"""
+        player_id = player_in_game.id
+
+        # Get the board and manually place a ship
+        board = game_service.get_or_create_ship_placement_board(player_id)
+        from game.model import Ship, Coord, Orientation
+
+        manual_ship = Ship(ShipType.DESTROYER)
+        board.place_ship(manual_ship, Coord.A1, Orientation.HORIZONTAL)
+
+        # Verify manual ship is placed
+        assert len(board.ships) == 1
+        assert board.ships[0].ship_type == ShipType.DESTROYER
+
+        # Now place ships randomly
+        game_service.place_ships_randomly(player_id)
+
+        # Get the board again
+        board = game_service.get_or_create_ship_placement_board(player_id)
+
+        # Verify old ship is gone and we have 5 new ships
+        assert len(board.ships) == 5, "Should have 5 ships after random placement"
+
+        # The manually placed destroyer should be replaced with a new random one
+        # We can't verify exact positions, but we can verify all 5 types are present
+        ship_types_on_board = {ship.ship_type for ship in board.ships}
+        assert ShipType.DESTROYER in ship_types_on_board
+
+    def test_raises_exception_for_invalid_player(
+        self, game_service: GameService
+    ) -> None:
+        """Test that UnknownPlayerException is raised for non-existent player"""
+        invalid_player_id = "non_existent_player_id_12345"
+
+        with pytest.raises(UnknownPlayerException):
+            game_service.place_ships_randomly(invalid_player_id)
+
+    def test_ships_are_within_board_bounds(
+        self, game_service: GameService, player_in_game: Player
+    ) -> None:
+        """Test that all ship positions are valid coordinates (A1-J10)"""
+        player_id = player_in_game.id
+
+        # Place ships randomly
+        game_service.place_ships_randomly(player_id)
+
+        # Get the board
+        board = game_service.get_or_create_ship_placement_board(player_id)
+
+        # Verify all positions are valid Coord enum values
+        from game.model import Coord
+
+        all_valid_coords = set(Coord)
+
+        for ship in board.ships:
+            for position in ship.positions:
+                assert position in all_valid_coords, (
+                    f"Position {position} should be a valid coordinate"
+                )
+
+                # Additional check: verify row is A-J and column is 1-10
+                coord_details = position.value
+                assert 1 <= coord_details.row_index <= 10, (
+                    f"Row index {coord_details.row_index} should be between 1 and 10"
+                )
+                assert 1 <= coord_details.col_index <= 10, (
+                    f"Column index {coord_details.col_index} should be between 1 and 10"
+                )
+
+    def test_randomness_produces_different_results(
+        self, game_service: GameService
+    ) -> None:
+        """Test that multiple calls produce different ship placements"""
+        # Create two separate players to avoid clearing issue
+        player1 = Player(name="Player1", status=PlayerStatus.AVAILABLE)
+        player2 = Player(name="Player2", status=PlayerStatus.AVAILABLE)
+
+        game_service.add_player(player1)
+        game_service.add_player(player2)
+
+        game_service.create_single_player_game(player1.id)
+        game_service.create_single_player_game(player2.id)
+
+        # Place ships randomly for both players
+        game_service.place_ships_randomly(player1.id)
+        game_service.place_ships_randomly(player2.id)
+
+        # Get both boards
+        board1 = game_service.get_or_create_ship_placement_board(player1.id)
+        board2 = game_service.get_or_create_ship_placement_board(player2.id)
+
+        # Collect all positions from both boards
+        positions1 = set()
+        for ship in board1.ships:
+            for pos in ship.positions:
+                positions1.add((ship.ship_type, pos))
+
+        positions2 = set()
+        for ship in board2.ships:
+            for pos in ship.positions:
+                positions2.add((ship.ship_type, pos))
+
+        # The positions should be different (extremely unlikely to be identical)
+        # We check that at least one ship has a different position
+        assert positions1 != positions2, (
+            "Random placement should produce different results on different calls"
+        )
+
+    def test_each_ship_has_correct_length(
+        self, game_service: GameService, player_in_game: Player
+    ) -> None:
+        """Test that each placed ship has the correct number of positions"""
+        player_id = player_in_game.id
+
+        # Place ships randomly
+        game_service.place_ships_randomly(player_id)
+
+        # Get the board
+        board = game_service.get_or_create_ship_placement_board(player_id)
+
+        # Verify each ship has correct length
+        for ship in board.ships:
+            expected_length = ship.ship_type.length
+            actual_length = len(ship.positions)
+            assert actual_length == expected_length, (
+                f"{ship.ship_type.name} should have {expected_length} positions, "
+                f"but has {actual_length}"
+            )
+
+    def test_works_for_player_without_existing_board(
+        self, game_service: GameService, player_in_game: Player
+    ) -> None:
+        """Test that method works even if player has no existing ship placement board"""
+        player_id = player_in_game.id
+
+        # Verify no board exists yet (or clear it)
+        if player_id in game_service.ship_placement_boards:
+            del game_service.ship_placement_boards[player_id]
+
+        # Place ships randomly - should create board automatically
+        game_service.place_ships_randomly(player_id)
+
+        # Verify board was created and has ships
+        board = game_service.get_or_create_ship_placement_board(player_id)
+        assert len(board.ships) == 5

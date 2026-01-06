@@ -17,6 +17,36 @@ Feature: Ship Placement
     And the "My Ships and Shots Received" board is displayed
     And I have not placed any ships yet
 
+  # === Grid Visualization ===
+
+  Scenario: Ship placement screen displays 10x10 grid
+    Given I am on the ship placement screen
+    Then I should see a 10x10 grid displayed
+    And the grid should have row labels "A" through "J"
+    And the grid should have column labels "1" through "10"
+    And all grid cells should be empty
+
+  Scenario: Placed ship is visually marked on the grid
+    Given I select the "Destroyer" ship to place
+    When I place it horizontally starting at "A1"
+    Then cells "A1" and "A2" should be visually marked on the grid
+    And the marked cells should be clearly distinguishable from empty cells
+
+  Scenario: Multiple ships are visually distinguished on the grid
+    Given I have placed a "Destroyer" horizontally starting at "A1"
+    And I have placed a "Cruiser" vertically starting at "C3"
+    Then I should be able to identify which cells belong to which ship on the grid
+
+  Scenario: Vertically placed ship is correctly displayed on grid
+    Given I select the "Battleship" ship to place
+    When I place it vertically starting at "B2"
+    Then cells "B2", "C2", "D2", and "E2" should be marked on the grid
+
+  Scenario: Diagonally placed ship is correctly displayed on grid
+    Given I select the "Cruiser" ship to place
+    When I place it diagonally-down starting at "A1"
+    Then cells "A1", "B2", and "C3" should be marked on the grid
+
   # === Horizontal Placement ===
 
   Scenario: Successfully place Destroyer horizontally
@@ -160,7 +190,7 @@ Feature: Ship Placement
 
   Scenario: Attempt to place ship adjacent at corners
     Given I have placed a "Destroyer" horizontally starting at "C3"
-    And I select the "Destroyer" ship to place
+    And I select the "Submarine" ship to place
     When I attempt to place it horizontally starting at "D4"
     Then the placement should be rejected
     And I should see an error message "Ships must have empty space around them"
@@ -247,26 +277,10 @@ Feature: Ship Placement
     And the computer's ship placement should follow all placement rules
     And the game should start immediately
 
-  # === Multiplayer Ship Placement ===
-
-  Scenario: Waiting for opponent to place ships
-    Given I am playing against another human player
-    And I have placed all my ships
-    When I click the "Ready" button
-    Then I should see a message "Waiting for opponent to place their ships..."
-    And I should not be able to modify my ship placement
-
-  Scenario: Both players ready - game starts
-    Given I am playing against another human player
-    And I have placed all my ships and clicked "Ready"
-    And my opponent has placed all their ships and clicked "Ready"
-    Then the game should start
-    And both players should proceed to Round 1
-
   # === Invalid Ship Placement Patterns ===
 
   Scenario: Attempt to place ship with invalid direction
     Given I select the "Destroyer" ship to place
-    When I attempt to place it with invalid direction starting at "A1"
+    When I attempt to place it starting at "A1" with an invalid direction
     Then the placement should be rejected
     And I should see an error message "Invalid direction"

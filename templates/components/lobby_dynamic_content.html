@@ -3,59 +3,65 @@
      hx-trigger="load delay:100ms"
      hx-swap="outerHTML">
 
-<div data-testid="player-status">
-    Your Status: {{ player_status }}
+<div data-testid="player-status" class="alert alert-info">
+    <strong>Your Status:</strong> {{ player_status }}
 </div>
 
 {% if confirmation_message %}
-<div data-testid="confirmation-message">
+<div data-testid="confirmation-message" class="alert alert-success">
     {{ confirmation_message }}
 </div>
 {% endif %}
 
 {% if pending_request %}
-<div data-testid="game-request-notification">
-    Game request from {{ pending_request.sender }}
-    <form hx-post="/accept-game-request" hx-target="body" hx-swap="innerHTML" style="display: inline;">
-        <input type="hidden" name="show_confirmation" value="true">
-        <button type="submit" data-testid="accept-game-request">Accept</button>
-    </form>
-    <form hx-post="/decline-game-request" hx-target="[data-testid='lobby-player-status']" hx-swap="outerHTML" style="display: inline;">
-        <input type="hidden" name="show_confirmation" value="true">
-        <button type="submit" data-testid="decline-game-request">Decline</button>
-    </form>
+<div data-testid="game-request-notification" class="alert alert-warning" style="display: flex; justify-content: space-between; align-items: center;">
+    <span>Game request from <strong>{{ pending_request.sender }}</strong></span>
+    <div class="btn-group-inline">
+        <form hx-post="/accept-game-request" hx-target="body" hx-swap="innerHTML" class="inline-form">
+            <input type="hidden" name="show_confirmation" value="true">
+            <button type="submit" data-testid="accept-game-request" class="btn btn-success btn-sm">Accept</button>
+        </form>
+        <form hx-post="/decline-game-request" hx-target="[data-testid='lobby-player-status']" hx-swap="outerHTML" class="inline-form">
+            <input type="hidden" name="show_confirmation" value="true">
+            <button type="submit" data-testid="decline-game-request" class="btn btn-danger btn-sm">Decline</button>
+        </form>
+    </div>
 </div>
 {% endif %}
 
 {% if decline_confirmation_message %}
-<div data-testid="decline-confirmation-message">
+<div data-testid="decline-confirmation-message" class="alert alert-warning">
     {{ decline_confirmation_message }}
 </div>
 {% endif %}
 
 <h3>Available Players:</h3>
 {% if available_players %}
+    <div class="lobby-list">
     {% for player in available_players %}
-    <div data-testid="player-{{ player.name }}">
-        {{ player.name }}
-        <span data-testid="player-{{ player.name }}-status">({{ player.status }})</span>
+    <div data-testid="player-{{ player.name }}" class="lobby-item">
+        <div>
+            <strong>{{ player.name }}</strong>
+            <span data-testid="player-{{ player.name }}-status" style="color: var(--color-gray-600); font-size: var(--font-size-sm);">({{ player.status }})</span>
+        </div>
         <form hx-post="/select-opponent"
               hx-target="[data-testid='lobby-player-status']"
               hx-swap="outerHTML"
-              style="display: inline;">
+              class="inline-form">
             <input type="hidden" name="opponent_name" value="{{ player.name }}">
-            <button type="submit" data-testid="select-opponent-{{ player.name }}"
+            <button type="submit" data-testid="select-opponent-{{ player.name }}" class="btn btn-primary btn-sm"
                     {% if player_status in ["Requesting Game", "Pending Response"] or player.status != "Available" %}disabled{% endif %}>
                 Select Opponent
             </button>
         </form>
     </div>
     {% endfor %}
+    </div>
 {% else %}
-    <div data-testid="no-players-message">
+    <div data-testid="no-players-message" class="lobby-empty">
         No other players available
     </div>
-    <div data-testid="waiting-message">
+    <div data-testid="waiting-message" style="text-align: center; color: var(--color-gray-600); margin-top: var(--space-sm);">
         Waiting for other players to join...
     </div>
 {% endif %}

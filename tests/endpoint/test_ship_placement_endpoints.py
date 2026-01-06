@@ -12,25 +12,29 @@ from fastapi.testclient import TestClient
 class TestShipPlacementPageEndpoint:
     """Tests for GET /ship-placement endpoint"""
 
-    def test_ship_placement_page_returns_200(self, client: TestClient):
+    def test_ship_placement_page_returns_200(self, authenticated_client: TestClient):
         """Test that ship placement page loads successfully"""
-        response = client.get("/ship-placement", params={"player_name": "Alice"})
+        response = authenticated_client.get("/ship-placement")
 
         assert response.status_code == status.HTTP_200_OK
         assert "text/html" in response.headers["content-type"]
 
-    def test_ship_placement_page_displays_player_name(self, client: TestClient):
+    def test_ship_placement_page_displays_player_name(
+        self, authenticated_client: TestClient
+    ):
         """Test that ship placement page shows the player's name"""
-        response = client.get("/ship-placement", params={"player_name": "TestPlayer"})
+        response = authenticated_client.get("/ship-placement")
 
         assert response.status_code == status.HTTP_200_OK
 
         # Check that player name is displayed
-        assert "TestPlayer" in response.text
+        assert "Alice" in response.text
 
-    def test_ship_placement_page_shows_empty_state(self, client: TestClient):
+    def test_ship_placement_page_shows_empty_state(
+        self, authenticated_client: TestClient
+    ):
         """Test that ship placement page shows no ships initially"""
-        response = client.get("/ship-placement", params={"player_name": "Alice"})
+        response = authenticated_client.get("/ship-placement")
 
         assert response.status_code == status.HTTP_200_OK
         soup = BeautifulSoup(response.text, "html.parser")
@@ -40,9 +44,11 @@ class TestShipPlacementPageEndpoint:
         assert status_element is not None
         assert "0 of 5 ships placed" in status_element.text
 
-    def test_ship_placement_page_has_placement_form(self, client: TestClient):
+    def test_ship_placement_page_has_placement_form(
+        self, authenticated_client: TestClient
+    ):
         """Test that ship placement page contains the placement form"""
-        response = client.get("/ship-placement", params={"player_name": "Alice"})
+        response = authenticated_client.get("/ship-placement")
 
         assert response.status_code == status.HTTP_200_OK
         soup = BeautifulSoup(response.text, "html.parser")
@@ -51,20 +57,28 @@ class TestShipPlacementPageEndpoint:
         form = soup.find("form", action="/place-ship")
         assert form is not None
 
-        # Verify form has required fields
-        ship_name_input = form.find("input", {"name": "ship_name"})  # type: ignore
+        # Verify form has required fields (ship_name and orientation are now radio buttons)
         start_coord_input = form.find("input", {"name": "start_coordinate"})  # type: ignore
-        orientation_select = form.find("select", {"name": "orientation"})  # type: ignore
         player_name_input = form.find("input", {"name": "player_name"})  # type: ignore
 
-        assert ship_name_input is not None
+        # Check for ship selection radio buttons
+        ship_radios = soup.find_all("input", {"name": "ship_name", "type": "radio"})
+
+        # Check for orientation radio buttons
+        orientation_radios = soup.find_all(
+            "input", {"name": "orientation", "type": "radio"}
+        )
+
+        assert len(ship_radios) > 0, "Should have radio buttons for ship selection"
+        assert len(orientation_radios) == 4, "Should have 4 orientation radio buttons"
         assert start_coord_input is not None
-        assert orientation_select is not None
         assert player_name_input is not None
 
-    def test_ship_placement_page_has_ship_selection_buttons(self, client: TestClient):
+    def test_ship_placement_page_has_ship_selection_buttons(
+        self, authenticated_client: TestClient
+    ):
         """Test that ship placement page has buttons for all ship types"""
-        response = client.get("/ship-placement", params={"player_name": "Alice"})
+        response = authenticated_client.get("/ship-placement")
 
         assert response.status_code == status.HTTP_200_OK
         soup = BeautifulSoup(response.text, "html.parser")
@@ -75,21 +89,25 @@ class TestShipPlacementPageEndpoint:
             button = soup.find(attrs={"data-testid": f"select-ship-{ship}"})
             assert button is not None, f"Missing button for {ship}"
 
-    def test_ship_placement_page_works_without_player_name(self, client: TestClient):
+    def test_ship_placement_page_works_without_player_name(
+        self, authenticated_client: TestClient
+    ):
         """Test that ship placement page works even without player name parameter"""
-        response = client.get("/ship-placement")
+        response = authenticated_client.get("/ship-placement")
 
         assert response.status_code == status.HTTP_200_OK
         assert "text/html" in response.headers["content-type"]
 
-    def test_ship_placement_page_has_action_buttons(self, client: TestClient):
+    def test_ship_placement_page_has_action_buttons(
+        self, authenticated_client: TestClient
+    ):
         """Test that ship placement page has action buttons for game flow"""
-        response = client.get("/ship-placement", params={"player_name": "Alice"})
+        response = authenticated_client.get("/ship-placement")
 
         assert response.status_code == status.HTTP_200_OK
         soup = BeautifulSoup(response.text, "html.parser")
 
-        # Check for key action buttons (even if they don't have endpoints yet)
+        # Check for key action buttons
         random_button = soup.find(attrs={"data-testid": "random-placement-button"})
         reset_button = soup.find(attrs={"data-testid": "reset-all-ships-button"})
         start_button = soup.find(attrs={"data-testid": "start-game-button"})
@@ -97,8 +115,9 @@ class TestShipPlacementPageEndpoint:
 
         assert random_button is not None
         assert reset_button is not None
+        # In single-player mode (computer), only Start Game button should be present
         assert start_button is not None
-        assert ready_button is not None
+        assert ready_button is None  # Ready button only for multiplayer
 
 
 class TestPlaceShipEndpoint:
@@ -408,3 +427,268 @@ class TestShipPlacementValidation:
         assert (
             "Invalid direction" in response.text or "placement_error" in response.text
         )
+
+
+# New test classes to add to test_ship_placement_endpoints.py
+
+
+class TestRemoveShipEndpoint:
+    """Tests for POST /remove-ship endpoint"""
+
+    def test_remove_placed_ship(self, authenticated_client: TestClient):
+        """Test removing a placed ship from the board"""
+        # Place a ship
+        authenticated_client.post(
+            "/place-ship",
+            data={
+                "player_name": "Alice",
+                "ship_name": "Carrier",
+                "start_coordinate": "A1",
+                "orientation": "horizontal",
+            },
+        )
+
+        # Remove the ship
+        response = authenticated_client.post(
+            "/remove-ship",
+            data={
+                "player_name": "Alice",
+                "ship_name": "Carrier",
+            },
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        soup = BeautifulSoup(response.text, "html.parser")
+
+        # Ship should not be in placed ships list
+        carrier_element = soup.find(attrs={"data-testid": "placed-ship-carrier"})
+        assert carrier_element is None
+
+        # Ship count should be 0
+        status_element = soup.find(attrs={"data-testid": "ship-placement-count"})
+        assert status_element is not None
+        assert "0 of 5 ships placed" in status_element.text
+
+    def test_remove_one_ship_from_multiple(self, authenticated_client: TestClient):
+        """Test removing one ship when multiple ships are placed"""
+        # Place 3 ships
+        ships_to_place: list[tuple[str, str, str]] = [
+            ("Carrier", "A1", "horizontal"),
+            ("Battleship", "C1", "horizontal"),
+            ("Cruiser", "E1", "horizontal"),
+        ]
+
+        for ship_name, coord, orientation in ships_to_place:
+            authenticated_client.post(
+                "/place-ship",
+                data={
+                    "player_name": "Alice",
+                    "ship_name": ship_name,
+                    "start_coordinate": coord,
+                    "orientation": orientation,
+                },
+            )
+
+        # Remove only the Battleship
+        response = authenticated_client.post(
+            "/remove-ship",
+            data={
+                "player_name": "Alice",
+                "ship_name": "Battleship",
+            },
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        soup = BeautifulSoup(response.text, "html.parser")
+
+        # Battleship should be removed
+        battleship_element = soup.find(attrs={"data-testid": "placed-ship-battleship"})
+        assert battleship_element is None
+
+        # Other ships should still be there
+        carrier_element = soup.find(attrs={"data-testid": "placed-ship-carrier"})
+        cruiser_element = soup.find(attrs={"data-testid": "placed-ship-cruiser"})
+        assert carrier_element is not None
+        assert cruiser_element is not None
+
+        # Ship count should be 2
+        status_element = soup.find(attrs={"data-testid": "ship-placement-count"})
+        assert status_element is not None
+        assert "2 of 5 ships placed" in status_element.text
+
+    def test_remove_ship_not_placed(self, authenticated_client: TestClient):
+        """Test removing a ship that wasn't placed (should be idempotent)"""
+        # Don't place any ships, just try to remove
+        response = authenticated_client.post(
+            "/remove-ship",
+            data={
+                "player_name": "Alice",
+                "ship_name": "Carrier",
+            },
+        )
+
+        # Should succeed (idempotent operation)
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_remove_ship_requires_player_name(self, client: TestClient):
+        """Test that remove ship requires player_name parameter"""
+        response = client.post(
+            "/remove-ship",
+            data={
+                "ship_name": "Carrier",
+            },
+        )
+
+        # Should fail with 422 (missing required field)
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    def test_remove_ship_requires_ship_name(self, authenticated_client: TestClient):
+        """Test that remove ship requires ship_name parameter"""
+        response = authenticated_client.post(
+            "/remove-ship",
+            data={
+                "player_name": "Alice",
+            },
+        )
+
+        # Should fail with 422 (missing required field)
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+class TestResetAllShipsEndpoint:
+    """Tests for POST /reset-all-ships endpoint"""
+
+    def test_reset_all_ships_clears_board(self, authenticated_client: TestClient):
+        """Test that reset removes all placed ships"""
+        # Place 3 ships
+        ships_to_place: list[tuple[str, str, str]] = [
+            ("Carrier", "A1", "horizontal"),
+            ("Battleship", "C1", "horizontal"),
+            ("Cruiser", "E1", "horizontal"),
+        ]
+
+        for ship_name, coord, orientation in ships_to_place:
+            authenticated_client.post(
+                "/place-ship",
+                data={
+                    "player_name": "Alice",
+                    "ship_name": ship_name,
+                    "start_coordinate": coord,
+                    "orientation": orientation,
+                },
+            )
+
+        # Reset all ships
+        response = authenticated_client.post(
+            "/reset-all-ships",
+            data={"player_name": "Alice"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        soup = BeautifulSoup(response.text, "html.parser")
+
+        # All ships should be removed
+        for ship_name in ["carrier", "battleship", "cruiser"]:
+            ship_element = soup.find(attrs={"data-testid": f"placed-ship-{ship_name}"})
+            assert ship_element is None
+
+        # Ship count should be 0
+        status_element = soup.find(attrs={"data-testid": "ship-placement-count"})
+        assert status_element is not None
+        assert "0 of 5 ships placed" in status_element.text
+
+    def test_reset_when_no_ships_placed(self, authenticated_client: TestClient):
+        """Test reset when no ships are placed (should be idempotent)"""
+        # Don't place any ships, just reset
+        response = authenticated_client.post(
+            "/reset-all-ships",
+            data={"player_name": "Alice"},
+        )
+
+        # Should succeed
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_reset_requires_player_name(self, client: TestClient):
+        """Test that reset requires player_name parameter"""
+        response = client.post("/reset-all-ships", data={})
+
+        # Should fail with 422 (missing required field)
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    def test_can_place_ships_after_reset(self, authenticated_client: TestClient):
+        """Test that ships can be placed again after reset"""
+        # Place a ship
+        authenticated_client.post(
+            "/place-ship",
+            data={
+                "player_name": "Alice",
+                "ship_name": "Carrier",
+                "start_coordinate": "A1",
+                "orientation": "horizontal",
+            },
+        )
+
+        # Reset
+        authenticated_client.post(
+            "/reset-all-ships",
+            data={"player_name": "Alice"},
+        )
+
+        # Place the same ship again
+        response = authenticated_client.post(
+            "/place-ship",
+            data={
+                "player_name": "Alice",
+                "ship_name": "Carrier",
+                "start_coordinate": "B2",
+                "orientation": "vertical",
+            },
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        soup = BeautifulSoup(response.text, "html.parser")
+
+        # Ship should be placed
+        carrier_element = soup.find(attrs={"data-testid": "placed-ship-carrier"})
+        assert carrier_element is not None
+
+    def test_reset_removes_all_five_ships(self, authenticated_client: TestClient):
+        """Test reset with all 5 ships placed"""
+        # Place all 5 ships
+        ships_to_place: list[tuple[str, str, str]] = [
+            ("Carrier", "A1", "horizontal"),
+            ("Battleship", "C1", "horizontal"),
+            ("Cruiser", "E1", "horizontal"),
+            ("Submarine", "G1", "horizontal"),
+            ("Destroyer", "I1", "horizontal"),
+        ]
+
+        for ship_name, coord, orientation in ships_to_place:
+            authenticated_client.post(
+                "/place-ship",
+                data={
+                    "player_name": "Alice",
+                    "ship_name": ship_name,
+                    "start_coordinate": coord,
+                    "orientation": orientation,
+                },
+            )
+
+        # Reset all
+        response = authenticated_client.post(
+            "/reset-all-ships",
+            data={"player_name": "Alice"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        soup = BeautifulSoup(response.text, "html.parser")
+
+        # All 5 ships should be removed
+        for ship_name in ["carrier", "battleship", "cruiser", "submarine", "destroyer"]:
+            ship_element = soup.find(attrs={"data-testid": f"placed-ship-{ship_name}"})
+            assert ship_element is None
+
+        # Ship count should be 0
+        status_element = soup.find(attrs={"data-testid": "ship-placement-count"})
+        assert status_element is not None
+        assert "0 of 5 ships placed" in status_element.text

@@ -1,0 +1,1577 @@
+/* ============================================
+   Battleships Game - Main Stylesheet
+   ============================================ */
+
+/* ============================================
+   CSS Variables (Design Tokens)
+   ============================================ */
+:root {
+  /* Color Palette - Naval Theme */
+  --color-navy-dark: #0a1929;
+  --color-navy: #1a2332;
+  --color-navy-light: #2d3e50;
+  --color-ocean: #1e3a5f;
+  --color-ocean-light: #3d5a80;
+  --color-water: #5b8db8;
+  --color-foam: #e8f4f8;
+  
+  /* Ship Colors - Each ship type has unique color */
+  --color-carrier: #8b4513;        /* Saddle Brown */
+  --color-battleship: #2f4f4f;     /* Dark Slate Gray */
+  --color-cruiser: #4682b4;        /* Steel Blue */
+  --color-submarine: #556b2f;      /* Dark Olive Green */
+  --color-destroyer: #8b0000;      /* Dark Red */
+  
+  /* Grid Colors */
+  --color-grid-water: #e3f2fd;     /* Light Blue */
+  --color-grid-border: #90a4ae;    /* Blue Gray */
+  --color-grid-header: #b0bec5;    /* Light Blue Gray */
+  --color-grid-hover: #bbdefb;     /* Lighter Blue */
+  
+  /* Status Colors */
+  --color-hit: #e63946;
+  --color-miss: #a8dadc;
+  --color-success: #2a9d8f;
+  --color-warning: #e9c46a;
+  --color-error: #e76f51;
+  
+  /* Neutrals */
+  --color-white: #ffffff;
+  --color-gray-100: #f8f9fa;
+  --color-gray-200: #e9ecef;
+  --color-gray-300: #dee2e6;
+  --color-gray-400: #ced4da;
+  --color-gray-500: #adb5bd;
+  --color-gray-600: #6c757d;
+  --color-gray-700: #495057;
+  --color-gray-800: #343a40;
+  --color-gray-900: #212529;
+  
+  /* Spacing Scale */
+  --space-xs: 0.25rem;    /* 4px */
+  --space-sm: 0.5rem;     /* 8px */
+  --space-md: 1rem;       /* 16px */
+  --space-lg: 1.5rem;     /* 24px */
+  --space-xl: 2rem;       /* 32px */
+  --space-2xl: 3rem;      /* 48px */
+  
+  /* Typography */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "Courier New", Consolas, Monaco, monospace;
+  
+  --font-size-xs: 0.75rem;    /* 12px */
+  --font-size-sm: 0.875rem;   /* 14px */
+  --font-size-base: 1rem;     /* 16px */
+  --font-size-lg: 1.125rem;   /* 18px */
+  --font-size-xl: 1.25rem;    /* 20px */
+  --font-size-2xl: 1.5rem;    /* 24px */
+  --font-size-3xl: 2rem;      /* 32px */
+  --font-size-4xl: 2.5rem;    /* 40px */
+  
+  /* Border Radius */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 1rem;
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+  --shadow-inset: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+  
+  /* Transitions */
+  --transition-fast: 150ms ease-in-out;
+  --transition-base: 250ms ease-in-out;
+  --transition-slow: 350ms ease-in-out;
+}
+
+/* ============================================
+   Reset & Base Styles
+   ============================================ */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-base);
+  line-height: 1.6;
+  color: var(--color-gray-900);
+  background: linear-gradient(135deg, var(--color-ocean) 0%, var(--color-ocean-light) 100%);
+  min-height: 100vh;
+  padding: var(--space-lg);
+}
+
+/* ============================================
+   Ship Placement Grid Styles
+   ============================================ */
+
+/* Board Container */
+.ship-board-container {
+  background-color: var(--color-white);
+  border: 2px solid var(--color-ocean);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  margin: var(--space-lg) 0;
+  box-shadow: var(--shadow-lg);
+}
+
+.ship-board-container h3 {
+  color: var(--color-navy-dark);
+  margin-bottom: var(--space-md);
+  font-size: var(--font-size-xl);
+  border-bottom: 2px solid var(--color-ocean);
+  padding-bottom: var(--space-sm);
+}
+
+/* Grid Table */
+.ship-grid {
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: var(--space-md) auto;
+  box-shadow: var(--shadow-md);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background-color: var(--color-ocean);
+}
+
+/* Grid Headers (Row/Column Labels) */
+.ship-grid thead th,
+.ship-grid tbody th {
+  background: linear-gradient(135deg, var(--color-ocean) 0%, var(--color-ocean-light) 100%);
+  color: var(--color-white);
+  border: 1px solid var(--color-ocean-light);
+  padding: var(--space-sm);
+  text-align: center;
+  font-weight: 700;
+  font-size: var(--font-size-sm);
+  min-width: 35px;
+  height: 35px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Grid Cells */
+.ship-grid-cell {
+  border: 1px solid var(--color-grid-border);
+  padding: 0;
+  width: 40px;
+  height: 40px;
+  text-align: center;
+  background-color: var(--color-grid-water);
+  position: relative;
+  transition: all var(--transition-fast);
+  cursor: default;
+  font-weight: 700;
+  font-size: var(--font-size-base);
+  vertical-align: middle;
+}
+
+/* Empty cell hover effect */
+.ship-grid-cell:not([data-ship]):hover {
+  background-color: var(--color-grid-hover);
+  transform: scale(1.05);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Ship Cell Base Styles */
+.ship-grid-cell[data-ship] {
+  color: var(--color-white);
+  font-weight: 900;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+  position: relative;
+}
+
+/* Ship Cell Hover Effect */
+.ship-grid-cell[data-ship]:hover {
+  transform: scale(1.08);
+  box-shadow: var(--shadow-md);
+  z-index: 10;
+}
+
+/* Individual Ship Type Styles */
+.ship-grid-cell[data-ship="carrier"] {
+  background: linear-gradient(135deg, var(--color-carrier) 0%, #a0522d 100%);
+  border-color: #6b3410;
+}
+
+.ship-grid-cell[data-ship="battleship"] {
+  background: linear-gradient(135deg, var(--color-battleship) 0%, #3d5f5f 100%);
+  border-color: #1f2f2f;
+}
+
+.ship-grid-cell[data-ship="cruiser"] {
+  background: linear-gradient(135deg, var(--color-cruiser) 0%, #5a9bd4 100%);
+  border-color: #2f5f8f;
+}
+
+.ship-grid-cell[data-ship="submarine"] {
+  background: linear-gradient(135deg, var(--color-submarine) 0%, #6b8e23 100%);
+  border-color: #3a4f1a;
+}
+
+.ship-grid-cell[data-ship="destroyer"] {
+  background: linear-gradient(135deg, var(--color-destroyer) 0%, #a52a2a 100%);
+  border-color: #5f0000;
+}
+
+/* Ship Cell Pattern Overlay (adds texture) */
+.ship-grid-cell[data-ship]::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: 
+    repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 2px,
+      rgba(255, 255, 255, 0.05) 2px,
+      rgba(255, 255, 255, 0.05) 4px
+    );
+  pointer-events: none;
+}
+
+/* Ship Cell Active/Focus State */
+.ship-grid-cell[data-ship]:active {
+  transform: scale(0.98);
+}
+
+/* ============================================
+   Ship Legend Styles
+   ============================================ */
+.ship-legend {
+  margin: var(--space-md) 0;
+  padding: var(--space-md);
+  background-color: var(--color-gray-100);
+  border-radius: var(--radius-md);
+  border-left: 4px solid var(--color-ocean);
+}
+
+.ship-legend strong {
+  display: block;
+  margin-bottom: var(--space-sm);
+  color: var(--color-navy-dark);
+  font-size: var(--font-size-base);
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  margin-right: var(--space-lg);
+  margin-bottom: var(--space-xs);
+  font-size: var(--font-size-sm);
+}
+
+.legend-color {
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  margin-right: var(--space-xs);
+  border: 2px solid var(--color-gray-400);
+  box-shadow: var(--shadow-sm);
+}
+
+.legend-color.carrier {
+  background: linear-gradient(135deg, var(--color-carrier) 0%, #a0522d 100%);
+}
+
+.legend-color.battleship {
+  background: linear-gradient(135deg, var(--color-battleship) 0%, #3d5f5f 100%);
+}
+
+.legend-color.cruiser {
+  background: linear-gradient(135deg, var(--color-cruiser) 0%, #5a9bd4 100%);
+}
+
+.legend-color.submarine {
+  background: linear-gradient(135deg, var(--color-submarine) 0%, #6b8e23 100%);
+}
+
+.legend-color.destroyer {
+  background: linear-gradient(135deg, var(--color-destroyer) 0%, #a52a2a 100%);
+}
+
+/* ============================================
+   Placement Status Styles
+   ============================================ */
+.placement-status {
+  background-color: var(--color-foam);
+  border: 2px solid var(--color-ocean);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  margin: var(--space-md) 0;
+  text-align: center;
+}
+
+.placement-status p {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--color-navy-dark);
+}
+
+/* ============================================
+   Opponent Status Component
+   ============================================ */
+
+/* Container for opponent status */
+.opponent-status {
+  margin: var(--space-lg) 0;
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  background-color: var(--color-white);
+  border: 2px solid var(--color-ocean-light);
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-base);
+}
+
+/* Status: Opponent Placing Ships (Animated) */
+.status-placing {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--color-ocean);
+  background: linear-gradient(135deg, var(--color-foam) 0%, var(--color-grid-water) 100%);
+  border-radius: var(--radius-md);
+  border-left: 4px solid var(--color-ocean);
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Pulsing animation for "placing ships" state */
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(30, 58, 95, 0.4);
+  }
+  50% {
+    opacity: 0.85;
+    box-shadow: 0 0 20px 5px rgba(30, 58, 95, 0.2);
+  }
+}
+
+/* Emoji animation for placing state */
+.status-placing::before {
+  content: "⏳";
+  font-size: var(--font-size-2xl);
+  animation: rotate-hourglass 2s linear infinite;
+}
+
+@keyframes rotate-hourglass {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(180deg);
+  }
+}
+
+/* Status: Opponent Ready (Success) */
+.status-ready {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  color: #166534;
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+  border-radius: var(--radius-md);
+  border-left: 4px solid var(--color-success);
+  box-shadow: 0 4px 6px rgba(42, 157, 143, 0.15);
+  animation: slide-in-fade 0.4s ease-out;
+}
+
+/* Checkmark animation */
+.status-ready::before {
+  content: "✓";
+  font-size: var(--font-size-2xl);
+  color: var(--color-success);
+  animation: checkmark-pop 0.5s ease-out;
+}
+
+@keyframes checkmark-pop {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes slide-in-fade {
+  from {
+    transform: translateY(-10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Status: Opponent Left (Danger Alert) */
+.status-left {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  margin: 0;
+  padding: var(--space-sm) 0;
+}
+
+/* Alert danger styling for opponent left */
+.opponent-status .alert-danger {
+  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+  border: 2px solid var(--color-error);
+  border-left: 4px solid var(--color-error);
+  padding: var(--space-lg);
+  margin: 0;
+  animation: shake 0.5s ease-in-out;
+}
+
+/* Shake animation for alert */
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  10%, 30%, 50%, 70%, 90% {
+    transform: translateX(-5px);
+  }
+  20%, 40%, 60%, 80% {
+    transform: translateX(5px);
+  }
+}
+
+/* Warning emoji pulse */
+.status-left::before {
+  content: "⚠️";
+  font-size: var(--font-size-2xl);
+  animation: pulse-warning 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-warning {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.8;
+  }
+}
+
+/* Button inside opponent status alert */
+.opponent-status .alert-danger button {
+  margin-top: var(--space-md);
+  width: 100%;
+  max-width: 300px;
+}
+
+/* Loading state for opponent status */
+.opponent-status[data-loading="true"] {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* Responsive adjustments for opponent status */
+@media (max-width: 768px) {
+  .status-placing,
+  .status-ready,
+  .status-left {
+    font-size: var(--font-size-base);
+  }
+  
+  .status-placing::before,
+  .status-ready::before,
+  .status-left::before {
+    font-size: var(--font-size-xl);
+  }
+}
+
+@media (max-width: 480px) {
+  .opponent-status {
+    padding: var(--space-sm);
+  }
+  
+  .status-placing,
+  .status-ready {
+    padding: var(--space-sm);
+  }
+  
+  .opponent-status .alert-danger {
+    padding: var(--space-md);
+  }
+}
+
+/* ============================================
+   Error Message Styles
+   ============================================ */
+.placement-error {
+  background-color: #fef2f2;
+  border: 2px solid var(--color-error);
+  border-left: 4px solid var(--color-error);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  margin: var(--space-md) 0;
+  color: #991b1b;
+  font-weight: 600;
+}
+
+/* ============================================
+   Responsive Design
+   ============================================ */
+
+/* Tablet */
+@media (max-width: 768px) {
+  .ship-grid thead th,
+  .ship-grid tbody th {
+    min-width: 30px;
+    height: 30px;
+    padding: var(--space-xs);
+    font-size: var(--font-size-xs);
+  }
+  
+  .ship-grid-cell {
+    width: 32px;
+    height: 32px;
+    font-size: var(--font-size-sm);
+  }
+  
+  .ship-board-container {
+    padding: var(--space-md);
+  }
+  
+  .legend-item {
+    display: block;
+    margin-bottom: var(--space-sm);
+  }
+}
+
+/* Mobile */
+@media (max-width: 480px) {
+  body {
+    padding: var(--space-sm);
+  }
+  
+  .ship-grid thead th,
+  .ship-grid tbody th {
+    min-width: 24px;
+    height: 24px;
+    padding: 2px;
+    font-size: 0.65rem;
+  }
+  
+  .ship-grid-cell {
+    width: 26px;
+    height: 26px;
+    font-size: 0.7rem;
+  }
+  
+  .ship-board-container {
+    padding: var(--space-sm);
+  }
+  
+  .ship-board-container h3 {
+    font-size: var(--font-size-lg);
+  }
+  
+  .ship-legend {
+    padding: var(--space-sm);
+  }
+  
+  .legend-color {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+/* ============================================
+   Ship Selection Radio Buttons
+   ============================================ */
+.ship-selection {
+  margin: var(--space-lg) 0;
+}
+
+.ship-selection-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  margin-top: var(--space-md);
+}
+
+.ship-radio-label {
+  position: relative;
+  cursor: pointer;
+}
+
+.ship-radio-label input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.ship-radio-button {
+  display: inline-block;
+  padding: var(--space-md) var(--space-lg);
+  background: var(--color-gray-200);
+  border: 2px solid var(--color-gray-400);
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  transition: all var(--transition-base);
+  user-select: none;
+}
+
+.ship-radio-label:hover .ship-radio-button {
+  background: var(--color-gray-300);
+  border-color: var(--color-ocean);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.ship-radio-label input[type="radio"]:checked + .ship-radio-button {
+  background: var(--color-ocean);
+  color: var(--color-white);
+  border-color: var(--color-ocean-light);
+  box-shadow: var(--shadow-md);
+}
+
+.ship-radio-label input[type="radio"]:focus + .ship-radio-button {
+  outline: 2px solid var(--color-ocean);
+  outline-offset: 2px;
+}
+
+.ship-radio-label input[type="radio"]:disabled + .ship-radio-button {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: var(--color-gray-100);
+}
+
+/* ============================================
+   Orientation Selection Radio Buttons
+   ============================================ */
+.orientation-selection {
+  margin: var(--space-lg) 0;
+}
+
+.orientation-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
+
+.orientation-radio-label {
+  position: relative;
+  cursor: pointer;
+}
+
+.orientation-radio-label input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.orientation-radio-button {
+  display: block;
+  padding: var(--space-md);
+  background: var(--color-gray-200);
+  border: 2px solid var(--color-gray-400);
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  text-align: center;
+  transition: all var(--transition-base);
+  user-select: none;
+}
+
+.orientation-radio-label:hover .orientation-radio-button {
+  background: var(--color-gray-300);
+  border-color: var(--color-ocean);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.orientation-radio-label input[type="radio"]:checked + .orientation-radio-button {
+  background: var(--color-ocean);
+  color: var(--color-white);
+  border-color: var(--color-ocean-light);
+  box-shadow: var(--shadow-md);
+}
+
+.orientation-radio-label input[type="radio"]:focus + .orientation-radio-button {
+  outline: 2px solid var(--color-ocean);
+  outline-offset: 2px;
+}
+
+/* Responsive: Stack orientation buttons on mobile */
+@media (max-width: 480px) {
+  .orientation-buttons {
+    flex-direction: column;
+  }
+  
+  .orientation-radio-label {
+    width: 100%;
+  }
+}
+
+/* ============================================
+   Layout Patterns
+   ============================================ */
+.container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 var(--space-md);
+}
+
+.grid {
+  display: grid;
+  gap: var(--space-lg);
+}
+
+.grid-2 { grid-template-columns: repeat(2, 1fr); }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ============================================
+   Card Styles
+   ============================================ */
+.card {
+  background-color: var(--color-white);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  box-shadow: var(--shadow-md);
+  transition: box-shadow var(--transition-base);
+  margin-bottom: var(--space-lg);
+  border: 2px solid var(--color-ocean);
+}
+
+.card:hover {
+  box-shadow: var(--shadow-lg);
+}
+
+.card-header {
+  margin-bottom: var(--space-md);
+  padding-bottom: var(--space-md);
+  border-bottom: 2px solid var(--color-gray-200);
+}
+
+.card-title {
+  font-size: var(--font-size-xl);
+  margin-bottom: var(--space-sm);
+  color: var(--color-navy-dark);
+  font-weight: 700;
+}
+
+.card-body {
+  margin-bottom: var(--space-md);
+  color: var(--color-gray-900);
+}
+
+.card-footer {
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--color-gray-200);
+}
+
+/* Ensure text inside cards and other light containers is visible (overriding global p style) */
+.card p,
+.ship-board-container p,
+.actions-section p,
+form p {
+  color: var(--color-gray-900);
+}
+
+.game-info-item {
+  font-size: var(--font-size-lg);
+  margin-bottom: var(--space-sm);
+  color: var(--color-navy-dark);
+}
+
+/* ============================================
+   Alert Styles
+   ============================================ */
+.alert {
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-md);
+  border-left: 4px solid;
+}
+
+.alert-error {
+  background-color: #fef2f2;
+  border-color: var(--color-error);
+  color: #991b1b;
+}
+
+.alert-danger {
+  background-color: #fef2f2;
+  border-color: var(--color-error);
+  color: #991b1b;
+}
+
+.alert-success {
+  background-color: #f0fdf4;
+  border-color: var(--color-success);
+  color: #166534;
+}
+
+.alert-warning {
+  background-color: #fffbeb;
+  border-color: var(--color-warning);
+  color: #92400e;
+}
+
+.alert-info {
+  background-color: var(--color-foam);
+  border-color: var(--color-ocean);
+  color: var(--color-navy-dark);
+}
+
+/* ============================================
+   Lobby Styles
+   ============================================ */
+.lobby-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  margin-top: var(--space-md);
+}
+
+.lobby-item {
+  background-color: var(--color-gray-100);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 1px solid var(--color-gray-200);
+}
+
+.lobby-item:hover {
+  background-color: var(--color-gray-200);
+}
+
+.lobby-empty {
+  text-align: center;
+  padding: var(--space-xl);
+  color: var(--color-gray-600);
+  font-style: italic;
+  background-color: var(--color-gray-100);
+  border-radius: var(--radius-md);
+}
+
+/* ============================================
+   Button Styles
+   ============================================ */
+
+/* Base Button Styles */
+button,
+.btn {
+  display: inline-block;
+  padding: var(--space-sm) var(--space-lg);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  line-height: 1.5;
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  vertical-align: middle;
+  cursor: pointer;
+  user-select: none;
+  border: 2px solid transparent;
+  border-radius: var(--radius-md);
+  transition: all var(--transition-base);
+  background-color: var(--color-ocean);
+  color: var(--color-white);
+  box-shadow: var(--shadow-sm);
+  min-width: 120px;
+  min-height: 44px; /* Touch target size */
+}
+
+button:hover,
+.btn:hover {
+  background-color: var(--color-ocean-light);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  text-decoration: none;
+}
+
+button:active,
+.btn:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow-sm);
+}
+
+button:focus-visible,
+.btn:focus-visible {
+  outline: 3px solid var(--color-ocean);
+  outline-offset: 2px;
+}
+
+button:disabled,
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+button:disabled:hover,
+.btn:disabled:hover {
+  background-color: var(--color-ocean);
+  transform: none;
+  box-shadow: none;
+}
+
+/* Button Variants */
+.btn-primary {
+  background-color: var(--color-ocean);
+  color: var(--color-white);
+  border-color: var(--color-ocean);
+}
+
+.btn-primary:hover {
+  background-color: var(--color-ocean-light);
+  border-color: var(--color-ocean-light);
+}
+
+.btn-secondary {
+  background-color: var(--color-gray-200);
+  color: var(--color-gray-900);
+  border-color: var(--color-gray-400);
+}
+
+.btn-secondary:hover {
+  background-color: var(--color-gray-300);
+  border-color: var(--color-gray-500);
+}
+
+.btn-success {
+  background-color: var(--color-success);
+  color: var(--color-white);
+  border-color: var(--color-success);
+}
+
+.btn-success:hover {
+  background-color: #248277;
+  border-color: #248277;
+}
+
+.btn-danger {
+  background-color: var(--color-error);
+  color: var(--color-white);
+  border-color: var(--color-error);
+}
+
+.btn-danger:hover {
+  background-color: #d45a3f;
+  border-color: #d45a3f;
+}
+
+.btn-warning {
+  background-color: var(--color-warning);
+  color: var(--color-gray-900);
+  border-color: var(--color-warning);
+}
+
+.btn-warning:hover {
+  background-color: #e5b84e;
+  border-color: #e5b84e;
+}
+
+/* Button Sizes */
+.btn-small,
+.btn-sm {
+  padding: var(--space-xs) var(--space-md);
+  font-size: var(--font-size-sm);
+  min-width: 80px;
+  min-height: 36px;
+}
+
+.btn-large,
+.btn-lg {
+  padding: var(--space-md) var(--space-xl);
+  font-size: var(--font-size-lg);
+  min-width: 160px;
+  min-height: 52px;
+}
+
+/* Button Groups */
+.btn-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  margin: var(--space-md) 0;
+}
+
+.btn-group-inline {
+  display: inline-flex;
+  gap: var(--space-sm);
+}
+
+.btn-group-vertical {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.btn-group-vertical button,
+.btn-group-vertical .btn {
+  width: 100%;
+}
+
+/* Action Buttons Section */
+.actions-section {
+  background-color: var(--color-white);
+  border: 2px solid var(--color-ocean);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  margin: var(--space-lg) 0;
+  box-shadow: var(--shadow-md);
+}
+
+.actions-section h2 {
+  color: var(--color-navy-dark);
+  margin-bottom: var(--space-md);
+  font-size: var(--font-size-xl);
+  border-bottom: 2px solid var(--color-ocean);
+  padding-bottom: var(--space-sm);
+}
+
+/* Form Styles */
+form {
+  background-color: var(--color-white);
+  border: 2px solid var(--color-ocean);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  margin: var(--space-lg) 0;
+  box-shadow: var(--shadow-md);
+}
+
+/* Inline forms (for button groups) */
+form.inline-form {
+  display: inline-block;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  box-shadow: none;
+}
+
+form h2 {
+  color: var(--color-navy-dark);
+  margin-bottom: var(--space-md);
+  font-size: var(--font-size-xl);
+  border-bottom: 2px solid var(--color-ocean);
+  padding-bottom: var(--space-sm);
+}
+
+.form-group {
+  margin-bottom: var(--space-lg);
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: var(--space-sm);
+  font-weight: 600;
+  color: var(--color-gray-700);
+  font-size: var(--font-size-base);
+}
+
+.form-group input[type="text"],
+.form-group input[type="email"],
+.form-group input[type="password"],
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  max-width: 400px;
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--font-size-base);
+  font-family: var(--font-sans);
+  border: 2px solid var(--color-gray-300);
+  border-radius: var(--radius-md);
+  transition: border-color var(--transition-fast);
+  background-color: var(--color-white);
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: var(--color-ocean);
+  box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.1);
+}
+
+/* Placed Ships List */
+.placed-ships-list {
+  margin-top: var(--space-md);
+}
+
+.placed-ship-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-sm) var(--space-md);
+  margin-bottom: var(--space-sm);
+  background-color: var(--color-gray-100);
+  border-radius: var(--radius-md);
+  border-left: 4px solid var(--color-ocean);
+}
+
+.placed-ship-item span {
+  font-weight: 600;
+  color: var(--color-gray-800);
+}
+
+.placed-ship-item .ship-cells {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--color-gray-600);
+  margin: 0 var(--space-md);
+}
+
+/* Typography */
+h1 {
+  color: var(--color-white);
+  font-size: var(--font-size-3xl);
+  margin-bottom: var(--space-lg);
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+h2 {
+  color: var(--color-navy-dark);
+  font-size: var(--font-size-2xl);
+  margin: var(--space-xl) 0 var(--space-md) 0;
+}
+
+h3 {
+  color: var(--color-navy-dark);
+  font-size: var(--font-size-xl);
+  margin: var(--space-lg) 0 var(--space-md) 0;
+}
+
+h4 {
+  color: var(--color-navy-dark);
+  font-size: var(--font-size-lg);
+  margin: var(--space-md) 0 var(--space-sm) 0;
+}
+
+p {
+  color: var(--color-white);
+  margin-bottom: var(--space-md);
+  line-height: 1.6;
+}
+
+/* Responsive Button Adjustments */
+@media (max-width: 768px) {
+  button,
+  .btn {
+    min-width: 100px;
+    padding: var(--space-sm) var(--space-md);
+  }
+  
+  .btn-group {
+    gap: var(--space-sm);
+  }
+  
+  .btn-large,
+  .btn-lg {
+    min-width: 140px;
+    padding: var(--space-md) var(--space-lg);
+  }
+}
+
+@media (max-width: 480px) {
+  button,
+  .btn {
+    min-width: 90px;
+    font-size: var(--font-size-sm);
+  }
+  
+  .btn-group {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .btn-group button,
+  .btn-group .btn {
+    width: 100%;
+  }
+  
+  .btn-large,
+  .btn-lg {
+    font-size: var(--font-size-base);
+  }
+}
+
+/* ============================================
+   Gameplay Screen Styles
+   ============================================ */
+
+/* Round Indicator - Prominent heading with glow effect */
+.round-indicator,
+h1[data-testid="round-indicator"] {
+  color: var(--color-white);
+  font-size: var(--font-size-4xl);
+  font-weight: 900;
+  text-align: center;
+  margin-bottom: var(--space-xl);
+  text-shadow: 
+    0 0 10px rgba(255, 255, 255, 0.5),
+    0 0 20px rgba(91, 141, 184, 0.4),
+    2px 2px 4px rgba(0, 0, 0, 0.3);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  animation: subtle-glow 3s ease-in-out infinite;
+}
+
+@keyframes subtle-glow {
+  0%, 100% {
+    text-shadow: 
+      0 0 10px rgba(255, 255, 255, 0.5),
+      0 0 20px rgba(91, 141, 184, 0.4),
+      2px 2px 4px rgba(0, 0, 0, 0.3);
+  }
+  50% {
+    text-shadow: 
+      0 0 15px rgba(255, 255, 255, 0.7),
+      0 0 30px rgba(91, 141, 184, 0.6),
+      2px 2px 4px rgba(0, 0, 0, 0.3);
+  }
+}
+
+/* Game Info Card - Enhanced styling */
+.game-info-card {
+  background: linear-gradient(135deg, var(--color-white) 0%, var(--color-gray-100) 100%);
+  border: 3px solid var(--color-ocean);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  box-shadow: var(--shadow-lg);
+  margin-bottom: var(--space-xl);
+}
+
+.game-info-card .card-title {
+  color: var(--color-navy-dark);
+  font-size: var(--font-size-2xl);
+  font-weight: 700;
+  margin-bottom: var(--space-md);
+  border-bottom: 3px solid var(--color-ocean);
+  padding-bottom: var(--space-sm);
+}
+
+.game-info-card .game-info-item {
+  font-size: var(--font-size-lg);
+  margin-bottom: var(--space-sm);
+  color: var(--color-gray-900);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.game-info-card .game-info-item strong {
+  color: var(--color-navy-dark);
+  min-width: 100px;
+  font-weight: 700;
+}
+
+/* Game Info Item - Game ID de-emphasized */
+.game-info-card .game-info-item:last-child {
+  font-size: var(--font-size-sm);
+  color: var(--color-gray-600);
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--color-gray-300);
+}
+
+/* Two-Board Layout - Grid container */
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-xl);
+  margin: var(--space-xl) 0;
+}
+
+/* Board Container - Enhanced for gameplay */
+.board-container,
+.ship-board-container {
+  background-color: var(--color-white);
+  border: 3px solid var(--color-ocean);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  box-shadow: var(--shadow-lg);
+  transition: all var(--transition-base);
+}
+
+.board-container:hover,
+.ship-board-container:hover {
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+}
+
+.board-container h3,
+.ship-board-container h3 {
+  color: var(--color-navy-dark);
+  font-size: var(--font-size-2xl);
+  font-weight: 700;
+  margin-bottom: var(--space-sm);
+  border-bottom: 3px solid var(--color-ocean);
+  padding-bottom: var(--space-sm);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.board-container p,
+.ship-board-container p {
+  color: var(--color-gray-700);
+  font-size: var(--font-size-sm);
+  margin-bottom: var(--space-md);
+  font-style: italic;
+}
+
+/* Opponent's Board - Slightly different styling */
+.ship-board-container:nth-child(2) {
+  border-color: var(--color-ocean-light);
+}
+
+.ship-board-container:nth-child(2) h3 {
+  border-bottom-color: var(--color-ocean-light);
+}
+
+/* Board Grid - Ensure consistent sizing */
+.board-grid,
+.ship-grid {
+  margin: var(--space-md) auto;
+  max-width: 100%;
+}
+
+/* Game Actions Section - Enhanced styling */
+.game-actions,
+.actions-section {
+  background: linear-gradient(135deg, var(--color-white) 0%, var(--color-foam) 100%);
+  border: 3px solid var(--color-ocean);
+  border-radius: var(--radius-lg);
+  padding: var(--space-xl);
+  margin: var(--space-xl) 0;
+  box-shadow: var(--shadow-lg);
+  text-align: center;
+}
+
+.game-actions h2,
+.actions-section h2 {
+  color: var(--color-navy-dark);
+  font-size: var(--font-size-2xl);
+  font-weight: 700;
+  margin-bottom: var(--space-lg);
+  border-bottom: 3px solid var(--color-ocean);
+  padding-bottom: var(--space-md);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.game-actions .btn-group,
+.actions-section .btn-group {
+  justify-content: center;
+  margin-top: var(--space-lg);
+}
+
+/* Disabled button styling for "Coming Soon" features */
+.game-actions button:disabled,
+.actions-section button:disabled {
+  background-color: var(--color-gray-300);
+  color: var(--color-gray-600);
+  border-color: var(--color-gray-400);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.game-actions button:disabled:hover,
+.actions-section button:disabled:hover {
+  background-color: var(--color-gray-300);
+  transform: none;
+  box-shadow: none;
+}
+
+/* Game Status Alert - Enhanced visibility */
+.alert[data-testid="game-status"] {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  text-align: center;
+  padding: var(--space-lg);
+  margin: var(--space-xl) 0;
+  animation: slide-in-fade 0.4s ease-out;
+}
+
+/* Responsive Design for Gameplay Screen */
+@media (max-width: 1024px) {
+  .grid-2 {
+    gap: var(--space-lg);
+  }
+  
+  .board-container h3,
+  .ship-board-container h3 {
+    font-size: var(--font-size-xl);
+  }
+  
+  .round-indicator,
+  h1[data-testid="round-indicator"] {
+    font-size: var(--font-size-3xl);
+  }
+}
+
+/* Tablet - Stack boards vertically */
+@media (max-width: 768px) {
+  .grid-2 {
+    grid-template-columns: 1fr;
+    gap: var(--space-lg);
+  }
+  
+  .round-indicator,
+  h1[data-testid="round-indicator"] {
+    font-size: var(--font-size-2xl);
+  }
+  
+  .game-info-card .game-info-item {
+    font-size: var(--font-size-base);
+  }
+  
+  .game-info-card .game-info-item strong {
+    min-width: 80px;
+  }
+  
+  .board-container,
+  .ship-board-container {
+    padding: var(--space-md);
+  }
+  
+  .game-actions,
+  .actions-section {
+    padding: var(--space-lg);
+  }
+}
+
+/* Mobile - Further optimizations */
+@media (max-width: 480px) {
+  .round-indicator,
+  h1[data-testid="round-indicator"] {
+    font-size: var(--font-size-xl);
+    letter-spacing: 1px;
+  }
+  
+  .game-info-card {
+    padding: var(--space-md);
+  }
+  
+  .game-info-card .card-title {
+    font-size: var(--font-size-xl);
+  }
+  
+  .game-info-card .game-info-item {
+    font-size: var(--font-size-sm);
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-xs);
+  }
+  
+  .game-info-card .game-info-item strong {
+    min-width: auto;
+  }
+  
+  .board-container h3,
+  .ship-board-container h3 {
+    font-size: var(--font-size-lg);
+  }
+  
+  .game-actions h2,
+  .actions-section h2 {
+    font-size: var(--font-size-xl);
+  }
+  
+  .game-actions,
+  .actions-section {
+    padding: var(--space-md);
+  }
+}
+
+/* ============================================
+   Accessibility & Reduced Motion
+   ============================================ */
+
+/* Focus visible for keyboard navigation */
+.ship-grid-cell:focus-visible {
+  outline: 3px solid var(--color-ocean);
+  outline-offset: 2px;
+  z-index: 20;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .ship-grid-cell {
+    border-width: 2px;
+  }
+  
+  .ship-grid-cell[data-ship] {
+    border-width: 3px;
+  }
+}
+
+/* ============================================
+   Print Styles
+   ============================================ */
+@media print {
+  body {
+    background: white;
+    padding: 0;
+  }
+  
+  .ship-board-container {
+    box-shadow: none;
+    border: 2px solid black;
+  }
+  
+  .ship-grid-cell:hover {
+    transform: none;
+    box-shadow: none;
+  }
+}

@@ -3,31 +3,34 @@
 {% block title %}Multiplayer Lobby{% endblock %}
 
 {% block content %}
-<div data-testid="lobby-container">
+<div class="container" data-testid="lobby-container">
     <h1>Multiplayer Lobby</h1>
     
-    <div data-testid="player-name">
-        <h3>Welcome, {{ player_name }}!</h3>
+    <div class="card">
+        <div class="card-header">
+             <div data-testid="player-name">
+                <h3 class="card-title">Welcome, {{ player_name }}!</h3>
+            </div>
+        </div>
+        <div class="card-body">
+            <!-- Lobby dynamic content section -->
+            <!-- The component will include its own HTMX attributes for long polling -->
+            <div id="lobby-status-container"
+                 hx-get="/lobby/status/long-poll"
+                 hx-trigger="load"
+                 hx-swap="innerHTML">
+            </div>
+        </div>
+        <div class="card-footer">
+             <!-- Leave Lobby Section -->
+            <div data-testid="leave-lobby-section">
+                <form method="post" action="/leave-lobby" class="inline-form">
+                    <button type="submit" data-testid="leave-lobby-button" class="btn btn-danger">
+                        Leave Lobby
+                    </button>
+                </form>
+            </div>
+        </div>
     </div>
-    
-    <!-- Lobby dynamic content section -->
-    <!-- The component will include its own HTMX attributes for long polling -->
-    <div id="lobby-status-container"
-         hx-get="/lobby/status/long-poll"
-         hx-trigger="load"
-         hx-swap="innerHTML">
-
-    </div>
-    
-    <!-- Leave Lobby Section -->
-    <div data-testid="leave-lobby-section">
-        <!-- <form hx-post="/leave-lobby" hx-target="body" hx-swap="innerHTML"> -->
-        <form method="post" action="/leave-lobby" >
-            <button type="submit" data-testid="leave-lobby-button">
-                Leave Lobby
-            </button>
-        </form>
-    </div>
-    
 </div>
 {% endblock %}

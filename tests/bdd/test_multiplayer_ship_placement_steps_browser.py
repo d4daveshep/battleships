@@ -252,11 +252,12 @@ def place_5th_ship(context: MultiplayerBrowserContext) -> None:
 
 
 @then('the "Ready" button should be enabled')
-def ready_button_enabled(context: MultiplayerBrowserContext) -> None:
+def ready_enabled(context: MultiplayerBrowserContext) -> None:
     """Verify Ready button is enabled"""
-    # Check both buttons are enabled
+    # In multiplayer mode, only Ready button should be present
     expect(context.p1.locator('[data-testid="ready-button"]')).to_be_enabled()
-    expect(context.p1.locator('[data-testid="start-game-button"]')).to_be_enabled()
+    # Start Game button should not be present in multiplayer mode
+    expect(context.p1.locator('[data-testid="start-game-button"]')).to_have_count(0)
 
 
 @given("I have placed all 5 ships")

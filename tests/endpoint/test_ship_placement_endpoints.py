@@ -107,7 +107,7 @@ class TestShipPlacementPageEndpoint:
         assert response.status_code == status.HTTP_200_OK
         soup = BeautifulSoup(response.text, "html.parser")
 
-        # Check for key action buttons (even if they don't have endpoints yet)
+        # Check for key action buttons
         random_button = soup.find(attrs={"data-testid": "random-placement-button"})
         reset_button = soup.find(attrs={"data-testid": "reset-all-ships-button"})
         start_button = soup.find(attrs={"data-testid": "start-game-button"})
@@ -115,8 +115,9 @@ class TestShipPlacementPageEndpoint:
 
         assert random_button is not None
         assert reset_button is not None
+        # In single-player mode (computer), only Start Game button should be present
         assert start_button is not None
-        assert ready_button is not None
+        assert ready_button is None  # Ready button only for multiplayer
 
 
 class TestPlaceShipEndpoint:
@@ -426,6 +427,8 @@ class TestShipPlacementValidation:
         assert (
             "Invalid direction" in response.text or "placement_error" in response.text
         )
+
+
 # New test classes to add to test_ship_placement_endpoints.py
 
 

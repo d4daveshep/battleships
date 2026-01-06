@@ -201,6 +201,16 @@
             <button type="submit" class="btn-warning" data-testid="reset-all-ships-button" {% if is_ready %}disabled{% endif %}>🔄 Reset All Ships</button>
         </form>
 
+        {% if is_multiplayer %}
+        {# Multiplayer mode - show Ready button #}
+        <form method="POST" action="/ready-for-game" class="inline-form">
+            <input type="hidden" name="player_name" value="{{ player_name }}">
+            <button type="submit" class="btn-success btn-large" data-testid="ready-button" {% if placed_ships|length < 5 or is_ready %}disabled{% endif %}>
+                ✓ Ready
+            </button>
+        </form>
+        {% else %}
+        {# Single-player mode - show Start Game button #}
         <form method="POST" action="/start-game" class="inline-form">
             <input type="hidden" name="player_name" value="{{ player_name }}">
             <input type="hidden" name="action" value="launch_game">
@@ -208,13 +218,7 @@
                 ⚓ Start Game
             </button>
         </form>
-
-        <form method="POST" action="/ready-for-game" class="inline-form">
-            <input type="hidden" name="player_name" value="{{ player_name }}">
-            <button type="submit" class="btn-success btn-large" data-testid="ready-button" {% if placed_ships|length < 5 or is_ready %}disabled{% endif %}>
-                ✓ Ready
-            </button>
-        </form>
+        {% endif %}
     </div>
 </div>
 

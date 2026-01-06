@@ -234,9 +234,10 @@ def placed_4_ships(context: MultiplayerBrowserContext) -> None:
 @then('the "Ready" button should be disabled')
 def ready_button_disabled(context: MultiplayerBrowserContext) -> None:
     """Verify Ready button is disabled"""
-    # Check both buttons are disabled
+    # In multiplayer mode, only Ready button should be present and disabled
     expect(context.p1.locator('[data-testid="ready-button"]')).to_be_disabled()
-    expect(context.p1.locator('[data-testid="start-game-button"]')).to_be_disabled()
+    # Start Game button should not be present in multiplayer mode
+    expect(context.p1.locator('[data-testid="start-game-button"]')).to_have_count(0)
 
 
 @then(parsers.parse('I should see a message "{message}"'))

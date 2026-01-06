@@ -396,9 +396,15 @@ def opponent_already_ready(context: MultiplayerBrowserContext) -> None:
 
 @when('both players click "Ready" at approximately the same time')
 def both_click_ready(context: MultiplayerBrowserContext) -> None:
-    """Both click ready"""
-    click_ready(context)
-    opponent_finishes_placing(context)
+    """Both click ready simultaneously (ships already placed in Given steps)"""
+    # Both players already have all ships placed from Given steps
+    # Just click ready for both in quick succession to simulate simultaneity
+    ready_button_p1 = context.p1.locator('[data-testid="ready-button"]')
+    ready_button_p2 = context.p2.locator('[data-testid="ready-button"]')
+
+    # Click both buttons as quickly as possible (as simultaneous as we can get)
+    ready_button_p1.click()
+    ready_button_p2.click()
 
 
 @then("the game should start for both players")
@@ -532,8 +538,18 @@ def opponent_sees_only_status(context: MultiplayerBrowserContext) -> None:
 
 @given("my opponent has placed all their ships")
 def opponent_placed_all(context: MultiplayerBrowserContext) -> None:
-    """Opponent places all ships"""
-    opponent_finishes_placing(context)
+    """Opponent places all ships (without clicking ready)"""
+    # Place all 5 ships for Player 2
+    ships = [
+        ("Carrier", "A1", "horizontal"),
+        ("Battleship", "C1", "horizontal"),
+        ("Cruiser", "E1", "horizontal"),
+        ("Submarine", "G1", "horizontal"),
+        ("Destroyer", "I1", "horizontal"),
+    ]
+
+    for ship, start, orientation in ships:
+        place_ship_via_form(context.p2, ship, start, orientation)
 
 
 @then("I should not see any indication of where their ships are placed")

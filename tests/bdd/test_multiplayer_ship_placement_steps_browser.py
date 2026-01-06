@@ -476,7 +476,9 @@ def connection_active(context: MultiplayerBrowserContext) -> None:
 @when("my opponent leaves the game")
 def opponent_leaves(context: MultiplayerBrowserContext) -> None:
     """Opponent leaves"""
-    # Navigate opponent away from the page (simulates leaving)
+    # Call the leave-placement endpoint to update server state
+    context.p2.request.post(f"{BASE_URL}leave-placement")
+    # Then navigate away (simulates the redirect that would happen)
     context.p2.goto(f"{BASE_URL}")
 
 

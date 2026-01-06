@@ -844,6 +844,9 @@ async def leave_placement(request: Request) -> RedirectResponse:
     try:
         lobby_service.update_player_status(player.id, PlayerStatus.AVAILABLE)
 
+        # Notify placement change so opponent's long-poll detects the status change
+        game_service.notify_placement_change()
+
         # Remove from active games if present (cleanup pairing)
         # Lobby doesn't have a direct method for this, but update_status might be enough?
         # No, active_games persists.

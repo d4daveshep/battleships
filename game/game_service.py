@@ -284,6 +284,10 @@ class GameService:
         """Check if a player is ready for game."""
         return player_id in self.ready_players
 
+    def notify_placement_change(self) -> None:
+        """Notify that placement state has changed (e.g., player left)."""
+        self._notify_placement_change()
+
     def start_single_player_game(self, player_id: str) -> str:
         """Start a single player game against computer.
 

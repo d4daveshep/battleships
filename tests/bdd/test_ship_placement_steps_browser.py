@@ -43,7 +43,7 @@ def logged_in_and_selected_game_mode(
     page: Page, ship_context: ShipPlacementContext
 ) -> None:
     """Login and select a game mode"""
-    page.goto(BASE_URL)
+    page.goto(f"{BASE_URL}login")
     page.locator('input[type="text"][name="player_name"]').fill("TestPlayer")
     page.locator(f'button[value="{ship_context.game_mode}"]').click()
     ship_context.current_player_name = "TestPlayer"

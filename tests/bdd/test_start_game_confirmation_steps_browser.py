@@ -39,7 +39,7 @@ def goto_start_game_confirmation_page(
 ) -> None:
     """Navigate to start game confirmation page"""
     # First login to create a session
-    page.goto(BASE_URL)
+    page.goto(f"{BASE_URL}login")
     page.locator('input[type="text"][name="player_name"]').fill(
         confirmation_context.player_name
     )
@@ -88,8 +88,8 @@ def choose_start_game(page: Page) -> None:
 @then("I should be redirected to the ship placement page")
 def redirected_to_ship_placement(page: Page) -> None:
     """Verify redirect to ship placement page"""
-    page.wait_for_url("**/ship-placement**")
-    assert "ship-placement" in page.url or "ship_placement" in page.url
+    page.wait_for_url("**/place-ships**")
+    assert "place-ships" in page.url
 
     # Verify we're on the ship placement page
     h1_element: Locator = page.locator("h1")
@@ -114,8 +114,8 @@ def choose_abandon_game(page: Page) -> None:
 @then("I should be redirected to the login page")
 def redirected_to_login_page(page: Page) -> None:
     """Verify redirect to login page"""
-    page.wait_for_url(BASE_URL)
-    assert page.url == BASE_URL or page.url.endswith("/")
+    page.wait_for_url(f"{BASE_URL}login")
+    assert "login" in page.url
 
     # Verify we're on the login page
     h1_element: Locator = page.locator("h1")

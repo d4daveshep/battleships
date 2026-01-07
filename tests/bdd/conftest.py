@@ -79,7 +79,7 @@ def page(browser: Browser, fastapi_server):
 # Shared helper functions
 def navigate_to_login(page: Page) -> None:
     """Navigate to login page"""
-    page.goto(BASE_URL)
+    page.goto(f"{BASE_URL}login")
 
 
 def fill_player_name(page: Page, player_name: str) -> None:

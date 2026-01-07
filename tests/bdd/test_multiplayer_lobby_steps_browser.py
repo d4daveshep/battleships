@@ -112,7 +112,7 @@ def other_players_in_lobby(page: Page, datatable) -> None:
 @when(parsers.parse('I login as "{player_name}" and select human opponent'))
 def login_and_select_human_opponent(page: Page, player_name: str) -> None:
     # Navigate to login page, enter player name, and select human opponent
-    page.goto("http://localhost:8000/")
+    page.goto("http://localhost:8000/login")
 
     # Fill in player name
     page.locator('input[name="player_name"]').fill(player_name)
@@ -219,7 +219,7 @@ def my_status_should_be(page: Page, status: str) -> None:
 @given(parsers.parse('I\'ve logged in as "{player_name}" and selected human opponent'))
 def logged_in_and_selected_human_opponent(page: Page, player_name: str) -> None:
     # Complete login flow and select human opponent
-    page.goto("http://localhost:8000/")
+    page.goto("http://localhost:8000/login")
 
     # Fill in player name
     page.locator('input[name="player_name"]').fill(player_name)
@@ -260,11 +260,11 @@ def another_player_logs_in_and_selects_human(page: Page, player_name: str) -> No
 
     with httpx.Client() as client:
         # First get the login page
-        client.get("http://localhost:8000/")
+        client.get("http://localhost:8000/login")
 
         # Then submit the login form with human opponent selection
         client.post(
-            "http://localhost:8000/",
+            "http://localhost:8000/login",
             data={"player_name": player_name, "game_mode": "human"},
         )
 
@@ -780,7 +780,7 @@ def have_received_game_request(page: Page, sender_player: str) -> None:
     if browser:
         temp_context = browser.new_context()
         temp_page = temp_context.new_page()
-        temp_page.goto("http://localhost:8000/")
+        temp_page.goto("http://localhost:8000/login")
         temp_page.locator('input[name="player_name"]').fill(sender_player)
         temp_page.locator('button[value="human"]').click()
         temp_page.wait_for_url("**/lobby*")
@@ -788,7 +788,7 @@ def have_received_game_request(page: Page, sender_player: str) -> None:
         temp_context.close()
 
     # Then ensure current player is in lobby
-    page.goto("http://localhost:8000/")
+    page.goto("http://localhost:8000/login")
     page.locator('input[name="player_name"]').fill(current_player)
     page.locator('button[value="human"]').click()
     page.wait_for_url("**/lobby*")

@@ -26,7 +26,7 @@
     </p>
     
     {% if is_multiplayer %}
-    <div hx-get="/ship-placement/opponent-status" hx-trigger="load" hx-swap="outerHTML">
+    <div hx-get="/place-ships/opponent-status" hx-trigger="load" hx-swap="outerHTML">
         <!-- Placeholder for opponent status -->
         <div data-testid="opponent-status">Loading opponent status...</div>
     </div>

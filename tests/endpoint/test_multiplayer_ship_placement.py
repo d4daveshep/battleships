@@ -33,7 +33,7 @@ class TestMultiplayerShipPlacement:
         alice_client, bob_client = players_in_placement
 
         # Check Alice's view of Bob
-        response = alice_client.get("/ship-placement/opponent-status")
+        response = alice_client.get("/place-ships/opponent-status")
         assert response.status_code == status.HTTP_200_OK
 
         soup = BeautifulSoup(response.text, "html.parser")
@@ -62,7 +62,7 @@ class TestMultiplayerShipPlacement:
         bob_client.post("/ready-for-game", data={"player_name": "Bob"})
 
         # Check Alice's view of Bob
-        response = alice_client.get("/ship-placement/opponent-status")
+        response = alice_client.get("/place-ships/opponent-status")
         assert response.status_code == status.HTTP_200_OK
 
         soup = BeautifulSoup(response.text, "html.parser")
@@ -80,7 +80,7 @@ class TestMultiplayerShipPlacement:
 
         start_time = time.time()
         response = alice_client.get(
-            "/ship-placement/opponent-status/long-poll?version=999999&timeout=5"
+            "/place-ships/opponent-status/long-poll?version=999999&timeout=5"
         )
         duration = time.time() - start_time
 
@@ -99,10 +99,10 @@ class TestMultiplayerShipPlacement:
         # main.py: _render_opponent_status passes "version": version
         # It renders components/opponent_status.html
 
-        response = alice_client.get("/ship-placement/opponent-status")
+        response = alice_client.get("/place-ships/opponent-status")
         soup = BeautifulSoup(response.text, "html.parser")
         # Find the hx-get attribute which contains the version
-        # <div hx-get="/ship-placement/opponent-status/long-poll?version={{ version }}" ...>
+        # <div hx-get="/place-ships/opponent-status/long-poll?version={{ version }}" ...>
         div = soup.find("div", attrs={"hx-get": True})
         if not div:
             # Maybe it's on the root element of the component
@@ -118,7 +118,7 @@ class TestMultiplayerShipPlacement:
         # However, we can try to fetch it.
 
         # Let's try to find the version from the response text if possible.
-        # The template uses: hx-get="/ship-placement/opponent-status/long-poll?version={{ version }}"
+        # The template uses: hx-get="/place-ships/opponent-status/long-poll?version={{ version }}"
         import re
 
         match = re.search(r"version=(\d+)", response.text)
@@ -128,7 +128,7 @@ class TestMultiplayerShipPlacement:
             start_time = time.time()
             # Use a short timeout for test
             response = alice_client.get(
-                f"/ship-placement/opponent-status/long-poll?version={version}&timeout=2"
+                f"/place-ships/opponent-status/long-poll?version={version}&timeout=2"
             )
             duration = time.time() - start_time
 
@@ -164,7 +164,7 @@ class TestMultiplayerShipPlacement:
         # but here we just check that the game exists.
         # We can check if Alice is redirected when she checks status
         alice_status_response = alice_client.get(
-            "/ship-placement/opponent-status", headers={"HX-Request": "true"}
+            "/place-ships/opponent-status", headers={"HX-Request": "true"}
         )
         assert alice_status_response.status_code == status.HTTP_204_NO_CONTENT
         assert "/game/" in alice_status_response.headers["HX-Redirect"]
@@ -190,7 +190,7 @@ class TestMultiplayerShipPlacement:
         bob_client.post("/leave-placement")
 
         # Alice checks status
-        response = alice_client.get("/ship-placement/opponent-status")
+        response = alice_client.get("/place-ships/opponent-status")
 
         assert response.status_code == status.HTTP_200_OK
         soup = BeautifulSoup(response.text, "html.parser")

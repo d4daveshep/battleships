@@ -1,24 +1,34 @@
 from dataclasses import dataclass, field
 from enum import Enum, StrEnum
-from typing import NamedTuple
+from typing import Any, NamedTuple
 
 
 class ShipAlreadyPlacedError(Exception):
     """Raised when attempting to place a ship type that has already been placed on the board."""
 
-    pass
+    def __init__(self, message: str):
+        super().__init__(message)
+        self.user_message: str = "Ships must have empty space around them"
 
 
 class ShipPlacementOutOfBoundsError(Exception):
     """Raised when attempting to place a ship that would extend beyond the board boundaries."""
 
-    pass
+    def __init__(self, message: str):
+        super().__init__(message)
+        self.user_message: str = "Ship placement goes outside the board"
 
 
 class ShipPlacementTooCloseError(Exception):
     """Raised when attempting to place a ship too close to (touching or overlapping) another ship."""
 
-    pass
+    def __init__(self, message: str, is_overlap: bool = False):
+        super().__init__(message)
+        self.user_message: str = (
+            "Ships cannot overlap"
+            if is_overlap
+            else "Ships must have empty space around them"
+        )
 
 
 class Orientation(StrEnum):
@@ -216,8 +226,16 @@ class GameBoard:
                 all_invalid_coords
             )
             if len(invalid_ship_positions) > 0:
+                # Check if this is actual overlap or just touching
+                existing_positions: set[Coord] = set()
+                for existing_ship in self.ships:
+                    existing_positions.update(existing_ship.positions)
+
+                is_overlap: bool = bool(existing_positions.intersection(positions))
+
                 raise ShipPlacementTooCloseError(
-                    f"Ship placement is too close to another ship: {ship.ship_type.name} {orientation.name} at {start.name}"
+                    f"Ship placement is too close to another ship: {ship.ship_type.name} {orientation.name} at {start.name}",
+                    is_overlap=is_overlap,
                 )
 
             self.ships.append(ship)
@@ -256,6 +274,26 @@ class GameBoard:
             if coord in ship.positions:
                 return ship.ship_type
         return None
+
+    def get_placed_ships_for_display(self) -> dict[str, dict[str, Any]]:
+        """Get placed ships in template-friendly format
+
+        Returns:
+            Dictionary mapping ship names to their display data:
+            {
+                "Carrier": {"cells": ["A1", "A2", ...], "code": "A"},
+                "Battleship": {"cells": ["B1", "B2", ...], "code": "B"},
+                ...
+            }
+        """
+        placed_ships: dict[str, dict[str, Any]] = {}
+        for ship in self.ships:
+            cells: list[str] = [coord.name for coord in ship.positions]
+            placed_ships[ship.ship_type.ship_name] = {
+                "cells": cells,
+                "code": ship.ship_type.code,
+            }
+        return placed_ships
 
 
 class GameBoardHelper:

@@ -4,7 +4,7 @@
 
 {% block content %}
 <h1>Battleships Login</h1>
-<form hx-post="/" hx-target="body" hx-swap="innerHTML">
+<form hx-post="/login" hx-target="body" hx-swap="innerHTML">
     {% include "components/player_name_input.html" %}
     <button type="submit" name="game_mode" value="computer">Play against Computer</button>
     <button type="submit" name="game_mode" value="human">Play against Another Player</button>

@@ -1,7 +1,7 @@
 {# Opponent status component for multiplayer ship placement #}
 <div data-testid="opponent-status" 
      class="opponent-status"
-     hx-get="/ship-placement/opponent-status/long-poll?version={{ version }}"
+     hx-get="/place-ships/opponent-status/long-poll?version={{ version }}"
      hx-trigger="load delay:1s"
      hx-swap="outerHTML">
     {% if opponent_left %}

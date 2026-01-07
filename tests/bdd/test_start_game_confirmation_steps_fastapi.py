@@ -58,7 +58,7 @@ def goto_start_game_confirmation_page(
     """Navigate to start game confirmation page"""
     # First login to create a session
     login_response = client.post(
-        "/",
+        "/login",
         data={
             "player_name": confirmation_context.player_name,
             "game_mode": confirmation_context.game_mode,
@@ -128,7 +128,7 @@ def redirected_to_ship_placement(
     assert confirmation_context.response.status_code == 303
     redirect_url = confirmation_context.response.headers.get("location")
     assert redirect_url is not None
-    assert "ship-placement" in redirect_url or "ship_placement" in redirect_url
+    assert "place-ships" in redirect_url or "place_ships" in redirect_url
 
     # Follow the redirect and verify we arrive at ship placement page
     target_response = client.get(redirect_url)

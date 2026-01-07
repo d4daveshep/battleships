@@ -70,7 +70,7 @@ def login_and_goto_lobby(context: LobbyTestContext, player_name: str) -> None:
 
     # Submit login form with human opponent selection
     form_data = {"player_name": player_name, "game_mode": "human"}
-    response = client.post("/", data=form_data)
+    response = client.post("/login", data=form_data)
     context.update_response(response)
 
     # Should be redirected to lobby
@@ -143,7 +143,7 @@ def other_players_in_lobby(lobby_context: LobbyTestContext, datatable) -> None:
                 player_client = lobby_context.get_client_for_player(player_name)
                 player_client.get("/")
                 form_data = {"player_name": player_name, "game_mode": "human"}
-                player_client.post("/", data=form_data)
+                player_client.post("/login", data=form_data)
                 expected_players.append({"name": player_name, "status": status})
             except Exception as e:
                 # If player already exists, that's okay for test setup
@@ -198,7 +198,9 @@ def another_player_logs_in_and_selects_human(
     # Get separate client for the new player
     new_player_client = lobby_context.get_client_for_player(player_name)
     new_player_client.get("/")
-    new_player_client.post("/", data={"player_name": player_name, "game_mode": "human"})
+    new_player_client.post(
+        "/login", data={"player_name": player_name, "game_mode": "human"}
+    )
 
     # Store the expected new player for verification
     lobby_context.expected_new_player = player_name
@@ -790,7 +792,7 @@ def have_received_game_request(
     try:
         sender_client.get("/")
         sender_client.post(
-            "/", data={"player_name": sender_player, "game_mode": "human"}
+            "/login", data={"player_name": sender_player, "game_mode": "human"}
         )
     except Exception as e:
         if "already exists" not in str(e):
@@ -801,7 +803,7 @@ def have_received_game_request(
     try:
         current_client.get("/")
         current_client.post(
-            "/", data={"player_name": current_player, "game_mode": "human"}
+            "/login", data={"player_name": current_player, "game_mode": "human"}
         )
     except Exception as e:
         if "already exists" not in str(e):

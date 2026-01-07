@@ -23,7 +23,7 @@ def create_player(client: TestClient, name: str, game_mode: str = "human") -> Re
     Returns:
         Response from the login endpoint
     """
-    return client.post("/", data={"player_name": name, "game_mode": game_mode})
+    return client.post("/login", data={"player_name": name, "game_mode": game_mode})
 
 
 def send_game_request(client: TestClient, opponent_name: str) -> Response:

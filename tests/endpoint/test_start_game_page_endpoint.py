@@ -138,7 +138,7 @@ class TestPostStartGameEndpoint:
         assert response.status_code == status.HTTP_303_SEE_OTHER
         redirect_url = response.headers.get("location")
         assert redirect_url is not None
-        assert "ship-placement" in redirect_url
+        assert "place-ships" in redirect_url
 
     def test_post_start_game_with_abandon_game_redirects_to_login(
         self, authenticated_client: TestClient

@@ -42,7 +42,7 @@ def player_already_in_lobby(page: Page, player_name: str) -> None:
     """Simulate another player already in lobby"""
     with httpx.Client() as client:
         client.post(
-            "http://localhost:8000/",
+            "http://localhost:8000/login",
             data={"player_name": player_name, "game_mode": "human"},
         )
     # Brief wait for lobby to update
@@ -70,7 +70,7 @@ def player_joins_within_time(page: Page, player_name: str) -> None:
     # Use httpx to add player via API
     with httpx.Client() as client:
         client.post(
-            "http://localhost:8000/",
+            "http://localhost:8000/login",
             data={"player_name": player_name, "game_mode": "human"},
         )
     # Store join time for verification
@@ -316,7 +316,7 @@ def players_join_quickly(page: Page, datatable) -> None:
         for row in datatable[1:]:  # Skip header
             player_name = row[0]
             client.post(
-                "http://localhost:8000/",
+                "http://localhost:8000/login",
                 data={"player_name": player_name, "game_mode": "human"},
             )
             # Small delay between joins to simulate realistic timing
@@ -358,7 +358,7 @@ def another_player_joins(page: Page, player_name: str) -> None:
     """Simulate another player joining the lobby"""
     with httpx.Client() as client:
         client.post(
-            "http://localhost:8000/",
+            "http://localhost:8000/login",
             data={"player_name": player_name, "game_mode": "human"},
         )
 

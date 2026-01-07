@@ -80,12 +80,12 @@ def setup_multiplayer_game(context: MultiplayerBrowserContext) -> None:
     context.p1.request.post(f"{BASE_URL}test/reset-lobby")
 
     # Login Player 1
-    context.p1.goto(BASE_URL)
+    context.p1.goto(f"{BASE_URL}login")
     context.p1.fill('input[name="player_name"]', context.p1_name)
     context.p1.click('button[value="human"]')
 
     # Login Player 2
-    context.p2.goto(BASE_URL)
+    context.p2.goto(f"{BASE_URL}login")
     context.p2.fill('input[name="player_name"]', context.p2_name)
     context.p2.click('button[value="human"]')
 
@@ -112,8 +112,8 @@ def match_players(context: MultiplayerBrowserContext) -> None:
     context.p2.click('[data-testid="start-game-button"]')
 
     # Wait for ship placement page
-    context.p1.wait_for_url("**/ship-placement*")
-    context.p2.wait_for_url("**/ship-placement*")
+    context.p1.wait_for_url("**/place-ships*")
+    context.p2.wait_for_url("**/place-ships*")
 
 
 @given("I am on the ship placement screen")
@@ -481,7 +481,7 @@ def opponent_leaves(context: MultiplayerBrowserContext) -> None:
     # Call the leave-placement endpoint to update server state
     context.p2.request.post(f"{BASE_URL}leave-placement")
     # Then navigate away (simulates the redirect that would happen)
-    context.p2.goto(f"{BASE_URL}")
+    context.p2.goto(f"{BASE_URL}login")
 
 
 @then('I should see a message "Opponent has left the game"')

@@ -14,7 +14,7 @@ class TestShipPlacementPageEndpoint:
 
     def test_ship_placement_page_returns_200(self, authenticated_client: TestClient):
         """Test that ship placement page loads successfully"""
-        response = authenticated_client.get("/ship-placement")
+        response = authenticated_client.get("/place-ships")
 
         assert response.status_code == status.HTTP_200_OK
         assert "text/html" in response.headers["content-type"]
@@ -23,7 +23,7 @@ class TestShipPlacementPageEndpoint:
         self, authenticated_client: TestClient
     ):
         """Test that ship placement page shows the player's name"""
-        response = authenticated_client.get("/ship-placement")
+        response = authenticated_client.get("/place-ships")
 
         assert response.status_code == status.HTTP_200_OK
 
@@ -34,7 +34,7 @@ class TestShipPlacementPageEndpoint:
         self, authenticated_client: TestClient
     ):
         """Test that ship placement page shows no ships initially"""
-        response = authenticated_client.get("/ship-placement")
+        response = authenticated_client.get("/place-ships")
 
         assert response.status_code == status.HTTP_200_OK
         soup = BeautifulSoup(response.text, "html.parser")
@@ -48,7 +48,7 @@ class TestShipPlacementPageEndpoint:
         self, authenticated_client: TestClient
     ):
         """Test that ship placement page contains the placement form"""
-        response = authenticated_client.get("/ship-placement")
+        response = authenticated_client.get("/place-ships")
 
         assert response.status_code == status.HTTP_200_OK
         soup = BeautifulSoup(response.text, "html.parser")
@@ -78,7 +78,7 @@ class TestShipPlacementPageEndpoint:
         self, authenticated_client: TestClient
     ):
         """Test that ship placement page has buttons for all ship types"""
-        response = authenticated_client.get("/ship-placement")
+        response = authenticated_client.get("/place-ships")
 
         assert response.status_code == status.HTTP_200_OK
         soup = BeautifulSoup(response.text, "html.parser")
@@ -93,7 +93,7 @@ class TestShipPlacementPageEndpoint:
         self, authenticated_client: TestClient
     ):
         """Test that ship placement page works even without player name parameter"""
-        response = authenticated_client.get("/ship-placement")
+        response = authenticated_client.get("/place-ships")
 
         assert response.status_code == status.HTTP_200_OK
         assert "text/html" in response.headers["content-type"]
@@ -102,7 +102,7 @@ class TestShipPlacementPageEndpoint:
         self, authenticated_client: TestClient
     ):
         """Test that ship placement page has action buttons for game flow"""
-        response = authenticated_client.get("/ship-placement")
+        response = authenticated_client.get("/place-ships")
 
         assert response.status_code == status.HTTP_200_OK
         soup = BeautifulSoup(response.text, "html.parser")
@@ -304,7 +304,7 @@ class TestShipPlacementIntegration:
         """Test complete flow from login to ship placement"""
         # Login with computer mode
         login_response = client.post(
-            "/", data={"player_name": "Alice", "game_mode": "computer"}
+            "/login", data={"player_name": "Alice", "game_mode": "computer"}
         )
 
         # Should redirect to ship placement
@@ -315,7 +315,7 @@ class TestShipPlacementIntegration:
 
         if login_response.status_code == status.HTTP_303_SEE_OTHER:
             redirect_url = login_response.headers["location"]
-            assert "/ship-placement" in redirect_url
+            assert "/place-ships" in redirect_url
             assert "player_name=Alice" in redirect_url
 
             # Follow redirect
@@ -334,7 +334,7 @@ class TestShipPlacementIntegration:
         if login_response.status_code == status.HTTP_303_SEE_OTHER:
             redirect_url = login_response.headers["location"]
             assert "/lobby" in redirect_url
-            assert "/ship-placement" not in redirect_url
+            assert "/place-ships" not in redirect_url
 
 
 class TestShipPlacementValidation:

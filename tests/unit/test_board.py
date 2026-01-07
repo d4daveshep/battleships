@@ -150,6 +150,46 @@ class TestGameBoard:
         assert board.ship_type_at(Coord.D4) == ShipType.CRUISER
         assert board.ship_type_at(Coord.D6) == ShipType.CRUISER
 
+    def test_get_placed_ships_for_display_empty_board(self):
+        """Test get_placed_ships_for_display returns empty dict for empty board"""
+        board: GameBoard = GameBoard()
+        result = board.get_placed_ships_for_display()
+        assert result == {}
+
+    def test_get_placed_ships_for_display_single_ship(self):
+        """Test get_placed_ships_for_display with one ship"""
+        board: GameBoard = GameBoard()
+        carrier = Ship(ShipType.CARRIER)
+        board.place_ship(carrier, Coord.A1, Orientation.HORIZONTAL)
+
+        result = board.get_placed_ships_for_display()
+
+        assert "Carrier" in result
+        assert result["Carrier"]["cells"] == ["A1", "A2", "A3", "A4", "A5"]
+        assert result["Carrier"]["code"] == "A"
+
+    def test_get_placed_ships_for_display_multiple_ships(self):
+        """Test get_placed_ships_for_display with multiple ships"""
+        board: GameBoard = GameBoard()
+        carrier = Ship(ShipType.CARRIER)
+        battleship = Ship(ShipType.BATTLESHIP)
+        destroyer = Ship(ShipType.DESTROYER)
+
+        board.place_ship(carrier, Coord.A1, Orientation.HORIZONTAL)
+        board.place_ship(battleship, Coord.C1, Orientation.VERTICAL)
+        board.place_ship(destroyer, Coord.E5, Orientation.HORIZONTAL)
+
+        result = board.get_placed_ships_for_display()
+
+        assert len(result) == 3
+        assert "Carrier" in result
+        assert "Battleship" in result
+        assert "Destroyer" in result
+
+        assert result["Carrier"]["cells"] == ["A1", "A2", "A3", "A4", "A5"]
+        assert result["Battleship"]["cells"] == ["C1", "D1", "E1", "F1"]
+        assert result["Destroyer"]["cells"] == ["E5", "E6"]
+
 
 class TestGameBoardHelper:
     def test_print_empty_board(self):
@@ -201,3 +241,62 @@ class TestGameBoardHelper:
         print()
         for line in output:
             print(line)
+
+
+class TestShipPlacementExceptionMessages:
+    """Test that ship placement exceptions have user-friendly messages"""
+
+    def test_out_of_bounds_error_has_user_message(self):
+        """Test ShipPlacementOutOfBoundsError has user_message property"""
+        board = GameBoard()
+        carrier = Ship(ShipType.CARRIER)
+        
+        with pytest.raises(ShipPlacementOutOfBoundsError) as exc_info:
+            board.place_ship(carrier, Coord.A8, Orientation.HORIZONTAL)
+        
+        assert hasattr(exc_info.value, 'user_message')
+        assert exc_info.value.user_message == "Ship placement goes outside the board"
+
+    def test_overlap_error_has_user_message(self):
+        """Test ShipPlacementTooCloseError for overlap has correct user_message"""
+        board = GameBoard()
+        carrier1 = Ship(ShipType.CARRIER)
+        carrier2 = Ship(ShipType.BATTLESHIP)  # Different type to avoid duplicate error
+        
+        board.place_ship(carrier1, Coord.A1, Orientation.HORIZONTAL)
+        
+        with pytest.raises(ShipPlacementTooCloseError) as exc_info:
+            # Try to place ship on same position (overlap)
+            board.place_ship(carrier2, Coord.A1, Orientation.HORIZONTAL)
+        
+        assert hasattr(exc_info.value, 'user_message')
+        assert exc_info.value.user_message == "Ships cannot overlap"
+
+    def test_touching_error_has_user_message(self):
+        """Test ShipPlacementTooCloseError for touching has correct user_message"""
+        board = GameBoard()
+        carrier = Ship(ShipType.CARRIER)
+        battleship = Ship(ShipType.BATTLESHIP)
+        
+        board.place_ship(carrier, Coord.A1, Orientation.HORIZONTAL)
+        
+        with pytest.raises(ShipPlacementTooCloseError) as exc_info:
+            # Try to place ship adjacent (touching but not overlapping)
+            board.place_ship(battleship, Coord.B1, Orientation.HORIZONTAL)
+        
+        assert hasattr(exc_info.value, 'user_message')
+        assert exc_info.value.user_message == "Ships must have empty space around them"
+
+    def test_already_placed_error_has_user_message(self):
+        """Test ShipAlreadyPlacedError has user_message property"""
+        board = GameBoard()
+        carrier1 = Ship(ShipType.CARRIER)
+        carrier2 = Ship(ShipType.CARRIER)
+        
+        board.place_ship(carrier1, Coord.A1, Orientation.HORIZONTAL)
+        
+        with pytest.raises(ShipAlreadyPlacedError) as exc_info:
+            board.place_ship(carrier2, Coord.C1, Orientation.HORIZONTAL)
+        
+        assert hasattr(exc_info.value, 'user_message')
+        assert exc_info.value.user_message == "Ships must have empty space around them"

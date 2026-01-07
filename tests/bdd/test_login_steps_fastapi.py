@@ -48,7 +48,7 @@ def on_login_page(context: BDDTestContext) -> None:
 
 @given("I am on the login page")
 def goto_login_page(client: TestClient, context: BDDTestContext) -> None:
-    response = client.get("/")
+    response = client.get("/login")
     context.update_response(response)
     on_login_page(context)
 
@@ -98,7 +98,7 @@ def click_play_against_computer(client: TestClient, context: BDDTestContext) -> 
     # Ensure player_name is always present, even if empty
     if "player_name" not in form_data:
         form_data["player_name"] = ""
-    response = client.post("/", data=form_data)
+    response = client.post("/login", data=form_data)
     context.update_response(response)
 
 
@@ -109,7 +109,7 @@ def click_play_against_human(client: TestClient, context: BDDTestContext) -> Non
     # Ensure player_name is always present, even if empty
     if "player_name" not in form_data:
         form_data["player_name"] = ""
-    response = client.post("/", data=form_data)
+    response = client.post("/login", data=form_data)
     context.update_response(response)
 
 

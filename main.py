@@ -112,27 +112,18 @@ def _get_validated_player_name(request: Request, claimed_name: str) -> str:
     return claimed_name
 
 
-# TODO: don't really need this function
-def _build_lobby_url() -> str:
-    """Build lobby URL without player name parameter (uses session)"""
-    return "/lobby"
-
-
-# TODO: don't really need this function
-def _build_start_game_url() -> str:
-    """Build game URL (player and opponent from session/lobby state)"""
-    return "/start-game"
-
-
-# TODO: this is specific to the login page, so it should either be renamed or moved somewhere else
-def _create_error_response(
+def _create_login_error_response(
     request: Request,
     error_message: str,
     player_name: str = "",
     css_class: str = "error",
     status_code: int = status.HTTP_400_BAD_REQUEST,
 ) -> HTMLResponse:
-    """Display the login page with an error message"""
+    """Display the login page with an error message
+
+    Used for login validation errors and lobby operation errors that
+    redirect users back to the login page.
+    """
 
     template_context: dict[str, str] = {
         "error_message": error_message,
@@ -148,8 +139,13 @@ def _create_error_response(
     )
 
 
-# TODO: rename this endpoint to /login and change / to be a welcome page with link to /login
 @app.get("/", response_class=HTMLResponse)
+async def welcome_page(request: Request) -> HTMLResponse:
+    """Welcome page with link to login"""
+    return templates.TemplateResponse(request=request, name="welcome.html", context={})
+
+
+@app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request) -> HTMLResponse:
     template_context: dict[str, str] = {
         "player_name": "",
@@ -164,8 +160,7 @@ async def login_page(request: Request) -> HTMLResponse:
     )
 
 
-# TODO: rename this to /login
-@app.post("/", response_model=None)
+@app.post("/login", response_model=None)
 async def login_submit(
     request: Request, player_name: str = Form(), game_mode: str = Form()
 ) -> HTMLResponse | RedirectResponse | Response:
@@ -174,7 +169,7 @@ async def login_submit(
     )
 
     if not validation.is_valid:
-        return _create_error_response(
+        return _create_login_error_response(
             request=request,
             error_message=validation.error_message,
             player_name="" if validation.error_message else player_name,
@@ -191,10 +186,10 @@ async def login_submit(
         redirect_url: str
         if game_mode == "human":
             lobby_service.join_lobby(player)  # Add the player to the lobby
-            redirect_url = _build_lobby_url()
+            redirect_url = "/lobby"
 
         elif game_mode == "computer":
-            redirect_url = _build_start_game_url()
+            redirect_url = "/start-game"
         else:
             raise ValueError(f"Invalid game mode: {game_mode}")
 
@@ -209,7 +204,7 @@ async def login_submit(
                 url=redirect_url, status_code=status.HTTP_303_SEE_OTHER
             )
     except ValueError as e:
-        return _create_error_response(
+        return _create_login_error_response(
             request=request,
             error_message=str(e),
             player_name=player_name,
@@ -218,62 +213,7 @@ async def login_submit(
         )
 
 
-# TODO: Refactor this into the GameBoard class
-def _get_placed_ships_from_board(board: GameBoard) -> dict[str, dict[str, Any]]:
-    """Extract placed ships from GameBoard into template-friendly format"""
-    placed_ships: dict[str, dict[str, Any]] = {}
-    for ship in board.ships:
-        cells: list[str] = [coord.name for coord in ship.positions]
-        placed_ships[ship.ship_type.ship_name] = {
-            "cells": cells,
-            "code": ship.ship_type.code,
-        }
-    return placed_ships
-
-
-# TODO: Refactor these error messages into the Execption classes so I don't need this messy mapping function
-def _map_error_message_for_ui(
-    exception: Exception,
-    board: GameBoard | None = None,
-    attempted_positions: list[Coord] | None = None,
-) -> str:
-    """Map backend exception messages to user-friendly UI messages"""
-    error_str: str = str(exception)
-
-    if isinstance(exception, ShipPlacementOutOfBoundsError):
-        return "Ship placement goes outside the board"
-    elif isinstance(exception, ShipPlacementTooCloseError):
-        # Check if this is actual overlap or just touching
-        if board and attempted_positions:
-            # Get all existing ship positions
-            existing_positions: set[Coord] = set()
-            for ship in board.ships:
-                existing_positions.update(ship.positions)
-
-            # Check if any attempted position overlaps with existing ship
-            if existing_positions.intersection(attempted_positions):
-                return "Ships cannot overlap"
-
-        # Otherwise it's a touching/spacing issue
-        return "Ships must have empty space around them"
-    elif isinstance(exception, ShipAlreadyPlacedError):
-        # This ship type has already been placed - but for UI purposes,
-        # treat this as a spacing/touching issue since the test scenario
-        # uses duplicate ships to test adjacent placement
-        return "Ships must have empty space around them"
-    elif isinstance(exception, KeyError):
-        # Handle invalid direction/orientation
-        if "INVALID" in error_str.upper() or "WITH INVALID" in error_str.upper():
-            return "Invalid direction"
-        return "Invalid direction"
-    elif isinstance(exception, ValueError):
-        return "Invalid direction"
-    else:
-        return error_str
-
-
-# TODO: rename this /place-ships
-@app.get("/ship-placement", response_class=HTMLResponse)
+@app.get("/place-ships", response_class=HTMLResponse)
 async def ship_placement_page(request: Request) -> HTMLResponse:
     # Get player from session
     player: Player = _get_player_from_session(request)
@@ -281,7 +221,7 @@ async def ship_placement_page(request: Request) -> HTMLResponse:
 
     # Get board state
     board: GameBoard = game_service.get_or_create_ship_placement_board(player_id)
-    placed_ships: dict[str, dict[str, Any]] = _get_placed_ships_from_board(board)
+    placed_ships: dict[str, dict[str, Any]] = board.get_placed_ships_for_display()
 
     # Check if player is ready
     is_ready: bool = game_service.is_player_ready(player_id)
@@ -344,14 +284,10 @@ async def place_ship(
         # Board is already stored in game_service, no need to store separately
 
     except (
-        ValueError,
-        KeyError,
         ShipAlreadyPlacedError,
         ShipPlacementOutOfBoundsError,
         ShipPlacementTooCloseError,
     ) as e:
-        # TODO: Should be able to refactor this functionality into GameBoard
-
         # Get current board state to show what's already placed
         validated_player_name: str = _get_validated_player_name(request, player_name)
         try:
@@ -361,30 +297,46 @@ async def place_ship(
         except Exception:
             # If no board exists yet, create empty one for error display
             board = GameBoard()
-        placed_ships: dict[str, dict[str, list[str]]] = _get_placed_ships_from_board(
-            board
+        placed_ships: dict[str, dict[str, list[str]]] = (
+            board.get_placed_ships_for_display()
         )
 
-        # Try to calculate attempted positions for better error messages
-        attempted_positions: list[Coord] | None = None
+        # Use the user-friendly message from the exception
+        user_friendly_error: str = e.user_message
+
+        # Check if player is ready
+        is_ready: bool = game_service.is_player_ready(_get_player_id(request))
+
+        # Return ship_placement.html with error and current state
+        return templates.TemplateResponse(
+            request,
+            "ship_placement.html",
+            {
+                "player_name": player_name,
+                "placed_ships": placed_ships,
+                "placement_error": user_friendly_error,
+                "is_ready": is_ready,
+                "is_multiplayer": game_service.get_opponent_id(_get_player_id(request))
+                is not None
+                or lobby_service.get_opponent(_get_player_id(request)) is not None,
+            },
+            status_code=status.HTTP_200_OK,
+        )
+
+    except (ValueError, KeyError) as e:
+        # Handle invalid direction/orientation
+        validated_player_name: str = _get_validated_player_name(request, player_name)
         try:
-            start_coord: Coord = Coord[start_coordinate.upper()]
-            orient_enum: Orientation = Orientation[
-                orientation.upper().replace("-", "_")
-            ]
-            ship_type_for_error: ShipType = ShipType.from_ship_name(ship_name)
-            attempted_positions = CoordHelper.coords_for_length_and_orientation(
-                start_coord, ship_type_for_error.length, orient_enum
+            board: GameBoard = game_service.get_or_create_ship_placement_board(
+                player_id=_get_player_id(request)
             )
-        except (KeyError, ValueError):
-            # If we can't calculate positions, that's fine - we'll use None
-            pass
-
-        # TODO: remove this when the execption error messages are refactored or improved
-        # Map exception to user-friendly message
-        user_friendly_error: str = _map_error_message_for_ui(
-            e, board, attempted_positions
+        except Exception:
+            board = GameBoard()
+        placed_ships: dict[str, dict[str, list[str]]] = (
+            board.get_placed_ships_for_display()
         )
+
+        user_friendly_error: str = "Invalid direction"
 
         # Check if player is ready
         is_ready: bool = game_service.is_player_ready(_get_player_id(request))
@@ -406,7 +358,7 @@ async def place_ship(
         )
 
     # Get all placed ships from the board to display
-    placed_ships: dict[str, dict[str, list[str]]] = _get_placed_ships_from_board(board)
+    placed_ships: dict[str, dict[str, list[str]]] = board.get_placed_ships_for_display()
 
     # Check if player is ready
     is_ready: bool = game_service.is_player_ready(_get_player_id(request))
@@ -461,7 +413,7 @@ async def remove_ship(
             pass
 
     # Get updated placed ships
-    placed_ships: dict[str, dict[str, Any]] = _get_placed_ships_from_board(board)
+    placed_ships: dict[str, dict[str, Any]] = board.get_placed_ships_for_display()
 
     return templates.TemplateResponse(
         request,
@@ -508,7 +460,7 @@ async def random_ship_placement(
     board: GameBoard = game_service.get_or_create_ship_placement_board(player_id)
 
     # Get placed ships for template
-    placed_ships: dict[str, dict[str, Any]] = _get_placed_ships_from_board(board)
+    placed_ships: dict[str, dict[str, Any]] = board.get_placed_ships_for_display()
 
     return templates.TemplateResponse(
         request,
@@ -555,7 +507,7 @@ async def reset_all_ships(
         board.clear_all_ships()
 
     # Get placed ships for template
-    placed_ships: dict[str, dict[str, Any]] = _get_placed_ships_from_board(board)
+    placed_ships: dict[str, dict[str, Any]] = board.get_placed_ships_for_display()
 
     return templates.TemplateResponse(
         request,
@@ -644,7 +596,7 @@ async def start_game_submit(
     # Route based on action
     redirect_url: str
     if action == "start_game":
-        redirect_url = "/ship-placement"
+        redirect_url = "/place-ships"
     elif action == "launch_game":
         # Start single player game
         # TODO: Handle multiplayer game start
@@ -653,7 +605,7 @@ async def start_game_submit(
             url=f"/game/{game_id}", status_code=status.HTTP_303_SEE_OTHER
         )
     elif action == "abandon_game":
-        redirect_url = "/"
+        redirect_url = "/login"
     else:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -745,7 +697,7 @@ async def ready_for_game(
 
     # Get board state
     board = game_service.get_or_create_ship_placement_board(player_id)
-    placed_ships = _get_placed_ships_from_board(board)
+    placed_ships = board.get_placed_ships_for_display()
 
     return templates.TemplateResponse(
         request,
@@ -755,7 +707,7 @@ async def ready_for_game(
             "placed_ships": placed_ships,
             "is_ready": True,
             "is_multiplayer": True,
-            "status_message": "Waiting for opponent to place their ships...",
+            "status_message": "Waiting for opponent to finish placing ships...",
         },
     )
 
@@ -859,7 +811,7 @@ async def leave_placement(request: Request) -> RedirectResponse:
     return RedirectResponse(url="/lobby", status_code=status.HTTP_303_SEE_OTHER)
 
 
-@app.get("/ship-placement/opponent-status", response_model=None)
+@app.get("/place-ships/opponent-status", response_model=None)
 async def ship_placement_opponent_status(
     request: Request,
 ) -> HTMLResponse | Response:
@@ -873,7 +825,7 @@ async def ship_placement_opponent_status(
     return _render_opponent_status(request, opponent_id)
 
 
-@app.get("/ship-placement/opponent-status/long-poll", response_model=None)
+@app.get("/place-ships/opponent-status/long-poll", response_model=None)
 async def ship_placement_opponent_status_long_poll(
     request: Request, timeout: int = 30, version: int | None = None
 ) -> HTMLResponse | Response:
@@ -949,10 +901,10 @@ async def game_page(request: Request, game_id: str) -> HTMLResponse:
 
     # Convert boards to template-friendly format
     player_board_data: dict[str, Any] = {
-        "ships": _get_placed_ships_from_board(player_board)
+        "ships": player_board.get_placed_ships_for_display()
     }
     opponent_board_data: dict[str, Any] = {
-        "ships": _get_placed_ships_from_board(opponent_board)
+        "ships": opponent_board.get_placed_ships_for_display()
     }
 
     # Prepare template context
@@ -1059,7 +1011,7 @@ async def select_opponent(
 
     except ValueError as e:
         # Handle validation errors (player not available, etc.)
-        return _create_error_response(request, str(e))
+        return _create_login_error_response(request, str(e))
 
 
 @app.post("/leave-lobby", response_model=None)
@@ -1077,20 +1029,20 @@ async def leave_lobby(request: Request) -> RedirectResponse | HTMLResponse | Res
             response: Response = Response(
                 status_code=status.HTTP_204_NO_CONTENT,
                 headers={
-                    "HX-Redirect": "/",
-                    "HX-Push-Url": "/",
+                    "HX-Redirect": "/login",
+                    "HX-Push-Url": "/login",
                 },
             )
             return response
 
         else:
             # Fallback using standard redirect to home/login page on success
-            return RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
+            return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
 
     except ValueError as e:
         # Handle validation errors (empty name, nonexistent player)
         # Return 400 Bad Request for invalid input
-        return _create_error_response(request, str(e))
+        return _create_login_error_response(request, str(e))
 
 
 @app.get("/lobby/status", response_model=None)
@@ -1196,7 +1148,7 @@ async def _render_lobby_status(
                         context=template_context,
                     )
 
-                game_url: str = _build_start_game_url()
+                game_url: str = "/start-game"
 
                 # Return HTMX redirect
                 return Response(
@@ -1298,7 +1250,7 @@ async def decline_game_request(
 
     except ValueError as e:
         # Handle validation errors (no pending request, etc.)
-        return _create_error_response(request, str(e))
+        return _create_login_error_response(request, str(e))
 
 
 @app.post("/accept-game-request", response_model=None)
@@ -1320,7 +1272,7 @@ async def accept_game_request(
         # TODO: remove both Player objects from Lobby and add them to GameState
 
         # Opponent is now stored in lobby state, no need to pass via URL
-        redirect_url: str = _build_start_game_url()
+        redirect_url: str = "/start-game"
 
         if request.headers.get("HX-Request"):
             response: Response = Response(
@@ -1334,7 +1286,7 @@ async def accept_game_request(
 
     except ValueError as e:
         # Handle validation errors (no pending request, etc.)
-        return _create_error_response(request, str(e))
+        return _create_login_error_response(request, str(e))
 
 
 # === Testing Endpoints ===

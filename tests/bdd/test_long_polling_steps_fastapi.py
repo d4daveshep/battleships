@@ -92,7 +92,9 @@ def logged_in_as_player(lobby_context: LobbyTestContext, player_name: str) -> No
 
     # Login
     client.get("/")
-    response = client.post("/", data={"player_name": player_name, "game_mode": "human"})
+    response = client.post(
+        "/login", data={"player_name": player_name, "game_mode": "human"}
+    )
 
     # Follow redirect to lobby
     if response.status_code in [302, 303]:
@@ -120,7 +122,7 @@ def player_already_in_lobby(lobby_context: LobbyTestContext, player_name: str) -
     """Simulate another player already in lobby"""
     client = lobby_context.get_client_for_player(player_name)
     client.get("/")
-    client.post("/", data={"player_name": player_name, "game_mode": "human"})
+    client.post("/login", data={"player_name": player_name, "game_mode": "human"})
 
 
 @given(parsers.parse('I can see "{player_name}" in my available players list'))
@@ -142,7 +144,7 @@ def player_joins_within_time(lobby_context: LobbyTestContext, player_name: str) 
 
     client = lobby_context.get_client_for_player(player_name)
     client.get("/")
-    client.post("/", data={"player_name": player_name, "game_mode": "human"})
+    client.post("/login", data={"player_name": player_name, "game_mode": "human"})
 
 
 @then(parsers.parse('I should see "{player_name}" appear in my lobby within 5 seconds'))
@@ -251,7 +253,9 @@ def i_sent_game_request(lobby_context: LobbyTestContext, opponent: str) -> None:
     if response.status_code != 200:
         # Not logged in, perform login
         opponent_client.get("/")
-        opponent_client.post("/", data={"player_name": opponent, "game_mode": "human"})
+        opponent_client.post(
+            "/login", data={"player_name": opponent, "game_mode": "human"}
+        )
 
     # Send request
     client = lobby_context.get_client_for_player(current_player)
@@ -368,7 +372,7 @@ def players_join_quickly(lobby_context: LobbyTestContext, datatable) -> None:
     for row in datatable[1:]:
         player_name = row[0]
         client.get("/")
-        client.post("/", data={"player_name": player_name, "game_mode": "human"})
+        client.post("/login", data={"player_name": player_name, "game_mode": "human"})
 
 
 @then("I should see all players appear in my lobby within 10 seconds")
@@ -417,7 +421,7 @@ def another_player_joins(lobby_context: LobbyTestContext, player_name: str) -> N
     """Simulate another player joining the lobby"""
     client = lobby_context.get_client_for_player(player_name)
     client.get("/")
-    client.post("/", data={"player_name": player_name, "game_mode": "human"})
+    client.post("/login", data={"player_name": player_name, "game_mode": "human"})
 
 
 @given("I wait for 35 seconds")

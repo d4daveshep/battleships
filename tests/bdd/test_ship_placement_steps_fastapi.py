@@ -85,7 +85,7 @@ def logged_in_and_selected_game_mode(
         "player_name": "TestPlayer",
         "game_mode": ship_context.game_mode,
     }
-    response = client.post("/", data=form_data)
+    response = client.post("/login", data=form_data)
     ship_context.update_response(response)
 
     ship_context.player_name = "TestPlayer"

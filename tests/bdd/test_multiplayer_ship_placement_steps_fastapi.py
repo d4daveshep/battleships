@@ -72,12 +72,12 @@ def setup_multiplayer_game(context: MultiplayerShipContext) -> None:
 
     # Login Player 1
     context.player_client.post(
-        "/", data={"player_name": context.player_name, "game_mode": "human"}
+        "/login", data={"player_name": context.player_name, "game_mode": "human"}
     )
 
     # Login Player 2
     context.opponent_client.post(
-        "/", data={"player_name": context.opponent_name, "game_mode": "human"}
+        "/login", data={"player_name": context.opponent_name, "game_mode": "human"}
     )
 
 
@@ -125,7 +125,7 @@ def match_players(context: MultiplayerShipContext) -> None:
         context.opponent_client.get(redirect_url)  # Go to start-game
     else:
         # Direct access if not redirected (fallback)
-        context.opponent_client.get("/start-game")
+        context.opponent_client.get("/place-ships")
 
     # Player 2 clicks "Start Game" to go to ship placement
     resp2_start = context.opponent_client.post(
@@ -194,7 +194,7 @@ def opponent_status_shows(context: MultiplayerShipContext, status_text: str) -> 
         text = status_element.get_text()
         if "Loading" in text:
             # Fetch the actual status
-            resp = context.player_client.get("/ship-placement/opponent-status")
+            resp = context.player_client.get("/place-ships/opponent-status")
             soup = BeautifulSoup(resp.text, "html.parser")
             status_element = soup.find(attrs={"data-testid": "opponent-status"})
             if status_element:
@@ -268,7 +268,7 @@ def opponent_status_updates(context: MultiplayerShipContext, status_text: str) -
     assert context.player_client is not None
 
     # Simulate polling
-    response = context.player_client.get("/ship-placement/opponent-status")
+    response = context.player_client.get("/place-ships/opponent-status")
 
     # The response returns the opponent status component
     soup = BeautifulSoup(response.text, "html.parser")
@@ -353,7 +353,7 @@ def see_message(context: MultiplayerShipContext, message: str) -> None:
         text = context.player_soup.get_text()
         if message not in text:
             # Try fetching dynamic status
-            resp = context.player_client.get("/ship-placement/opponent-status")
+            resp = context.player_client.get("/place-ships/opponent-status")
             text += resp.text
 
         assert message in text
@@ -420,7 +420,7 @@ def placed_all_ships(context: MultiplayerShipContext) -> None:
         )
 
     # Update soup after last placement
-    context.update_player_response(context.player_client.get("/ship-placement"))
+    context.update_player_response(context.player_client.get("/place-ships"))
 
 
 @when('I click the "Ready" button')
@@ -492,7 +492,7 @@ def opponent_sees_ready(context: MultiplayerShipContext) -> None:
     assert context.opponent_client is not None
 
     # Opponent polls for status
-    resp = context.opponent_client.get("/ship-placement/opponent-status")
+    resp = context.opponent_client.get("/place-ships/opponent-status")
     assert "Opponent is ready" in resp.text
 
 
@@ -531,7 +531,7 @@ def game_starts_auto(context: MultiplayerShipContext) -> None:
     # Poll for status, should redirect to game
     # The long poll endpoint returns HX-Redirect header when game starts
     resp: Response = context.player_client.get(
-        "/ship-placement/opponent-status", headers={"HX-Request": "true"}
+        "/place-ships/opponent-status", headers={"HX-Request": "true"}
     )
 
     # Store response for next step
@@ -607,7 +607,7 @@ def game_starts_both(context: MultiplayerShipContext) -> None:
     # Check player 2
     assert context.opponent_client is not None
     resp = context.opponent_client.get(
-        "/ship-placement/opponent-status", headers={"HX-Request": "true"}
+        "/place-ships/opponent-status", headers={"HX-Request": "true"}
     )
     if resp.status_code in [204, 302, 303] and "HX-Redirect" in resp.headers:
         assert "game" in resp.headers["HX-Redirect"]
@@ -697,7 +697,7 @@ def see_opponent_left(context: MultiplayerShipContext) -> None:
     """Verify opponent left message"""
     assert context.player_client is not None
     # Fetch status explicitly as it might be loaded via HTMX
-    resp = context.player_client.get("/ship-placement/opponent-status")
+    resp = context.player_client.get("/place-ships/opponent-status")
     assert "Opponent has left" in resp.text or "disconnected" in resp.text.lower()
 
 
@@ -742,7 +742,7 @@ def opponent_cannot_see_ship(context: MultiplayerShipContext, coord: str) -> Non
     assert context.opponent_client is not None
 
     # Opponent views their screen/status
-    resp = context.opponent_client.get("/start-game")
+    resp = context.opponent_client.get("/place-ships")
     soup = BeautifulSoup(resp.text, "html.parser")
 
     # Check opponent's view of player's grid (should not exist or be empty)
@@ -998,7 +998,7 @@ def place_ships_table(context: MultiplayerShipContext, datatable) -> None:
         )
 
     # Update soup
-    context.update_player_response(context.player_client.get("/ship-placement"))
+    context.update_player_response(context.player_client.get("/place-ships"))
 
 
 @then(parsers.parse('I should see "{text}"'))

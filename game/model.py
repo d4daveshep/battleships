@@ -182,8 +182,8 @@ class GameBoard:
 
     def __init__(self) -> None:
         self.ships: list[Ship] = []
-        self.shots_received: dict = {}
-        self.shots_fired: dict = {}
+        self.shots_received: dict[Coord, int] = {}  # coord -> round_number
+        self.shots_fired: dict[Coord, int] = {}  # coord -> round_number
 
     def _invalid_coords(self) -> set[Coord]:
         invalid_coords: set[Coord] = set()
@@ -274,6 +274,42 @@ class GameBoard:
             if coord in ship.positions:
                 return ship.ship_type
         return None
+
+    def record_shot_received(self, coord: Coord, round_number: int) -> None:
+        """Record a shot received from opponent.
+
+        Args:
+            coord: The coordinate where the shot was received
+            round_number: The round number when the shot was received
+        """
+        self.shots_received[coord] = round_number
+
+    def record_shot_fired(self, coord: Coord, round_number: int) -> None:
+        """Record a shot fired at opponent.
+
+        Args:
+            coord: The coordinate where the shot was fired
+            round_number: The round number when the shot was fired
+        """
+        self.shots_fired[coord] = round_number
+
+    def calculate_shots_available(self) -> int:
+        """Calculate the number of shots available based on unsunk ships.
+
+        Each ship type provides a certain number of shots:
+        - Carrier: 2 shots
+        - Battleship: 1 shot
+        - Cruiser: 1 shot
+        - Submarine: 1 shot
+        - Destroyer: 1 shot
+
+        Returns:
+            Total number of shots available from all placed ships
+        """
+        total_shots: int = 0
+        for ship in self.ships:
+            total_shots += ship.shots_available
+        return total_shots
 
     def get_placed_ships_for_display(self) -> dict[str, dict[str, Any]]:
         """Get placed ships in template-friendly format

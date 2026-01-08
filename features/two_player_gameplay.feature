@@ -37,7 +37,7 @@ Feature: Two-Player Simultaneous Multi-Shot Gameplay
     And I should see the "Hits Made" area showing all 5 opponent ships
     And all cells on the Shots Fired board should be clickable
 
-  Scenario: Aiming shots by clicking on Shots Fired board
+  Scenario: Aiming a single shot by clicking on Shots Fired board
     Given it is Round 1
     And I have 6 shots available
     And I have not aimed any shots yet
@@ -45,15 +45,21 @@ Feature: Two-Player Simultaneous Multi-Shot Gameplay
     Then cell "A1" should be marked as "aimed" with a visual indicator
     And I should see "A1" in my aimed shots list
     And the shot counter should show "1 / 6 available"
-    When I click on cell "B3" on my Shots Fired board
-    Then cell "B3" should be marked as "aimed" with a visual indicator
-    And I should see "B3" in my aimed shots list
-    And the shot counter should show "2 / 6 available"
-    When I click on cell "E5" on my Shots Fired board
-    Then cell "E5" should be marked as "aimed" with a visual indicator
-    And I should see "E5" in my aimed shots list
+
+  Scenario: Aiming multiple shots updates counter and list
+    Given it is Round 1
+    And I have 6 shots available
+    When I click on cells "A1", "B3", "E5" on my Shots Fired board
+    Then cells "A1", "B3", "E5" should be marked as "aimed" with visual indicators
+    And I should see "A1", "B3", "E5" in my aimed shots list
     And the shot counter should show "3 / 6 available"
-    And the "Fire Shots" button should be enabled
+
+  Scenario: Fire button becomes enabled when shots are aimed
+    Given it is Round 1
+    And I have not aimed any shots yet
+    And the "Fire Shots" button is disabled
+    When I click on cell "A1" on my Shots Fired board
+    Then the "Fire Shots" button should be enabled
 
   Scenario: Aimed shots list displays all aimed coordinates
     Given it is Round 1
@@ -76,15 +82,29 @@ Feature: Two-Player Simultaneous Multi-Shot Gameplay
     And the shot counter should show "2 / 6 available"
     And the aimed shots list should contain only "A1" and "C3"
 
-  Scenario: Shot counter updates as shots are aimed and removed
+  Scenario: Shot counter shows initial state
     Given it is Round 1
     And I have 6 shots available
+    And I have not aimed any shots yet
     Then the shot counter should show "0 / 6 available"
+
+  Scenario: Shot counter increments when shots are aimed
+    Given it is Round 1
+    And I have 6 shots available
     When I aim at coordinates "A1", "B2", "C3"
     Then the shot counter should show "3 / 6 available"
+
+  Scenario: Shot counter decrements when aimed shot is removed
+    Given it is Round 1
+    And I have aimed shots at "A1", "B2", "C3"
+    And the shot counter shows "3 / 6 available"
     When I remove the aimed shot at "B2"
     Then the shot counter should show "2 / 6 available"
-    When I aim at coordinates "D4", "E5", "F6", "G7"
+
+  Scenario: Shot counter shows limit reached when all shots aimed
+    Given it is Round 1
+    And I have 6 shots available
+    When I aim at 6 coordinates
     Then the shot counter should show "6 / 6 available"
     And I should see a message "Shot limit reached"
 
@@ -134,16 +154,21 @@ Feature: Two-Player Simultaneous Multi-Shot Gameplay
     And I have not aimed any shots yet
     Then the "Fire Shots" button should be disabled
     And I should see a hint message "Aim at least one shot to fire"
-    When I aim at coordinate "A1"
-    Then the "Fire Shots" button should be enabled
-    And the button should show "Fire 1 Shot"
 
-  Scenario: Fire button text updates with number of aimed shots
+  Scenario: Fire button shows singular text for one shot
     Given it is Round 1
     When I aim at 1 coordinate
     Then the "Fire Shots" button should show "Fire 1 Shot"
-    When I aim at 2 more coordinates
+
+  Scenario: Fire button shows plural text for multiple shots
+    Given it is Round 1
+    When I aim at 3 coordinates
     Then the "Fire Shots" button should show "Fire 3 Shots"
+
+  Scenario: Fire button text updates when more shots are aimed
+    Given it is Round 1
+    And I have aimed at 3 coordinates
+    And the "Fire Shots" button shows "Fire 3 Shots"
     When I aim at 3 more coordinates
     Then the "Fire Shots" button should show "Fire 6 Shots"
 

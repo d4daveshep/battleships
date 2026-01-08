@@ -1127,6 +1127,68 @@ async def clear_aimed_shot(
     }
 
 
+def _render_aiming_interface(
+    request: Request, game_id: str, player_id: str, error_message: str | None = None
+) -> HTMLResponse:
+    """Render the aiming interface component.
+
+    Args:
+        request: The FastAPI request object
+        game_id: The ID of the game
+        player_id: The ID of the player
+        error_message: Optional error message to display
+
+    Returns:
+        HTML response with aiming interface component
+    """
+    # Get aimed shots
+    aimed_coords: list[Coord] = gameplay_service.get_aimed_shots(game_id, player_id)
+    aimed_shots: list[str] = [coord.name for coord in aimed_coords]
+
+    # Get shots available
+    shots_available: int = gameplay_service._get_shots_available(game_id, player_id)
+
+    # Get previously fired shots (TODO: implement in gameplay_service)
+    shots_fired: list[str] = []
+
+    return templates.TemplateResponse(
+        request=request,
+        name="components/aiming_interface.html",
+        context={
+            "game_id": game_id,
+            "aimed_shots": aimed_shots,
+            "shots_fired": shots_fired,
+            "shots_available": shots_available,
+            "aimed_count": len(aimed_shots),
+            "error_message": error_message,
+        },
+    )
+
+
+@app.get("/game/{game_id}/aiming-interface")
+async def get_aiming_interface(request: Request, game_id: str) -> HTMLResponse:
+    """Get the aiming interface component for HTMX.
+
+    Args:
+        request: The FastAPI request object containing session data
+        game_id: The ID of the game
+
+    Returns:
+        HTML response with aiming interface component
+
+    Raises:
+        HTTPException: 401 if not authenticated, 404 if game not found
+    """
+    # Get player from session
+    player_id: str = _get_player_id(request)
+
+    # Ensure game exists and gameplay is initialized
+    _ensure_gameplay_initialized(game_id, player_id)
+
+    # Render the aiming interface
+    return _render_aiming_interface(request, game_id, player_id)
+
+
 @app.post("/player-name")
 async def validate_player_name(
     request: Request, player_name: str = Form()

@@ -96,13 +96,13 @@
         </div>
     </div>
 
-    <!-- Opponent's Board (Target Grid) -->
+    <!-- Opponent's Board (Read-only view) -->
     <div class="ship-board-container">
         <h3>Opponent's Waters</h3>
         <p>Track your shots against {{ opponent_name }}</p>
         
-        {# 10x10 Grid Visualization - Empty for now (ships hidden) #}
-        <table data-testid="opponent-board" class="ship-grid">
+        {# 10x10 Grid Visualization - Read-only (ships hidden) #}
+        <table data-testid="opponent-board-readonly" class="ship-grid">
             <thead>
                 <tr>
                     <th></th>
@@ -118,7 +118,7 @@
                     <th>{{ row }}</th>
                     {% for col in range(1, 11) %}
                         {% set coord = row ~ col %}
-                        <td data-testid="opponent-cell-{{ coord }}" 
+                        <td data-testid="opponent-cell-readonly-{{ coord }}" 
                             class="ship-grid-cell">
                             {# Empty for now - will show hits/misses later #}
                         </td>
@@ -135,14 +135,25 @@
 </div>
 
 <div class="actions-section">
-    <h2>Game Actions</h2>
-    <div class="btn-group">
-        <button class="btn-secondary" disabled>
-            🎯 Take Shot (Coming Soon)
-        </button>
-        <button class="btn-warning" disabled>
-            🏳️ Surrender (Coming Soon)
-        </button>
+    <h2>Aim Your Shots</h2>
+    
+    {# Aiming Interface - Loaded via HTMX on page load #}
+    <div id="aiming-interface"
+         hx-get="/game/{{ game_id }}/aiming-interface"
+         hx-trigger="load"
+         hx-swap="innerHTML">
+        <div class="loading-message" data-testid="aiming-loading">
+            Loading aiming interface...
+        </div>
+    </div>
+    
+    <div class="game-actions">
+        <h3>Other Actions</h3>
+        <div class="btn-group">
+            <button class="btn btn-warning" disabled>
+                🏳️ Surrender (Coming Soon)
+            </button>
+        </div>
     </div>
 </div>
 {% endblock %}

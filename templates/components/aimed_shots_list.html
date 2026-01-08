@@ -1,0 +1,27 @@
+{# Aimed Shots List Component - Shows currently aimed shots with remove buttons #}
+<div class="aimed-shots-list" id="aimed-shots-list" data-testid="aimed-shots-list">
+    <h4 class="aimed-shots-list__heading">Aimed Shots</h4>
+    
+    {% if aimed_shots %}
+    <ul class="aimed-shots-list__items" data-testid="aimed-shots-items">
+        {% for coord in aimed_shots %}
+        <li class="aimed-shot-item" data-testid="aimed-shot-{{ coord }}" data-coord="{{ coord }}">
+            <span class="aimed-shot-item__coord">{{ coord }}</span>
+            <button type="button"
+                    class="aimed-shot-item__remove-btn"
+                    data-testid="remove-shot-{{ coord }}"
+                    hx-delete="/game/{{ game_id }}/aim-shot/{{ coord }}"
+                    hx-target="#aiming-interface"
+                    hx-swap="innerHTML"
+                    aria-label="Remove shot at {{ coord }}">
+                <span class="aimed-shot-item__remove-icon" aria-hidden="true">✕</span>
+            </button>
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <div class="aimed-shots-list__empty" data-testid="aimed-shots-empty">
+        <p class="aimed-shots-list__empty-message">No shots aimed yet. Click on the opponent's board to aim.</p>
+    </div>
+    {% endif %}
+</div>

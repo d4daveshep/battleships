@@ -18,6 +18,7 @@ Feature: Two-Player Simultaneous Multi-Shot Gameplay
   # - Game ends when one player sinks all opponent ships (or both in same round = draw)
   # - Long polling keeps both players synchronized in real-time
   # - Coordinates are A1-J10 on a 10x10 grid
+  # - Shot aiming uses the Shots Fired board with an aimed shots list and fire button
 
   Background:
     Given both players have completed ship placement
@@ -30,48 +31,132 @@ Feature: Two-Player Simultaneous Multi-Shot Gameplay
   Scenario: Game starts at Round 1 with 6 shots available
     Given the game just started
     Then I should see "Round 1" displayed
-    And I should see "Shots Available: 6" displayed
-    And I should be able to select up to 6 coordinates to fire at
+    And I should see the shot counter showing "0 / 6 available"
     And I should see my board labeled "My Ships and Shots Received"
     And I should see the opponent's board labeled "Shots Fired"
     And I should see the "Hits Made" area showing all 5 opponent ships
+    And all cells on the Shots Fired board should be clickable
 
-  Scenario: Selecting multiple shot coordinates for aiming
+  Scenario: Aiming shots by clicking on Shots Fired board
     Given it is Round 1
     And I have 6 shots available
-    When I select coordinate "A1" to aim at
-    And I select coordinate "B3" to aim at
-    And I select coordinate "E5" to aim at
-    Then I should see 3 coordinates marked as aimed
-    And I should see "Shots Aimed: 3/6" displayed
-    And I should be able to select 3 more coordinates
+    And I have not aimed any shots yet
+    When I click on cell "A1" on my Shots Fired board
+    Then cell "A1" should be marked as "aimed" with a visual indicator
+    And I should see "A1" in my aimed shots list
+    And the shot counter should show "1 / 6 available"
+    When I click on cell "B3" on my Shots Fired board
+    Then cell "B3" should be marked as "aimed" with a visual indicator
+    And I should see "B3" in my aimed shots list
+    And the shot counter should show "2 / 6 available"
+    When I click on cell "E5" on my Shots Fired board
+    Then cell "E5" should be marked as "aimed" with a visual indicator
+    And I should see "E5" in my aimed shots list
+    And the shot counter should show "3 / 6 available"
     And the "Fire Shots" button should be enabled
 
-  Scenario: Cannot select the same coordinate twice in aiming phase
+  Scenario: Aimed shots list displays all aimed coordinates
     Given it is Round 1
-    And I have selected coordinate "A1" to aim at
-    When I attempt to select coordinate "A1" again
-    Then I should see an error message "Coordinate already selected for this round"
-    And coordinate "A1" should remain selected once
-    And I should still have 5 remaining shot selections available
+    And I have clicked on cells "A1", "B2", "C3" on my Shots Fired board
+    Then I should see an aimed shots list containing:
+      | Coordinate |
+      | A1         |
+      | B2         |
+      | C3         |
+    And each coordinate should have a remove button next to it
 
-  Scenario: Cannot select more shots than available
+  Scenario: Removing an aimed shot from the list
+    Given it is Round 1
+    And I have aimed shots at "A1", "B2", "C3"
+    And the shot counter shows "3 / 6 available"
+    When I click the remove button next to "B2" in the aimed shots list
+    Then "B2" should no longer appear in the aimed shots list
+    And cell "B2" on my Shots Fired board should no longer be marked as "aimed"
+    And cell "B2" on my Shots Fired board should be clickable again
+    And the shot counter should show "2 / 6 available"
+    And the aimed shots list should contain only "A1" and "C3"
+
+  Scenario: Shot counter updates as shots are aimed and removed
     Given it is Round 1
     And I have 6 shots available
-    And I have selected 6 coordinates to aim at
-    When I attempt to select a 7th coordinate
-    Then the coordinate should not be selectable
-    And I should see a message "All available shots aimed"
-    And I should see "Shots Aimed: 6/6" displayed
+    Then the shot counter should show "0 / 6 available"
+    When I aim at coordinates "A1", "B2", "C3"
+    Then the shot counter should show "3 / 6 available"
+    When I remove the aimed shot at "B2"
+    Then the shot counter should show "2 / 6 available"
+    When I aim at coordinates "D4", "E5", "F6", "G7"
+    Then the shot counter should show "6 / 6 available"
+    And I should see a message "Shot limit reached"
+
+  Scenario: Cannot aim at the same coordinate twice in aiming phase
+    Given it is Round 1
+    And I have clicked on cell "A1" on my Shots Fired board
+    And cell "A1" is marked as "aimed"
+    When I attempt to click on cell "A1" again
+    Then cell "A1" should not respond to the click
+    And cell "A1" should remain marked as "aimed" once
+    And the shot counter should still show "1 / 6 available"
+    And the aimed shots list should contain "A1" only once
+
+  Scenario: Cannot aim more shots than available - cells become unclickable
+    Given it is Round 1
+    And I have 6 shots available
+    And I have aimed at 6 coordinates
+    And the shot counter shows "6 / 6 available"
+    Then all unaimed cells on the Shots Fired board should not be clickable
+    And all unaimed cells should be visually marked as unavailable
+    And I should see a message "Shot limit reached"
+    When I remove one aimed shot
+    Then previously unavailable cells should become clickable again
+
+  Scenario: Visual states of cells on Shots Fired board
+    Given it is Round 2
+    And I fired at "A1" in Round 1
+    And I have aimed at "B2" in the current round
+    Then cell "A1" should be marked as "fired" with round number "1"
+    And cell "A1" should not be clickable
+    And cell "B2" should be marked as "aimed" with a visual indicator
+    And cell "B2" should not be clickable
+    And cell "C3" should be unmarked and clickable
+    And the three cell states should be visually distinct from each other
+
+  Scenario: Aiming at previously fired coordinate is prevented by UI
+    Given it is Round 3
+    And I fired at "E5" in Round 1
+    And cell "E5" is marked as "fired" with round number "1"
+    When I attempt to click on cell "E5"
+    Then cell "E5" should not respond to the click
+    And cell "E5" should remain marked as "fired"
+    And it should not be added to my aimed shots list
+
+  Scenario: Fire button is disabled when no shots aimed
+    Given it is Round 1
+    And I have not aimed any shots yet
+    Then the "Fire Shots" button should be disabled
+    And I should see a hint message "Aim at least one shot to fire"
+    When I aim at coordinate "A1"
+    Then the "Fire Shots" button should be enabled
+    And the button should show "Fire 1 Shot"
+
+  Scenario: Fire button text updates with number of aimed shots
+    Given it is Round 1
+    When I aim at 1 coordinate
+    Then the "Fire Shots" button should show "Fire 1 Shot"
+    When I aim at 2 more coordinates
+    Then the "Fire Shots" button should show "Fire 3 Shots"
+    When I aim at 3 more coordinates
+    Then the "Fire Shots" button should show "Fire 6 Shots"
 
   Scenario: Can fire fewer shots than available
     Given it is Round 1
     And I have 6 shots available
-    And I have selected 4 coordinates to aim at
+    And I have aimed at 4 coordinates
+    And the shot counter shows "4 / 6 available"
     When I click the "Fire Shots" button
     Then my 4 shots should be submitted
     And I should see "Waiting for opponent to fire..." displayed
     And I should not be able to aim additional shots
+    And the Shots Fired board should not be clickable
 
   # === Simultaneous Shot Submission ===
 
@@ -164,8 +249,8 @@ Feature: Two-Player Simultaneous Multi-Shot Gameplay
     And my opponent has a Destroyer with 1 hit already
     And I fire shots that sink the opponent's Destroyer
     When Round 2 begins
-    Then my opponent should see "Shots Available: 5" displayed
-    And I should still see "Shots Available: 6" displayed
+    Then my opponent should see the shot counter showing "0 / 5 available"
+    And I should still see the shot counter showing "0 / 6 available"
 
   Scenario: Shots available decreases when my ship is sunk
     Given it is Round 2
@@ -173,8 +258,8 @@ Feature: Two-Player Simultaneous Multi-Shot Gameplay
     And my Battleship has 3 hits already
     And my opponent fires shots that sink my Battleship
     When Round 3 begins
-    Then I should see "Shots Available: 5" displayed
-    And the available shots should be 5
+    Then I should see the shot counter showing "0 / 5 available"
+    And I should be able to aim up to 5 shots
 
   Scenario: Multiple ships sunk reduces shots proportionally
     Given it is Round 5
@@ -182,15 +267,16 @@ Feature: Two-Player Simultaneous Multi-Shot Gameplay
     And my Submarine is sunk
     And my Cruiser is sunk
     When Round 6 begins
-    Then I should see "Shots Available: 3" displayed
-    And the available shots should be 3
+    Then I should see the shot counter showing "0 / 3 available"
+    And I should be able to aim up to 3 shots
 
   Scenario: All ships sunk means zero shots available
     Given it is Round 8
     And all my ships are sunk
-    Then I should see "Shots Available: 0" displayed
+    Then I should see the shot counter showing "0 / 0 available"
     And I should see "You Lose!" displayed
     And the game should be marked as finished
+    And the Shots Fired board should not be clickable
 
   # === Sinking Ships ===
 
@@ -308,10 +394,11 @@ Feature: Two-Player Simultaneous Multi-Shot Gameplay
   Scenario: Cannot fire at coordinates already fired at in previous rounds
     Given it is Round 3
     And I fired at "E5" in Round 1
-    When I attempt to select coordinate "E5" to aim at
-    Then I should see an error message "You have already fired at this coordinate"
-    And the coordinate should not be selectable
-    And it should show as already fired with round number "1"
+    And cell "E5" is marked as "fired" with round number "1"
+    When I attempt to click on cell "E5" on my Shots Fired board
+    Then cell "E5" should not respond to the click
+    And cell "E5" should not be added to my aimed shots list
+    And the shot counter should not change
 
   Scenario: Cannot fire at invalid coordinates
     Given it is Round 1
@@ -321,10 +408,11 @@ Feature: Two-Player Simultaneous Multi-Shot Gameplay
 
   Scenario: Must fire at unique coordinates within the same round
     Given it is Round 1
-    And I have selected coordinates "A1", "B2", "C3"
-    When I attempt to select "A1" again in the same round
-    Then I should see an error message "Coordinate already selected for this round"
-    And I should still have 3 shots aimed, not 4
+    And I have aimed at coordinates "A1", "B2", "C3"
+    When I attempt to click on cell "A1" again
+    Then cell "A1" should not respond to the click
+    And the aimed shots list should contain "A1" only once
+    And the shot counter should show "3 / 6 available"
 
   # === Board Visibility ===
 
@@ -372,6 +460,7 @@ Feature: Two-Player Simultaneous Multi-Shot Gameplay
     When the round resolves
     Then I should see "Round 2" displayed
     And I should be able to aim new shots for Round 2
+    And the shot counter should show "0 / X available" where X depends on remaining ships
 
   Scenario: Round number stays same while waiting for opponent
     Given it is Round 3
@@ -420,7 +509,7 @@ Feature: Two-Player Simultaneous Multi-Shot Gameplay
     And I should see all my previous shots on the Shots Fired board
     And I should see all opponent's previous shots on my Ships board
     And I should see the correct Hits Made tracking
-    And I should see the correct shots available count
+    And I should see the correct shot counter value
 
   Scenario: Reconnecting to an in-progress game
     Given I am in an active game at Round 6
@@ -466,7 +555,7 @@ Feature: Two-Player Simultaneous Multi-Shot Gameplay
   Scenario: Firing fewer shots than available
     Given it is Round 4
     And I have 5 shots available
-    When I select only 3 coordinates to aim at
+    When I aim at only 3 coordinates
     And I click "Fire Shots"
     Then my 3 shots should be submitted
     And I should not be prevented from firing fewer shots than available
@@ -476,7 +565,7 @@ Feature: Two-Player Simultaneous Multi-Shot Gameplay
 
   Scenario: Handling network error during shot submission
     Given it is Round 2
-    And I have selected 6 coordinates to aim at
+    And I have aimed at 6 coordinates
     When I click "Fire Shots"
     And the network connection fails before submission completes
     Then I should see an error message "Connection lost - please try again"

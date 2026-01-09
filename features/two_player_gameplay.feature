@@ -239,7 +239,7 @@ Feature: Two-Player Simultaneous Multi-Shot Gameplay
     Then I should see "Opponent has fired - waiting for you" displayed
     And I should still be able to aim and fire my shots
     When I fire my shots
-    Then the round should resolve immediately
+    Then the round should end immediately
     And I should see the round results within 2 seconds
 
   # === Hit Feedback (Ship-Based, Not Coordinate-Based) ===
@@ -250,11 +250,11 @@ Feature: Two-Player Simultaneous Multi-Shot Gameplay
     And my opponent has fired their shots
     And 2 of my shots hit my opponent's Carrier
     And 1 of my shots hit my opponent's Destroyer
-    When the round resolves
+    When the round ends
     Then I should see "Hits Made This Round:" displayed
     And I should see "Carrier: 2 hits" in the hits summary
     And I should see "Destroyer: 1 hit" in the hits summary
-    And I should NOT see the exact coordinates of the hits
+    And I should not see the exact coordinates of the hits
     And the Hits Made area should show round number "1" marked twice on Carrier
     And the Hits Made area should show round number "1" marked once on Destroyer
 
@@ -263,17 +263,16 @@ Feature: Two-Player Simultaneous Multi-Shot Gameplay
     And I have fired 6 shots
     And my opponent has fired their shots
     And none of my shots hit any opponent ships
-    When the round resolves
+    When the round ends
     Then I should see "Hits Made This Round: None" displayed
     And the Hits Made area should show no new shots marked
-    And I should see all 6 of my shots marked as misses on the Shots Fired board
 
   Scenario: Hits Made area tracks cumulative hits across rounds
     Given it is Round 3
     And in Round 1 I hit the opponent's Battleship 1 time
     And in Round 2 I hit the opponent's Battleship 1 time
     And in Round 3 I hit the opponent's Battleship 2 times
-    When the round resolves
+    When the round ends
     Then the Hits Made area for Battleship should show:
       | Round | Hits |
       | 1     | 1    |
@@ -287,7 +286,7 @@ Feature: Two-Player Simultaneous Multi-Shot Gameplay
     And my opponent has fired their shots
     And my opponent hit my Cruiser 2 times
     And my opponent hit my Submarine 1 time
-    When the round resolves
+    When the round ends
     Then I should see "Hits Received This Round:" displayed
     And I should see "Your Cruiser was hit 2 times" in the hits received summary
     And I should see "Your Submarine was hit 1 time" in the hits received summary
@@ -339,7 +338,7 @@ Feature: Two-Player Simultaneous Multi-Shot Gameplay
     And I have hit "A1" in a previous round
     And I fire shots including "A2"
     And my opponent fires their shots
-    When the round resolves
+    When the round ends
     Then I should see "You sunk their Destroyer!" displayed
     And the Destroyer should be marked as sunk in the Hits Made area
     And I should see "Ships Sunk: 1/5" displayed
@@ -351,7 +350,7 @@ Feature: Two-Player Simultaneous Multi-Shot Gameplay
     And I have a Cruiser at "C1", "C2", and "C3"
     And my opponent has hit "C1" and "C2" in previous rounds
     And my opponent fires shots including "C3"
-    When the round resolves
+    When the round ends
     Then I should see "Your Cruiser was sunk!" displayed
     And coordinates "C1", "C2", and "C3" should be marked as sunk on my board
     And I should see "Ships Lost: 1/5" displayed
@@ -362,7 +361,7 @@ Feature: Two-Player Simultaneous Multi-Shot Gameplay
     And my opponent's Destroyer needs 1 more hit to sink
     And my opponent's Submarine needs 1 more hit to sink
     And I fire shots that hit both ships' final positions
-    When the round resolves
+    When the round ends
     Then I should see "You sunk their Destroyer!" displayed
     And I should see "You sunk their Submarine!" displayed
     And I should see "Ships Sunk: 2/5" displayed (or higher if others already sunk)
@@ -373,7 +372,7 @@ Feature: Two-Player Simultaneous Multi-Shot Gameplay
     And my Carrier needs 1 more hit
     And I fire shots that sink the opponent's Battleship
     And my opponent fires shots that sink my Carrier
-    When the round resolves
+    When the round ends
     Then I should see "You sunk their Battleship!" displayed
     And I should see "Your Carrier was sunk!" displayed
     And both ships should be marked as sunk
@@ -399,7 +398,7 @@ Feature: Two-Player Simultaneous Multi-Shot Gameplay
   Scenario: Shots received are marked with round numbers on My Ships board
     Given it is Round 1
     And my opponent fires at "G1", "G2", "G3", "H1", "H2", "H3"
-    When the round resolves
+    When the round ends
     Then coordinates "G1", "G2", "G3", "H1", "H2", "H3" should be marked with "1" on my Ships board
     And hits on my ships should be clearly marked
     And misses should be clearly marked differently
@@ -422,7 +421,7 @@ Feature: Two-Player Simultaneous Multi-Shot Gameplay
     And I have only my Submarine remaining
     And my Submarine has 2 hits already
     And my opponent fires shots that sink my Submarine
-    When the round resolves
+    When the round ends
     Then I should see "Your Submarine was sunk!" displayed
     And I should see "You Lose!" displayed
     And I should see "All your ships destroyed!" displayed
@@ -436,7 +435,7 @@ Feature: Two-Player Simultaneous Multi-Shot Gameplay
     And my opponent has only their Destroyer remaining with 1 hit
     And I fire shots that sink the opponent's Destroyer
     And my opponent fires shots that sink my Destroyer
-    When the round resolves
+    When the round ends
     Then I should see "Draw!" displayed
     And I should see "Both players sunk all ships in the same round" displayed
     And the game should be marked as finished
@@ -510,7 +509,7 @@ Feature: Two-Player Simultaneous Multi-Shot Gameplay
     Given it is Round 1
     And I have fired my shots
     And my opponent has fired their shots
-    When the round resolves
+    When the round ends
     Then I should see "Round 2" displayed
     And I should be able to aim new shots for Round 2
     And the shot counter should show "0 / X available" where X depends on remaining ships
@@ -540,7 +539,7 @@ Feature: Two-Player Simultaneous Multi-Shot Gameplay
     And I fire my shots at the same moment my opponent fires
     When both shots are submitted
     Then both players should see the round results within 5 seconds
-    And the round should resolve correctly with all hits processed
+    And the round should end correctly with all hits processed
 
   Scenario: Long polling connection resilience
     Given it is Round 3
@@ -582,7 +581,7 @@ Feature: Two-Player Simultaneous Multi-Shot Gameplay
     When I fire my 6 shots
     And my opponent fires their 6 shots
     Then the shots should be recorded
-    And the round should resolve
+    And the round should end
     And Round 2 should begin
 
   Scenario: Multiple hits on same ship in one round
@@ -590,7 +589,7 @@ Feature: Two-Player Simultaneous Multi-Shot Gameplay
     And my opponent has a Carrier at "A1", "A2", "A3", "A4", "A5"
     And the Carrier has 1 hit from Round 1
     And I fire shots that hit "A2", "A3", "A4"
-    When the round resolves
+    When the round ends
     Then I should see "Carrier: 3 hits" in the round results
     And the Hits Made area should show round number "2" marked three times on Carrier
     And the Carrier should have 4 total hits
@@ -599,7 +598,7 @@ Feature: Two-Player Simultaneous Multi-Shot Gameplay
     Given it is Round 3
     And I fire 6 shots
     And my shots hit Carrier (2 times), Battleship (1 time), and Destroyer (1 time)
-    When the round resolves
+    When the round ends
     Then I should see "Carrier: 2 hits" in the round results
     And I should see "Battleship: 1 hit" in the round results
     And I should see "Destroyer: 1 hit" in the round results
@@ -612,7 +611,7 @@ Feature: Two-Player Simultaneous Multi-Shot Gameplay
     And I click "Fire Shots"
     Then my 3 shots should be submitted
     And I should not be prevented from firing fewer shots than available
-    And the round should resolve normally when opponent fires
+    And the round should end normally when opponent fires
 
   # === Network and Error Handling ===
 

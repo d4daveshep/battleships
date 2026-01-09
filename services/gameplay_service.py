@@ -1,8 +1,18 @@
 """Service for managing gameplay actions: aiming, firing, and resolving rounds."""
 
+from enum import Enum
 from typing import NamedTuple
 from game.model import Coord, GameBoard
 from game.round import Round
+
+
+class CellState(Enum):
+    """State of a cell on the Shots Fired board."""
+
+    FIRED = "fired"  # Previously fired in a past round
+    AIMED = "aimed"  # Currently aimed for this round
+    AVAILABLE = "available"  # Can be clicked to aim
+    UNAVAILABLE = "unavailable"  # Cannot be clicked (limit reached)
 
 
 class AimShotResult(NamedTuple):
@@ -22,6 +32,9 @@ class GameplayService:
         self.player_boards: dict[
             str, dict[str, GameBoard]
         ] = {}  # game_id -> {player_id -> board}
+        self.fired_shots: dict[
+            str, dict[str, dict[Coord, int]]
+        ] = {}  # game_id -> player_id -> coord -> round_number
 
     def create_round(self, game_id: str, round_number: int) -> Round:
         """Create a new round for a game.
@@ -162,3 +175,36 @@ class GameplayService:
         except ValueError:
             # Coord not in list
             return False
+
+    def get_cell_state(self, game_id: str, player_id: str, coord: Coord) -> CellState:
+        """Determine the state of a cell on the Shots Fired board.
+
+        Args:
+            game_id: The ID of the game
+            player_id: The ID of the player
+            coord: The coordinate to check
+
+        Returns:
+            CellState indicating the current state of the cell
+        """
+        # Check if cell was fired in a previous round (highest priority)
+        if game_id in self.fired_shots:
+            if player_id in self.fired_shots[game_id]:
+                if coord in self.fired_shots[game_id][player_id]:
+                    return CellState.FIRED
+
+        # Check if cell is currently aimed
+        round_obj = self.active_rounds.get(game_id)
+        if round_obj is not None:
+            aimed_shots = round_obj.aimed_shots.get(player_id, [])
+            if coord in aimed_shots:
+                return CellState.AIMED
+
+            # Check if shot limit is reached (cell is unavailable)
+            current_aimed_count = len(aimed_shots)
+            shots_available = self._get_shots_available(game_id, player_id)
+            if current_aimed_count >= shots_available:
+                return CellState.UNAVAILABLE
+
+        # Default: cell is available for aiming
+        return CellState.AVAILABLE

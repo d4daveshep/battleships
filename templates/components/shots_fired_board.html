@@ -19,13 +19,15 @@
                     {% set is_aimed = coord in aimed_shots %}
                     {% set is_fired = coord in shots_fired %}
                     {% set is_available = not is_aimed and not is_fired and aimed_count < shots_available %}
+                    {% set is_unavailable = not is_aimed and not is_fired and aimed_count >= shots_available %}
                     
                     <td data-testid="shots-fired-cell-{{ coord }}"
                         data-coord="{{ coord }}"
                         class="ship-grid-cell 
                                {% if is_aimed %}cell--aimed{% endif %}
                                {% if is_fired %}cell--fired{% endif %}
-                               {% if is_available %}cell--available{% endif %}"
+                               {% if is_available %}cell--available{% endif %}
+                               {% if is_unavailable %}cell--unavailable{% endif %}"
                         {% if is_available %}
                         hx-post="/game/{{ game_id }}/aim-shot"
                         hx-vals='{"coord": "{{ coord }}"}'

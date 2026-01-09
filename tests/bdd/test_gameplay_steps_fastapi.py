@@ -478,12 +478,26 @@ def have_aimed_at_n_coordinates(context: GameplayContext, count: int) -> None:
 
 
 @when(parsers.parse("I aim at {count:d} coordinates"))
+@when(parsers.parse("I aim at {count:d} coordinate"))
 def aim_at_n_coordinates(context: GameplayContext, count: int) -> None:
     """Aim at N coordinates"""
     coords = ["A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8", "A9", "A10"]
     for i in range(count):
         if i < len(coords):
             click_on_cell(context, coords[i])
+
+
+@when(parsers.parse("I aim at {count:d} more coordinates"))
+def aim_at_n_more_coordinates(context: GameplayContext, count: int) -> None:
+    """Aim at N more coordinates"""
+    coords = ["A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8", "A9", "A10"]
+    aimed = 0
+    for coord in coords:
+        if coord not in context.player_aimed_shots:
+            click_on_cell(context, coord)
+            aimed += 1
+            if aimed >= count:
+                break
 
 
 @when(parsers.parse('I remove the aimed shot at "{coord}"'))
@@ -578,6 +592,19 @@ def fire_button_should_be_enabled(context: GameplayContext) -> None:
 def fire_button_should_be_disabled(context: GameplayContext) -> None:
     """Verify fire button is disabled"""
     assert len(context.player_aimed_shots) == 0
+
+
+@then(parsers.parse('the "Fire Shots" button should show "{text}"'))
+@given(parsers.parse('the "Fire Shots" button shows "{text}"'))
+def fire_button_should_show_text(context: GameplayContext, text: str) -> None:
+    """Verify fire button shows specific text"""
+    assert context.player_soup is not None
+    button = context.player_soup.find(attrs={"data-testid": "fire-shots-button"})
+    assert button is not None, "Fire shots button not found"
+
+    # Normalize whitespace
+    button_text = " ".join(button.get_text().split())
+    assert text in button_text
 
 
 @then(

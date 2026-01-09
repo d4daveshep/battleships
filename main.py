@@ -993,19 +993,19 @@ def _ensure_gameplay_initialized(game_id: str, player_id: str) -> Game:
     return game
 
 
-@app.post("/game/{game_id}/aim-shot")
+@app.post("/game/{game_id}/aim-shot", response_class=HTMLResponse)
 async def aim_shot(
-    request: Request, game_id: str, coord_data: dict[str, str]
-) -> dict[str, Any]:
+    request: Request, game_id: str, coord: str = Form(...)
+) -> HTMLResponse:
     """Add a shot to the aiming queue for current round.
 
     Args:
         request: The FastAPI request object containing session data
         game_id: The ID of the game
-        coord_data: Dictionary containing 'coord' key with coordinate string
+        coord: The coordinate string (from form data)
 
     Returns:
-        JSON response with success status and aimed shot count
+        HTML response with updated aiming interface
 
     Raises:
         HTTPException: 401 if not authenticated, 400 if validation fails, 404 if game not found
@@ -1017,35 +1017,27 @@ async def aim_shot(
     _ensure_gameplay_initialized(game_id, player_id)
 
     # Parse coordinate
-    coord_str: str = coord_data.get("coord", "")
     try:
-        coord: Coord = Coord[coord_str.upper()]
+        coord_enum: Coord = Coord[coord.upper()]
     except KeyError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid coordinate: {coord_str}",
+        # If invalid coordinate, render interface with error
+        return _render_aiming_interface(
+            request, game_id, player_id, error_message=f"Invalid coordinate: {coord}"
         )
 
     # Aim the shot
     result: AimShotResult = gameplay_service.aim_shot(
-        game_id=game_id, player_id=player_id, coord=coord
+        game_id=game_id, player_id=player_id, coord=coord_enum
     )
 
     if not result.success:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=result.error_message or "Failed to aim shot",
+        # If aiming failed (e.g. duplicate or limit reached), render interface with error
+        return _render_aiming_interface(
+            request, game_id, player_id, error_message=result.error_message
         )
 
-    # Get shots available
-    shots_available: int = gameplay_service._get_shots_available(game_id, player_id)
-
-    return {
-        "success": True,
-        "aimed_count": result.aimed_count,
-        "shots_available": shots_available,
-        "coord": coord_str.upper(),
-    }
+    # Return updated aiming interface
+    return _render_aiming_interface(request, game_id, player_id)
 
 
 @app.get("/game/{game_id}/aimed-shots")
@@ -1082,10 +1074,8 @@ async def get_aimed_shots(request: Request, game_id: str) -> dict[str, Any]:
     }
 
 
-@app.delete("/game/{game_id}/aim-shot/{coord}")
-async def clear_aimed_shot(
-    request: Request, game_id: str, coord: str
-) -> dict[str, Any]:
+@app.delete("/game/{game_id}/aim-shot/{coord}", response_class=HTMLResponse)
+async def clear_aimed_shot(request: Request, game_id: str, coord: str) -> HTMLResponse:
     """Remove a shot from aiming queue.
 
     Args:
@@ -1094,7 +1084,7 @@ async def clear_aimed_shot(
         coord: The coordinate to remove
 
     Returns:
-        JSON response with success status
+        HTML response with updated aiming interface
 
     Raises:
         HTTPException: 401 if not authenticated, 400 if invalid coord, 404 if game not found
@@ -1107,7 +1097,7 @@ async def clear_aimed_shot(
 
     # Parse coordinate
     try:
-        coord_obj: Coord = Coord[coord.upper()]
+        coord_enum: Coord = Coord[coord.upper()]
     except KeyError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -1115,16 +1105,12 @@ async def clear_aimed_shot(
         )
 
     # Remove the shot
-    gameplay_service.clear_aimed_shot(game_id, player_id, coord_obj)
+    gameplay_service.clear_aimed_shot(
+        game_id=game_id, player_id=player_id, coord=coord_enum
+    )
 
-    # Get updated count
-    aimed_coords: list[Coord] = gameplay_service.get_aimed_shots(game_id, player_id)
-
-    return {
-        "success": True,
-        "aimed_count": len(aimed_coords),
-        "removed_coord": coord.upper(),
-    }
+    # Return updated aiming interface
+    return _render_aiming_interface(request, game_id, player_id)
 
 
 def _render_aiming_interface(

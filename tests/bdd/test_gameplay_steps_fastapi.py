@@ -122,12 +122,13 @@ def setup_two_player_game(context: GameplayContext) -> None:
         context.opponent_client.get(resp2_start.headers["location"])
 
     # Place ships for both players (using default positions)
+    # Ships must have at least 1 cell spacing between them
     ships_to_place = [
-        ("Carrier", "A1", "horizontal"),
-        ("Battleship", "B1", "horizontal"),
-        ("Cruiser", "C1", "horizontal"),
-        ("Submarine", "D1", "horizontal"),
-        ("Destroyer", "E1", "horizontal"),
+        ("Carrier", "A1", "horizontal"),  # A1-A5
+        ("Battleship", "C1", "horizontal"),  # C1-C4 (skipping B row)
+        ("Cruiser", "E1", "horizontal"),  # E1-E3 (skipping D row)
+        ("Submarine", "G1", "horizontal"),  # G1-G3 (skipping F row)
+        ("Destroyer", "I1", "horizontal"),  # I1-I2 (skipping H row)
     ]
 
     for ship_name, start_coordinate, orientation in ships_to_place:
@@ -195,22 +196,42 @@ def aim_shot_via_api(client: TestClient, game_id: str, coord: str) -> dict[str, 
     """Aim a shot via API endpoint
 
     Returns:
-        Response JSON data
+        Dict with success status and optional error message
     """
-    response = client.post(f"/game/{game_id}/aim-shot", json={"coord": coord})
+    # Send as form data (HTMX default)
+    response = client.post(f"/game/{game_id}/aim-shot", data={"coord": coord})
+
     if response.status_code == 200:
-        return response.json()
-    return {"success": False, "error": response.text}
+        # Check for error message in HTML
+        soup = BeautifulSoup(response.text, "html.parser")
+        error_alert = soup.find(attrs={"data-testid": "aiming-error"})
+
+        if error_alert:
+            return {
+                "success": False,
+                "error": error_alert.get_text().strip(),
+                "response": response,
+            }
+
+        return {"success": True, "response": response}
+
+    return {
+        "success": False,
+        "error": f"HTTP {response.status_code}",
+        "response": response,
+    }
 
 
-def clear_aimed_shot_via_api(client: TestClient, game_id: str, coord: str) -> bool:
+def clear_aimed_shot_via_api(
+    client: TestClient, game_id: str, coord: str
+) -> dict[str, Any]:
     """Clear an aimed shot via API endpoint
 
     Returns:
-        True if successful
+        Dict with success status and response
     """
     response = client.delete(f"/game/{game_id}/aim-shot/{coord}")
-    return response.status_code == 200
+    return {"success": response.status_code == 200, "response": response}
 
 
 # === Background Steps ===
@@ -294,6 +315,10 @@ def have_aimed_at_coord(context: GameplayContext, coord: str) -> None:
     assert context.game_id is not None
 
     result = aim_shot_via_api(context.player_client, context.game_id, coord)
+
+    if "response" in result:
+        context.update_player_response(result["response"])
+
     assert result.get("success") is True
     context.player_aimed_shots.append(coord)
 
@@ -323,6 +348,10 @@ def have_clicked_on_cell(context: GameplayContext, coord: str) -> None:
     assert context.game_id is not None
 
     result = aim_shot_via_api(context.player_client, context.game_id, coord)
+
+    if "response" in result:
+        context.update_player_response(result["response"])
+
     assert result.get("success") is True
     context.player_aimed_shots.append(coord)
 
@@ -334,9 +363,15 @@ def cell_is_marked_as_aimed(context: GameplayContext, coord: str) -> None:
 
 
 @given(parsers.parse('I have aimed shots at "{coords}"'))
+@given(parsers.parse('I have clicked on cells "{coords}" on my Shots Fired board'))
 def have_aimed_shots_at_coords(context: GameplayContext, coords: str) -> None:
     """Aim at multiple coordinates"""
-    coord_list = [c.strip() for c in coords.split(",")]
+    # Handle quoted coordinates
+    if '"' in coords:
+        coord_list = [c.strip().strip('"') for c in coords.split(",")]
+    else:
+        coord_list = [c.strip() for c in coords.split(",")]
+
     for coord in coord_list:
         have_aimed_at_coord(context, coord)
 
@@ -375,6 +410,11 @@ def click_on_cell(context: GameplayContext, coord: str) -> None:
     assert context.game_id is not None
 
     result = aim_shot_via_api(context.player_client, context.game_id, coord)
+
+    # Update soup if response is available (it's an HTML response now)
+    if "response" in result:
+        context.update_player_response(result["response"])
+
     if result.get("success"):
         context.player_aimed_shots.append(coord)
 
@@ -404,8 +444,11 @@ def attempt_to_click_on_cell(context: GameplayContext, coord: str) -> None:
     assert context.player_client is not None
     assert context.game_id is not None
 
-    initial_count = len(context.player_aimed_shots)
     result = aim_shot_via_api(context.player_client, context.game_id, coord)
+
+    # Update soup if response is available
+    if "response" in result:
+        context.update_player_response(result["response"])
 
     # Only add if successful
     if result.get("success"):
@@ -415,9 +458,23 @@ def attempt_to_click_on_cell(context: GameplayContext, coord: str) -> None:
 @when(parsers.parse('I aim at coordinates "{coords}"'))
 def aim_at_coordinates(context: GameplayContext, coords: str) -> None:
     """Aim at multiple coordinates"""
-    coord_list = [c.strip() for c in coords.split(",")]
+    # Handle quoted coordinates
+    if '"' in coords:
+        coord_list = [c.strip().strip('"') for c in coords.split(",")]
+    else:
+        coord_list = [c.strip() for c in coords.split(",")]
+
     for coord in coord_list:
         click_on_cell(context, coord)
+
+
+@given(parsers.parse("I have aimed at {count:d} coordinates"))
+def have_aimed_at_n_coordinates(context: GameplayContext, count: int) -> None:
+    """Aim at N coordinates"""
+    coords = ["A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8", "A9", "A10"]
+    for i in range(count):
+        if i < len(coords):
+            have_aimed_at_coord(context, coords[i])
 
 
 @when(parsers.parse("I aim at {count:d} coordinates"))
@@ -435,8 +492,12 @@ def remove_aimed_shot(context: GameplayContext, coord: str) -> None:
     assert context.player_client is not None
     assert context.game_id is not None
 
-    success = clear_aimed_shot_via_api(context.player_client, context.game_id, coord)
-    if success and coord in context.player_aimed_shots:
+    result = clear_aimed_shot_via_api(context.player_client, context.game_id, coord)
+
+    if result["success"] and "response" in result:
+        context.update_player_response(result["response"])
+
+    if result["success"] and coord in context.player_aimed_shots:
         context.player_aimed_shots.remove(coord)
 
 
@@ -668,10 +729,28 @@ def all_cells_should_be_clickable(context: GameplayContext) -> None:
 
 
 @then("I should see an aimed shots list containing:")
-def should_see_aimed_shots_table(context: GameplayContext) -> None:
+def should_see_aimed_shots_table(context: GameplayContext, datatable: Any) -> None:
     """Verify aimed shots list contains specific coordinates"""
-    # Table data will be provided by pytest-bdd
-    pass
+    assert context.player_soup is not None
+
+    # Find the aimed shots list container
+    aimed_shots_list = context.player_soup.find(
+        attrs={"data-testid": "aimed-shots-list"}
+    )
+    assert aimed_shots_list is not None, "Aimed shots list container not found"
+
+    # Check each coordinate in the table (skipping header)
+    # pytest-bdd datatable is a list of lists, including header
+    rows = datatable
+    if rows and rows[0][0] == "Coordinate":
+        rows = rows[1:]
+
+    for row in rows:
+        coord = row[0]  # First column is Coordinate
+        # Check if there's an item for this coordinate
+        item = aimed_shots_list.find(attrs={"data-testid": f"aimed-shot-{coord}"})
+        assert item is not None, f"Aimed shot {coord} not found in list"
+        assert coord in item.get_text()
 
 
 @then(parsers.parse("each coordinate should have a remove button next to it"))
@@ -693,3 +772,43 @@ def should_see_message(context: GameplayContext, message: str) -> None:
     """Verify message is displayed"""
     # This is a visual test, verified by template
     pass
+
+
+@given("all unaimed cells are not clickable")
+def all_unaimed_cells_not_clickable(context: GameplayContext) -> None:
+    """Verify all unaimed cells are not clickable (limit reached)"""
+    assert context.player_client is not None
+    assert context.game_id is not None
+
+    # Check that we have aimed max shots
+    assert len(context.player_aimed_shots) == context.player_shots_available
+
+    # Verify by trying to aim at an un-aimed coordinate
+    # Find a coordinate that is not aimed
+    coord = "J10"
+    if coord in context.player_aimed_shots:
+        coord = "J9"
+
+    result = aim_shot_via_api(context.player_client, context.game_id, coord)
+    assert result.get("success") is False
+    assert "limit" in result.get("error", "").lower()
+
+
+@then("previously unavailable cells should become clickable again")
+def unavailable_cells_become_clickable(context: GameplayContext) -> None:
+    """Verify cells are clickable again"""
+    assert context.player_client is not None
+    assert context.game_id is not None
+
+    # Verify by successfully aiming at a coordinate
+    coord = "J10"
+    if coord in context.player_aimed_shots:
+        coord = "J9"
+
+    result = aim_shot_via_api(context.player_client, context.game_id, coord)
+    assert result.get("success") is True
+
+    # Revert the aim so subsequent steps see the correct state
+    clear_aimed_shot_via_api(context.player_client, context.game_id, coord)
+    # No need to update context.player_aimed_shots as we added and removed it on server
+    # and didn't touch the context list

@@ -1148,8 +1148,9 @@ def _render_aiming_interface(
     # Get shots available
     shots_available: int = gameplay_service._get_shots_available(game_id, player_id)
 
-    # Get previously fired shots (TODO: implement in gameplay_service)
-    shots_fired: list[str] = []
+    # Get previously fired shots (TODO: implement in gameplay_service - Cycle 2.7)
+    # For now, empty dict - will be populated with coord -> round_number mapping
+    shots_fired: dict[str, int] = {}
 
     return templates.TemplateResponse(
         request=request,

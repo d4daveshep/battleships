@@ -1,6 +1,6 @@
-{# Opponent Board Component - Clickable grid for aiming shots #}
-<div class="opponent-board-wrapper" id="opponent-board-wrapper" data-testid="opponent-board-wrapper">
-    <table data-testid="opponent-board-aiming" class="ship-grid ship-grid--aiming">
+{# Shots Fired Board Component - Shows past shots and allows aiming new shots #}
+<div class="shots-fired-board-wrapper" id="shots-fired-board-wrapper" data-testid="shots-fired-board-wrapper">
+    <table data-testid="shots-fired-board" class="ship-grid ship-grid--aiming">
         <thead>
             <tr>
                 <th></th>
@@ -20,7 +20,7 @@
                     {% set is_fired = coord in shots_fired %}
                     {% set is_available = not is_aimed and not is_fired and aimed_count < shots_available %}
                     
-                    <td data-testid="opponent-cell-{{ coord }}"
+                    <td data-testid="shots-fired-cell-{{ coord }}"
                         data-coord="{{ coord }}"
                         class="ship-grid-cell 
                                {% if is_aimed %}cell--aimed{% endif %}
@@ -40,7 +40,7 @@
                         {% if is_aimed %}
                             <span class="cell-marker cell-marker--aimed" aria-label="Aimed">●</span>
                         {% elif is_fired %}
-                            <span class="cell-marker cell-marker--fired" aria-label="Fired">✕</span>
+                            <span class="cell-marker cell-marker--fired" aria-label="Fired in round {{ shots_fired[coord] }}">{{ shots_fired[coord] }}</span>
                         {% endif %}
                     </td>
                 {% endfor %}

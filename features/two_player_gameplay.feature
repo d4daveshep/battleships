@@ -118,26 +118,54 @@ Feature: Two-Player Simultaneous Multi-Shot Gameplay
     And the shot counter should still show "1 / 6 available"
     And the aimed shots list should contain "A1" only once
 
-  Scenario: Cannot aim more shots than available - cells become unclickable
+  Scenario: Cells become unclickable when shot limit is reached
     Given it is Round 1
     And I have 6 shots available
-    And I have aimed at 6 coordinates
-    And the shot counter shows "6 / 6 available"
+    When I aim at 6 coordinates
     Then all unaimed cells on the Shots Fired board should not be clickable
     And all unaimed cells should be visually marked as unavailable
     And I should see a message "Shot limit reached"
+    And the shot counter should show "6 / 6 available"
+
+  Scenario: Cells become clickable again when aimed shot is removed
+    Given it is Round 1
+    And I have aimed at 6 coordinates
+    And the shot counter shows "6 / 6 available"
+    And all unaimed cells are not clickable
     When I remove one aimed shot
     Then previously unavailable cells should become clickable again
+    And the shot counter should show "5 / 6 available"
 
-  Scenario: Visual states of cells on Shots Fired board
+  Scenario: Previously fired cell shows round number and is not clickable
+    Given it is Round 2
+    And I fired at "A1" in Round 1
+    When I view my Shots Fired board
+    Then cell "A1" should be marked as "fired" with round number "1"
+    And cell "A1" should not be clickable
+
+  Scenario: Currently aimed cell shows visual indicator and is not clickable
+    Given it is Round 2
+    And I have aimed at "B2" in the current round
+    When I view my Shots Fired board
+    Then cell "B2" should be marked as "aimed" with a visual indicator
+    And cell "B2" should not be clickable
+
+  Scenario: Unmarked cell is clickable for aiming
+    Given it is Round 2
+    And I have not fired at or aimed at "C3"
+    When I view my Shots Fired board
+    Then cell "C3" should be unmarked
+    And cell "C3" should be clickable
+
+  Scenario: Fired, aimed, and unmarked cells are visually distinct
     Given it is Round 2
     And I fired at "A1" in Round 1
     And I have aimed at "B2" in the current round
-    Then cell "A1" should be marked as "fired" with round number "1"
-    And cell "A1" should not be clickable
-    And cell "B2" should be marked as "aimed" with a visual indicator
-    And cell "B2" should not be clickable
-    And cell "C3" should be unmarked and clickable
+    And I have not interacted with "C3"
+    When I view my Shots Fired board
+    Then cell "A1" should have a "fired" visual appearance
+    And cell "B2" should have an "aimed" visual appearance
+    And cell "C3" should have an "unmarked" visual appearance
     And the three cell states should be visually distinct from each other
 
   Scenario: Aiming at previously fired coordinate is prevented by UI

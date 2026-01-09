@@ -3,7 +3,7 @@
 import pytest
 from game.model import Coord, ShipType, Ship, Orientation, GameBoard
 from game.round import Round
-from services.gameplay_service import GameplayService, AimShotResult
+from services.gameplay_service import GameplayService, AimShotResult, CellState
 
 
 def create_board_with_all_ships() -> GameBoard:
@@ -28,20 +28,16 @@ class TestAimShot:
         player_id = "player1"
         round_number = 1
         coord = Coord.A1
-        
+
         board = create_board_with_all_ships()
-        
+
         # Create a round for this game
         service.create_round(game_id=game_id, round_number=round_number)
         service.register_player_board(game_id=game_id, player_id=player_id, board=board)
-        
+
         # Act
-        result = service.aim_shot(
-            game_id=game_id,
-            player_id=player_id,
-            coord=coord
-        )
-        
+        result = service.aim_shot(game_id=game_id, player_id=player_id, coord=coord)
+
         # Assert
         assert result.success is True
         assert result.error_message is None
@@ -54,17 +50,17 @@ class TestAimShot:
         game_id = "game123"
         player_id = "player1"
         round_number = 1
-        
+
         board = create_board_with_all_ships()
-        
+
         service.create_round(game_id=game_id, round_number=round_number)
         service.register_player_board(game_id=game_id, player_id=player_id, board=board)
-        
+
         # Act - aim 3 shots
         result1 = service.aim_shot(game_id=game_id, player_id=player_id, coord=Coord.A1)
         result2 = service.aim_shot(game_id=game_id, player_id=player_id, coord=Coord.B2)
         result3 = service.aim_shot(game_id=game_id, player_id=player_id, coord=Coord.C3)
-        
+
         # Assert
         assert result1.success is True
         assert result1.aimed_count == 1
@@ -79,10 +75,10 @@ class TestAimShot:
         service = GameplayService()
         game_id = "game123"
         player_id = "player1"
-        
+
         # Act - try to aim without creating a round
         result = service.aim_shot(game_id=game_id, player_id=player_id, coord=Coord.A1)
-        
+
         # Assert
         assert result.success is False
         assert result.error_message == "No active round for this game"
@@ -100,20 +96,20 @@ class TestDuplicateShotValidation:
         player_id = "player1"
         round_number = 1
         coord = Coord.A1
-        
+
         board = create_board_with_all_ships()
-        
+
         service.create_round(game_id=game_id, round_number=round_number)
         service.register_player_board(game_id=game_id, player_id=player_id, board=board)
-        
+
         # Act - aim at A1 twice
         result1 = service.aim_shot(game_id=game_id, player_id=player_id, coord=coord)
         result2 = service.aim_shot(game_id=game_id, player_id=player_id, coord=coord)
-        
+
         # Assert
         assert result1.success is True
         assert result1.aimed_count == 1
-        
+
         assert result2.success is False
         assert "already selected" in result2.error_message.lower()
         assert result2.aimed_count == 1  # Count doesn't increase
@@ -125,17 +121,17 @@ class TestDuplicateShotValidation:
         game_id = "game123"
         player_id = "player1"
         round_number = 1
-        
+
         board = create_board_with_all_ships()
-        
+
         service.create_round(game_id=game_id, round_number=round_number)
         service.register_player_board(game_id=game_id, player_id=player_id, board=board)
-        
+
         # Act - aim at different coordinates
         result1 = service.aim_shot(game_id=game_id, player_id=player_id, coord=Coord.A1)
         result2 = service.aim_shot(game_id=game_id, player_id=player_id, coord=Coord.B2)
         result3 = service.aim_shot(game_id=game_id, player_id=player_id, coord=Coord.C3)
-        
+
         # Assert - all should succeed
         assert result1.success is True
         assert result2.success is True
@@ -153,22 +149,22 @@ class TestShotLimitValidation:
         game_id = "game123"
         player_id = "player1"
         round_number = 1
-        
+
         board = create_board_with_all_ships()
-        
+
         service.create_round(game_id=game_id, round_number=round_number)
         service.register_player_board(game_id=game_id, player_id=player_id, board=board)
-        
+
         # Act - aim 6 shots (the maximum available)
         results = []
         coords = [Coord.A1, Coord.B2, Coord.C3, Coord.D4, Coord.E5, Coord.F6]
         for coord in coords:
             result = service.aim_shot(game_id=game_id, player_id=player_id, coord=coord)
             results.append(result)
-        
+
         # Assert - all 6 should succeed
         for i, result in enumerate(results):
-            assert result.success is True, f"Shot {i+1} should succeed"
+            assert result.success is True, f"Shot {i + 1} should succeed"
             assert result.aimed_count == i + 1
 
     def test_aim_shot_exceeds_limit(self) -> None:
@@ -178,23 +174,26 @@ class TestShotLimitValidation:
         game_id = "game123"
         player_id = "player1"
         round_number = 1
-        
+
         board = create_board_with_all_ships()
-        
+
         service.create_round(game_id=game_id, round_number=round_number)
         service.register_player_board(game_id=game_id, player_id=player_id, board=board)
-        
+
         # Act - aim 6 shots successfully, then try a 7th
         coords = [Coord.A1, Coord.B2, Coord.C3, Coord.D4, Coord.E5, Coord.F6]
         for coord in coords:
             service.aim_shot(game_id=game_id, player_id=player_id, coord=coord)
-        
+
         # Try 7th shot
         result = service.aim_shot(game_id=game_id, player_id=player_id, coord=Coord.G7)
-        
+
         # Assert
         assert result.success is False
-        assert "limit" in result.error_message.lower() or "maximum" in result.error_message.lower()
+        assert (
+            "limit" in result.error_message.lower()
+            or "maximum" in result.error_message.lower()
+        )
         assert result.aimed_count == 6  # Count stays at 6
 
     def test_aim_shot_limit_with_fewer_ships(self) -> None:
@@ -204,26 +203,166 @@ class TestShotLimitValidation:
         game_id = "game123"
         player_id = "player1"
         round_number = 1
-        
+
         # Create a board with only Carrier (2 shots) and Destroyer (1 shot) = 3 total
         board = GameBoard()
         board.place_ship(Ship(ShipType.CARRIER), Coord.A1, Orientation.HORIZONTAL)
         board.place_ship(Ship(ShipType.DESTROYER), Coord.C1, Orientation.HORIZONTAL)
-        
+
         service.create_round(game_id=game_id, round_number=round_number)
         service.register_player_board(game_id=game_id, player_id=player_id, board=board)
-        
+
         # Act - aim 3 shots successfully
         result1 = service.aim_shot(game_id=game_id, player_id=player_id, coord=Coord.A1)
         result2 = service.aim_shot(game_id=game_id, player_id=player_id, coord=Coord.B2)
         result3 = service.aim_shot(game_id=game_id, player_id=player_id, coord=Coord.C3)
-        
+
         # Try 4th shot
         result4 = service.aim_shot(game_id=game_id, player_id=player_id, coord=Coord.D4)
-        
+
         # Assert
         assert result1.success is True
         assert result2.success is True
         assert result3.success is True
         assert result4.success is False
         assert result4.aimed_count == 3
+
+
+class TestCellState:
+    """Tests for determining cell state on the Shots Fired board."""
+
+    def test_get_cell_state_available(self) -> None:
+        """Test that an unmarked cell with shots available is AVAILABLE."""
+        # Arrange
+        service = GameplayService()
+        game_id = "game123"
+        player_id = "player1"
+        round_number = 1
+
+        board = create_board_with_all_ships()
+
+        service.create_round(game_id=game_id, round_number=round_number)
+        service.register_player_board(game_id=game_id, player_id=player_id, board=board)
+
+        # Act
+        state = service.get_cell_state(
+            game_id=game_id, player_id=player_id, coord=Coord.A1
+        )
+
+        # Assert
+        assert state == CellState.AVAILABLE
+
+    def test_get_cell_state_aimed(self) -> None:
+        """Test that a cell with an aimed shot is AIMED."""
+        # Arrange
+        service = GameplayService()
+        game_id = "game123"
+        player_id = "player1"
+        round_number = 1
+
+        board = create_board_with_all_ships()
+
+        service.create_round(game_id=game_id, round_number=round_number)
+        service.register_player_board(game_id=game_id, player_id=player_id, board=board)
+
+        # Aim at A1
+        service.aim_shot(game_id=game_id, player_id=player_id, coord=Coord.A1)
+
+        # Act
+        state = service.get_cell_state(
+            game_id=game_id, player_id=player_id, coord=Coord.A1
+        )
+
+        # Assert
+        assert state == CellState.AIMED
+
+    def test_get_cell_state_unavailable_limit_reached(self) -> None:
+        """Test that cells are UNAVAILABLE when shot limit is reached."""
+        # Arrange
+        service = GameplayService()
+        game_id = "game123"
+        player_id = "player1"
+        round_number = 1
+
+        board = create_board_with_all_ships()
+
+        service.create_round(game_id=game_id, round_number=round_number)
+        service.register_player_board(game_id=game_id, player_id=player_id, board=board)
+
+        # Aim 6 shots (the maximum)
+        coords = [Coord.A1, Coord.B2, Coord.C3, Coord.D4, Coord.E5, Coord.F6]
+        for coord in coords:
+            service.aim_shot(game_id=game_id, player_id=player_id, coord=coord)
+
+        # Act - check a cell that hasn't been aimed at
+        state = service.get_cell_state(
+            game_id=game_id, player_id=player_id, coord=Coord.G7
+        )
+
+        # Assert
+        assert state == CellState.UNAVAILABLE
+
+    def test_get_cell_state_fired(self) -> None:
+        """Test that a previously fired cell is FIRED."""
+        # Arrange
+        service = GameplayService()
+        game_id = "game123"
+        player_id = "player1"
+        round_number = 1
+
+        board = create_board_with_all_ships()
+
+        service.create_round(game_id=game_id, round_number=round_number)
+        service.register_player_board(game_id=game_id, player_id=player_id, board=board)
+
+        # Simulate a shot being fired in a previous round
+        # For now, we'll manually add to the fired shots tracking
+        # (This will be updated when we implement round resolution)
+        if not hasattr(service, "fired_shots"):
+            service.fired_shots = {}  # game_id -> player_id -> coord -> round_number
+
+        if game_id not in service.fired_shots:
+            service.fired_shots[game_id] = {}
+        if player_id not in service.fired_shots[game_id]:
+            service.fired_shots[game_id][player_id] = {}
+
+        service.fired_shots[game_id][player_id][Coord.A1] = 1  # Fired in round 1
+
+        # Act
+        state = service.get_cell_state(
+            game_id=game_id, player_id=player_id, coord=Coord.A1
+        )
+
+        # Assert
+        assert state == CellState.FIRED
+
+    def test_get_cell_state_fired_takes_precedence_over_aimed(self) -> None:
+        """Test that FIRED state takes precedence if a cell was fired in a previous round."""
+        # Arrange
+        service = GameplayService()
+        game_id = "game123"
+        player_id = "player1"
+        round_number = 2  # Round 2
+
+        board = create_board_with_all_ships()
+
+        service.create_round(game_id=game_id, round_number=round_number)
+        service.register_player_board(game_id=game_id, player_id=player_id, board=board)
+
+        # Simulate A1 being fired in round 1
+        if not hasattr(service, "fired_shots"):
+            service.fired_shots = {}
+        if game_id not in service.fired_shots:
+            service.fired_shots[game_id] = {}
+        if player_id not in service.fired_shots[game_id]:
+            service.fired_shots[game_id][player_id] = {}
+
+        service.fired_shots[game_id][player_id][Coord.A1] = 1
+
+        # Act - check state (even though we could theoretically aim at it again)
+        state = service.get_cell_state(
+            game_id=game_id, player_id=player_id, coord=Coord.A1
+        )
+
+        # Assert
+        assert state == CellState.FIRED

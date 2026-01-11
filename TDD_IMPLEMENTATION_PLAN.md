@@ -2,23 +2,75 @@
 
 ## Executive Summary
 
-This plan breaks down the 48 scenarios from `features/two_player_gameplay.feature` into **7 manageable phases**, following strict RED-GREEN-REFACTOR discipline. Each phase builds incrementally on the previous one, starting with core domain models and progressing through services, endpoints, and UI components.
+This plan breaks down the **58 scenarios** from `features/two_player_gameplay.feature` into **7 manageable phases**, following strict RED-GREEN-REFACTOR discipline. Each phase builds incrementally on the previous one, starting with core domain models and progressing through services, endpoints, and UI components.
+
+**Last Updated**: After Phase 1 and Phase 2 Cycles 2.1-2.5 completion and user feedback on UI interaction patterns.
 
 **Estimated Timeline**: 7-10 development sessions (1-2 phases per session)
 
 ---
 
+## Completion Status
+
+### ✅ Phase 1: Round & Shot Domain Models (COMPLETE)
+- ✅ Round, Shot, HitResult, RoundResult models created
+- ✅ GameBoard shot tracking implemented
+- ✅ Shots available calculation working
+- ✅ 20 unit tests passing
+
+### ✅ Phase 2: Shot Aiming & Validation - Cycles 2.1-2.5 (COMPLETE)
+- ✅ GameplayService with aim_shot(), get_aimed_shots(), clear_aimed_shot()
+- ✅ JSON API endpoints for testing
+- ✅ HTMX templates created (opponent_board.html, aimed_shots_list.html, shot_counter.html, fire_shots_button.html)
+- ✅ 19 tests passing (8 unit + 11 integration)
+
+### 🔄 Phase 2: Shot Aiming UI Integration (IN PROGRESS)
+- ⏳ Integrate components with Shots Fired board
+- ⏳ Implement cell state management (fired, aimed, available, unavailable)
+- ⏳ BDD scenarios for UI interaction
+
+### ⏳ Phase 3-7: Remaining Work
+
+---
+
 ## Phase Breakdown Overview
 
-| Phase | Focus Area | Scenarios | Complexity |
-|-------|-----------|-----------|------------|
-| **Phase 1** | Round & Shot Domain Models | 8 scenarios | Low |
-| **Phase 2** | Shot Aiming & Validation | 10 scenarios | Medium |
-| **Phase 3** | Simultaneous Shot Resolution | 8 scenarios | High |
-| **Phase 4** | Hit Feedback & Tracking | 9 scenarios | Medium |
-| **Phase 5** | Ship Sinking & Game End | 8 scenarios | Medium |
-| **Phase 6** | Real-Time Updates & Long-Polling | 5 scenarios | High |
-| **Phase 7** | Edge Cases & Error Handling | 10 scenarios | Medium |
+| Phase | Focus Area | Scenarios | Status |
+|-------|-----------|-----------|--------|
+| **Phase 1** | Round & Shot Domain Models | 8 scenarios | ✅ COMPLETE |
+| **Phase 2** | Shot Aiming & Validation | 19 scenarios | 🔄 IN PROGRESS |
+| **Phase 3** | Simultaneous Shot Resolution | 8 scenarios | ⏳ TODO |
+| **Phase 4** | Hit Feedback & Tracking | 9 scenarios | ⏳ TODO |
+| **Phase 5** | Ship Sinking & Game End | 11 scenarios | ⏳ TODO |
+| **Phase 6** | Real-Time Updates & Long-Polling | 3 scenarios | ⏳ TODO |
+| **Phase 7** | Edge Cases & Error Handling | 10 scenarios | ⏳ TODO |
+
+---
+
+## Key User Feedback & UI Changes
+
+### Original Plan vs. Updated Approach
+
+**Original Plan**:
+- Separate "Aimed Shots" board for selecting shots
+- "Shots Fired" board for viewing past shots only
+
+**Updated Approach (Based on User Feedback)**:
+- **Single board** ("Shots Fired") serves dual purpose:
+  - Shows previously fired shots from past rounds
+  - Allows clicking cells to aim new shots for current round
+- **Aimed shots list** shows selected shots with remove buttons
+- **Shot counter** shows "Shots Aimed: X/Y available"
+- **Fire Shots button** submits all aimed shots together
+
+### Cell States on Shots Fired Board
+
+| State | Description | Visual | Clickable |
+|-------|-------------|--------|-----------|
+| **Fired** | Shot fired in previous round | Round number marker | ❌ No |
+| **Aimed** | Shot aimed for current round | Highlighted/marked | ✅ Yes (to remove) |
+| **Available** | Valid target for aiming | Default style | ✅ Yes |
+| **Unavailable** | Already fired or limit reached | Disabled style | ❌ No |
 
 ---
 
@@ -120,187 +172,243 @@ class Game:
 
 ---
 
-## Phase 1: Round & Shot Domain Models
+## Phase 1: Round & Shot Domain Models ✅ COMPLETE
 
 **Goal**: Establish core domain models for rounds, shots, and hit tracking.
 
-### RED-GREEN-REFACTOR Cycles
+### Completion Summary
+- ✅ Round, Shot, HitResult, RoundResult models created in `game/round.py`
+- ✅ GameBoard enhanced with shot tracking methods
+- ✅ Shots available calculation implemented
+- ✅ 20 unit tests passing in `tests/unit/test_round.py` and `tests/unit/test_game_board.py`
+- ✅ Type hints comprehensive and verified
 
-#### Cycle 1.1: Round Model Creation
-**RED**: Write unit test for `Round` class initialization
-```python
-# tests/unit/test_round.py
-def test_round_initialization():
-    round = Round(round_number=1, game_id="game123")
-    assert round.round_number == 1
-    assert round.game_id == "game123"
-    assert round.aimed_shots == {}
-    assert round.submitted_players == set()
-    assert round.is_resolved is False
-```
-
-**GREEN**: Create `game/round.py` with minimal `Round` class
-
-**REFACTOR**: Add type hints, docstrings
-
-#### Cycle 1.2: Shot Model Creation
-**RED**: Write unit test for `Shot` dataclass
-```python
-def test_shot_creation():
-    shot = Shot(coord=Coord.A1, round_number=1, player_id="p1")
-    assert shot.coord == Coord.A1
-    assert shot.round_number == 1
-```
-
-**GREEN**: Create `Shot` dataclass in `game/round.py`
-
-**REFACTOR**: Ensure proper type hints
-
-#### Cycle 1.3: GameBoard Shot Recording
-**RED**: Write unit test for recording shots received
-```python
-def test_record_shot_received():
-    board = GameBoard()
-    board.record_shot_received(Coord.A1, round_number=1)
-    assert board.shots_received[Coord.A1] == 1
-```
-
-**GREEN**: Implement `record_shot_received()` method
-
-**REFACTOR**: Extract common patterns
-
-#### Cycle 1.4: Shots Available Calculation
-**RED**: Write unit test for calculating shots available
-```python
-def test_calculate_shots_available_all_ships():
-    board = GameBoard()
-    # Place all 5 ships
-    # ...
-    assert board.calculate_shots_available() == 6
-```
-
-**GREEN**: Implement `calculate_shots_available()` method
-
-**REFACTOR**: Clean up logic
-
-### BDD Scenarios to Implement
-- Scenario: Game starts at Round 1 with 6 shots available
-
-### Delegation Strategy
-- **@fastapi-service-builder**: Not needed yet (domain models only)
-- **@type-hint-enforcer**: Review after all models created
-
-### Success Criteria
-- [ ] All unit tests pass for Round, Shot, HitResult, RoundResult
-- [ ] GameBoard can track shots with round numbers
-- [ ] Shots available calculation works correctly
-- [ ] Type hints comprehensive and verified
+### BDD Scenarios Covered
+- ✅ Scenario: Game starts at Round 1 with 6 shots available
 
 ---
 
-## Phase 2: Shot Aiming & Validation
+## Phase 2: Shot Aiming & Validation 🔄 IN PROGRESS
 
-**Goal**: Implement shot aiming UI and validation logic.
+**Goal**: Implement shot aiming UI with single-board interaction pattern and validation logic.
 
-### RED-GREEN-REFACTOR Cycles
+### Completed Cycles (2.1-2.5) ✅
 
-#### Cycle 2.1: Aim Shot Service Method
-**RED**: Write unit test for aiming a shot
-```python
-# tests/unit/test_gameplay_service.py
-def test_aim_shot_valid():
-    service = GameplayService()
-    result = service.aim_shot(game_id="g1", player_id="p1", coord=Coord.A1)
-    assert result.success is True
-```
+#### Cycle 2.1: Aim Shot Service Method ✅
+- ✅ Unit tests for `aim_shot()` method
+- ✅ `services/gameplay_service.py` created with `aim_shot()` method
+- ✅ Basic validation logic implemented
 
-**GREEN**: Create `services/gameplay_service.py` with `aim_shot()` method
+#### Cycle 2.2: Duplicate Shot Validation ✅
+- ✅ Unit tests for duplicate shot detection
+- ✅ Duplicate validation in `aim_shot()`
 
-**REFACTOR**: Add validation logic
+#### Cycle 2.3: Shot Limit Validation ✅
+- ✅ Unit tests for shot limit enforcement
+- ✅ Shot limit validation implemented
 
-#### Cycle 2.2: Duplicate Shot Validation
-**RED**: Write unit test for duplicate shot detection
-```python
-def test_aim_shot_duplicate_in_round():
-    service = GameplayService()
-    service.aim_shot(game_id="g1", player_id="p1", coord=Coord.A1)
-    result = service.aim_shot(game_id="g1", player_id="p1", coord=Coord.A1)
-    assert result.success is False
-    assert "already selected" in result.error_message
-```
+#### Cycle 2.4: Aim Shot Endpoints ✅
+- ✅ Integration tests for `/game/{id}/aim-shot` (POST)
+- ✅ Integration tests for `/game/{id}/aim-shot/{coord}` (DELETE)
+- ✅ Integration tests for `/game/{id}/aimed-shots` (GET)
+- ✅ JSON endpoints created in `main.py`
 
-**GREEN**: Add duplicate detection to `aim_shot()`
+#### Cycle 2.5: HTMX Template Components ✅
+- ✅ `templates/components/opponent_board.html` - Clickable grid
+- ✅ `templates/components/aimed_shots_list.html` - List with remove buttons
+- ✅ `templates/components/shot_counter.html` - Counter display
+- ✅ `templates/components/fire_shots_button.html` - Fire button
+- ✅ `templates/components/aiming_interface.html` - Wrapper component
+- ✅ `templates/gameplay.html` - Main page with HTMX integration
 
-**REFACTOR**: Extract validation to separate method
+### Remaining Cycles (2.6-2.10) ⏳
 
-#### Cycle 2.3: Shot Limit Validation
-**RED**: Write unit test for shot limit
-```python
-def test_aim_shot_exceeds_limit():
-    service = GameplayService()
-    # Aim 6 shots
-    for i in range(6):
-        service.aim_shot(game_id="g1", player_id="p1", coord=...)
-    # Try 7th shot
-    result = service.aim_shot(game_id="g1", player_id="p1", coord=Coord.G1)
-    assert result.success is False
-```
+#### Cycle 2.6: Rename and Integrate Opponent Board with Shots Fired Board
+**Goal**: Rename `opponent_board.html` to `shots_fired_board.html` and integrate it to show both past shots and aiming interface.
 
-**GREEN**: Add shot limit validation
-
-**REFACTOR**: Clean up validation logic
-
-#### Cycle 2.4: Aim Shot Endpoint
-**RED**: Write integration test for `POST /game/{id}/aim-shot`
-```python
-# tests/endpoint/test_gameplay_endpoints.py
-def test_aim_shot_endpoint(client):
-    response = client.post("/game/g1/aim-shot", json={"coord": "A1"})
-    assert response.status_code == 200
-```
-
-**GREEN**: Create endpoint in `main.py`
-
-**REFACTOR**: Extract to service layer
-
-#### Cycle 2.5: Aiming UI Component
-**RED**: Write BDD test for aiming UI
+**RED**: Write BDD test for clicking on Shots Fired board
 ```python
 # tests/bdd/test_gameplay_steps.py
-@when('I select coordinate "A1" to aim at')
-def step_select_coordinate(page, coord):
-    page.click(f'[data-coord="{coord}"]')
+@when('I click on cell "A1" on my Shots Fired board')
+def step_click_shots_fired_cell(page, coord):
+    page.click(f'[data-testid="shots-fired-cell-{coord}"]')
+    
+@then('I should see "A1" in the aimed shots list')
+def step_see_in_aimed_list(page, coord):
+    assert page.locator(f'[data-testid="aimed-shot-{coord}"]').is_visible()
 ```
 
-**GREEN**: Create HTMX template for aiming interface
+**GREEN**: 
+1. Rename `opponent_board.html` to `shots_fired_board.html`
+2. Update template to show:
+   - Past fired shots with round numbers (read-only)
+   - Available cells for aiming (clickable)
+   - Currently aimed shots (highlighted, clickable to remove)
+3. Update `gameplay.html` to use renamed component
+4. Update HTMX endpoints to return updated board state
 
-**REFACTOR**: Extract reusable components
+**REFACTOR**: 
+- Extract cell state logic to helper function
+- Ensure proper CSS classes for each state
+- Add comprehensive data-testid attributes
 
-### BDD Scenarios to Implement
-- Scenario: Selecting multiple shot coordinates for aiming
-- Scenario: Cannot select the same coordinate twice in aiming phase
-- Scenario: Cannot select more shots than available
-- Scenario: Can fire fewer shots than available
-- Scenario: Cannot fire at coordinates already fired at in previous rounds
-- Scenario: Cannot fire at invalid coordinates
-- Scenario: Must fire at unique coordinates within the same round
+#### Cycle 2.7: Cell State Management
+**Goal**: Implement proper cell state logic (fired, aimed, available, unavailable).
 
-### Delegation Strategy
-- **@fastapi-service-builder**: Create `GameplayService` with `aim_shot()`, `get_aimed_shots()`, `clear_aimed_shots()`
-- **@htmx-template-builder**: Create aiming UI component (clickable opponent board)
-- **@dual-test-implementer**: Implement BDD step definitions for aiming scenarios
-- **@css-theme-designer**: Style aiming interface (selected shots, disabled cells)
+**RED**: Write unit tests for cell state determination
+```python
+# tests/unit/test_gameplay_service.py
+def test_get_cell_state_fired():
+    service = GameplayService()
+    # Setup: Cell A1 fired in round 1
+    state = service.get_cell_state(game_id="g1", player_id="p1", coord=Coord.A1)
+    assert state == CellState.FIRED
+    assert state.round_number == 1
 
-### Success Criteria
-- [ ] Unit tests pass for `GameplayService.aim_shot()`
-- [ ] Integration tests pass for `/game/{id}/aim-shot` endpoint
-- [ ] BDD scenarios pass (FastAPI + Playwright)
-- [ ] UI allows selecting/deselecting shots
-- [ ] Validation prevents invalid shots
+def test_get_cell_state_aimed():
+    service = GameplayService()
+    # Setup: Cell A1 aimed in current round
+    service.aim_shot(game_id="g1", player_id="p1", coord=Coord.A1)
+    state = service.get_cell_state(game_id="g1", player_id="p1", coord=Coord.A1)
+    assert state == CellState.AIMED
+
+def test_get_cell_state_unavailable_limit_reached():
+    service = GameplayService()
+    # Setup: 6 shots already aimed
+    for i in range(6):
+        service.aim_shot(game_id="g1", player_id="p1", coord=...)
+    state = service.get_cell_state(game_id="g1", player_id="p1", coord=Coord.G1)
+    assert state == CellState.UNAVAILABLE
+```
+
+**GREEN**: 
+1. Create `CellState` enum in `services/gameplay_service.py`
+2. Implement `get_cell_state()` method
+3. Update template to use cell state for styling and clickability
+
+**REFACTOR**: 
+- Extract state determination logic
+- Add comprehensive type hints
+- Optimize state lookups
+
+#### Cycle 2.8: Aimed Shots List Integration
+**Goal**: Ensure aimed shots list updates correctly when shots are added/removed.
+
+**RED**: Write BDD tests for list updates
+```python
+@when('I click on cell "A1" on my Shots Fired board')
+@and('I click on cell "B2" on my Shots Fired board')
+@then('I should see 2 shots in the aimed shots list')
+def step_see_aimed_count(page):
+    items = page.locator('[data-testid="aimed-shots-items"] li').count()
+    assert items == 2
+
+@when('I click the remove button for shot "A1"')
+@then('I should see 1 shot in the aimed shots list')
+def step_see_reduced_count(page):
+    items = page.locator('[data-testid="aimed-shots-items"] li').count()
+    assert items == 1
+```
+
+**GREEN**: 
+1. Ensure HTMX updates target the correct container
+2. Test add/remove flow end-to-end
+3. Verify list updates without page refresh
+
+**REFACTOR**: 
+- Optimize HTMX swap strategy
+- Add loading indicators if needed
+
+#### Cycle 2.9: Shot Counter Updates
+**Goal**: Ensure shot counter updates correctly as shots are aimed/removed.
+
+**RED**: Write BDD tests for counter updates
+```python
+@given('I have 6 shots available')
+@when('I aim 3 shots')
+@then('I should see "Shots Aimed: 3/6" displayed')
+def step_see_counter(page):
+    counter = page.locator('[data-testid="shot-counter-value"]').inner_text()
+    assert "3" in counter and "6" in counter
+
+@when('I aim 6 shots')
+@then('I should see "Shot limit reached" message')
+def step_see_limit_message(page):
+    assert page.locator('[data-testid="shot-limit-message"]').is_visible()
+```
+
+**GREEN**: 
+1. Ensure counter updates with each aim/remove action
+2. Show appropriate messages for limit reached
+3. Test edge cases (0 shots, max shots)
+
+**REFACTOR**: 
+- Extract counter logic to reusable component
+- Add animations for counter changes
+
+#### Cycle 2.10: Fire Button State Management
+**Goal**: Ensure Fire Shots button is enabled/disabled correctly.
+
+**RED**: Write BDD tests for button state
+```python
+@given('I have not aimed any shots')
+@then('the "Fire Shots" button should be disabled')
+def step_button_disabled(page):
+    button = page.locator('[data-testid="fire-shots-button"]')
+    assert button.is_disabled()
+
+@when('I aim 1 shot')
+@then('the "Fire Shots" button should be enabled')
+def step_button_enabled(page):
+    button = page.locator('[data-testid="fire-shots-button"]')
+    assert not button.is_disabled()
+```
+
+**GREEN**: 
+1. Update button template to check aimed_count
+2. Test button state changes dynamically
+3. Ensure button shows correct shot count
+
+**REFACTOR**: 
+- Add visual feedback for button state
+- Optimize button rendering
+
+### BDD Scenarios to Implement in Phase 2
+
+**Aiming Interaction** (Updated for single-board pattern):
+- ✅ Scenario: Selecting multiple shot coordinates for aiming
+- ✅ Scenario: Cannot select the same coordinate twice in aiming phase
+- ✅ Scenario: Cannot select more shots than available
+- ✅ Scenario: Can fire fewer shots than available
+
+**Validation**:
+- ⏳ Scenario: Cannot fire at coordinates already fired at in previous rounds
+- ⏳ Scenario: Cannot fire at invalid coordinates
+- ⏳ Scenario: Must fire at unique coordinates within the same round
+
+**UI Components** (New scenarios from updated feature file):
+- ⏳ Scenario: Aimed shots list shows all aimed shots with remove buttons
+- ⏳ Scenario: Shot counter updates as shots are aimed
+- ⏳ Scenario: Fire Shots button is disabled when no shots aimed
+- ⏳ Scenario: Fire Shots button is enabled when shots are aimed
+- ⏳ Scenario: Clicking on fired cell shows error message
+- ⏳ Scenario: Clicking on aimed cell removes it from aimed list
+- ⏳ Scenario: Cell states are visually distinct (fired, aimed, available, unavailable)
+- ⏳ Scenario: Shot limit enforcement prevents clicking when limit reached
+
+### Success Criteria for Phase 2
+- ✅ Unit tests pass for `GameplayService.aim_shot()`, `get_aimed_shots()`, `clear_aimed_shot()`
+- ✅ Integration tests pass for aiming endpoints
+- ⏳ BDD scenarios pass for single-board aiming interaction
+- ⏳ Shots Fired board shows past shots and allows aiming new shots
+- ⏳ Aimed shots list updates correctly
+- ⏳ Shot counter updates correctly
+- ⏳ Fire button state management works
+- ⏳ Cell states are visually distinct and enforce business rules
 
 ---
 
-## Phase 3: Simultaneous Shot Resolution
+## Phase 3: Simultaneous Shot Resolution ⏳ TODO
 
 **Goal**: Implement simultaneous shot firing and round resolution.
 
@@ -391,12 +499,6 @@ def step_see_waiting_message(page):
 - Scenario: Round number increments after both players fire
 - Scenario: Round number stays same while waiting for opponent
 
-### Delegation Strategy
-- **@fastapi-service-builder**: Create `fire_shots()`, `resolve_round()`, `_detect_hits()` methods
-- **@htmx-template-builder**: Create waiting state UI, round results display
-- **@dual-test-implementer**: Implement BDD step definitions for firing scenarios
-- **@css-theme-designer**: Style waiting indicator, round transition
-
 ### Success Criteria
 - [ ] Unit tests pass for `fire_shots()` and `resolve_round()`
 - [ ] Integration tests pass for `/game/{id}/fire-shots` endpoint
@@ -406,7 +508,7 @@ def step_see_waiting_message(page):
 
 ---
 
-## Phase 4: Hit Feedback & Tracking
+## Phase 4: Hit Feedback & Tracking ⏳ TODO
 
 **Goal**: Implement ship-based hit feedback and Hits Made area.
 
@@ -468,7 +570,7 @@ def step_see_carrier_hits(page):
 
 **REFACTOR**: Extract ship hit display component
 
-#### Cycle 4.5: Shots Fired Board Display
+#### Cycle 4.5: Shots Fired Board Display with Round Numbers
 **RED**: Write BDD test for shots fired board
 ```python
 @then('coordinates "A1", "B2", "C3" should be marked with "1" on my Shots Fired board')
@@ -476,7 +578,7 @@ def step_see_shots_marked(page):
     assert page.locator('[data-coord="A1"]').inner_text() == "1"
 ```
 
-**GREEN**: Update shots fired board template
+**GREEN**: Update shots fired board template to show round numbers
 
 **REFACTOR**: Extract round number display logic
 
@@ -491,12 +593,6 @@ def step_see_shots_marked(page):
 - Scenario: Hits Made area shows ship-level hit tracking
 - Scenario: Both boards are visible simultaneously
 
-### Delegation Strategy
-- **@fastapi-service-builder**: Create `calculate_hit_feedback()`, `get_round_results()` methods
-- **@htmx-template-builder**: Create Hits Made area component, update board displays
-- **@dual-test-implementer**: Implement BDD step definitions for hit feedback scenarios
-- **@css-theme-designer**: Style Hits Made area, round number markers
-
 ### Success Criteria
 - [ ] Unit tests pass for hit feedback calculation
 - [ ] Integration tests pass for round results endpoint
@@ -506,7 +602,7 @@ def step_see_shots_marked(page):
 
 ---
 
-## Phase 5: Ship Sinking & Game End
+## Phase 5: Ship Sinking & Game End ⏳ TODO
 
 **Goal**: Implement ship sinking detection and win/loss/draw conditions.
 
@@ -601,12 +697,6 @@ def step_see_win_message(page):
 - Scenario: Losing the game when all my ships are sunk
 - Scenario: Draw when both players sink all ships in the same round
 
-### Delegation Strategy
-- **@fastapi-service-builder**: Create `check_game_over()`, update `resolve_round()` with sinking logic
-- **@htmx-template-builder**: Create game over display, ship sunk notifications
-- **@dual-test-implementer**: Implement BDD step definitions for sinking scenarios
-- **@css-theme-designer**: Style game over screen, sunk ship indicators
-
 ### Success Criteria
 - [ ] Unit tests pass for ship sinking detection
 - [ ] Unit tests pass for win/loss/draw detection
@@ -616,7 +706,7 @@ def step_see_win_message(page):
 
 ---
 
-## Phase 6: Real-Time Updates & Long-Polling
+## Phase 6: Real-Time Updates & Long-Polling ⏳ TODO
 
 **Goal**: Implement long-polling for real-time round completion updates.
 
@@ -688,27 +778,10 @@ def step_see_results_auto(page):
 
 **REFACTOR**: Extract polling component
 
-#### Cycle 6.5: Connection Resilience
-**RED**: Write unit test for connection timeout
-```python
-async def test_long_poll_timeout():
-    response = await client.get("/game/g1/long-poll?version=1", timeout=31)
-    assert response.status_code == 204  # No change
-```
-
-**GREEN**: Add timeout handling to long-poll endpoint
-
-**REFACTOR**: Clean up error handling
-
 ### BDD Scenarios to Implement
 - Scenario: Real-time update when opponent fires
 - Scenario: Real-time update when both players fire simultaneously
 - Scenario: Long polling connection resilience
-
-### Delegation Strategy
-- **@fastapi-service-builder**: Create `wait_for_round_change()`, long-poll endpoint
-- **@htmx-template-builder**: Add HTMX long-polling attributes to templates
-- **@dual-test-implementer**: Implement BDD step definitions for real-time scenarios
 
 ### Success Criteria
 - [ ] Unit tests pass for version tracking
@@ -719,7 +792,7 @@ async def test_long_poll_timeout():
 
 ---
 
-## Phase 7: Edge Cases & Error Handling
+## Phase 7: Edge Cases & Error Handling ⏳ TODO
 
 **Goal**: Handle edge cases, errors, and special scenarios.
 
@@ -806,12 +879,6 @@ def step_refresh_maintains_state(page):
 - Scenario: Opponent reconnects after disconnection
 - Scenario: Player surrenders the game
 
-### Delegation Strategy
-- **@fastapi-service-builder**: Create `get_game_state()`, `surrender_game()`, disconnect detection
-- **@htmx-template-builder**: Add error messages, surrender button, disconnect UI
-- **@dual-test-implementer**: Implement BDD step definitions for edge cases
-- **@css-theme-designer**: Style error messages, disconnect warnings
-
 ### Success Criteria
 - [ ] Unit tests pass for all edge cases
 - [ ] Integration tests pass for error handling
@@ -823,7 +890,7 @@ def step_refresh_maintains_state(page):
 
 ## Service Layer Architecture
 
-### New Service: `services/gameplay_service.py`
+### GameplayService: `services/gameplay_service.py`
 
 ```python
 class GameplayService:
@@ -831,7 +898,7 @@ class GameplayService:
         self.game_service = game_service
         self.active_rounds: dict[str, Round] = {}  # game_id -> Round
         
-    # Phase 2: Aiming
+    # Phase 2: Aiming ✅
     def aim_shot(self, game_id: str, player_id: str, coord: Coord) -> AimShotResult:
         """Add a shot to the aiming queue for current round"""
         
@@ -840,8 +907,11 @@ class GameplayService:
         
     def clear_aimed_shot(self, game_id: str, player_id: str, coord: Coord) -> bool:
         """Remove a shot from aiming queue"""
+    
+    def get_cell_state(self, game_id: str, player_id: str, coord: Coord) -> CellState:
+        """Get the state of a cell (fired, aimed, available, unavailable)"""
         
-    # Phase 3: Firing
+    # Phase 3: Firing ⏳
     def fire_shots(self, game_id: str, player_id: str) -> FireShotsResult:
         """Submit aimed shots and wait for opponent"""
         
@@ -851,28 +921,28 @@ class GameplayService:
     def _detect_hits(self, game_id: str, player_id: str, shots: list[Coord]) -> list[HitResult]:
         """Detect which shots hit which ships"""
         
-    # Phase 4: Feedback
+    # Phase 4: Feedback ⏳
     def calculate_hit_feedback(self, game_id: str, player_id: str, round_number: int) -> dict[str, int]:
         """Calculate ship-level hit feedback for a round"""
         
     def get_round_results(self, game_id: str, round_number: int) -> RoundResult:
         """Get results for a specific round"""
         
-    # Phase 5: Game End
+    # Phase 5: Game End ⏳
     def check_game_over(self, game_id: str) -> GameOverResult:
         """Check if game is over and determine winner"""
         
     def surrender_game(self, game_id: str, player_id: str) -> GameOverResult:
         """Surrender the game"""
         
-    # Phase 6: Real-Time
+    # Phase 6: Real-Time ⏳
     async def wait_for_round_change(self, game_id: str, since_version: int) -> None:
         """Wait for round to resolve (long-polling)"""
         
     def get_round_version(self, game_id: str) -> int:
         """Get current round version for change detection"""
         
-    # Phase 7: State
+    # Phase 7: State ⏳
     def get_game_state(self, game_id: str, player_id: str) -> GameState:
         """Get complete game state for player"""
 ```
@@ -881,37 +951,40 @@ class GameplayService:
 
 ## API Endpoints
 
-### Phase 2: Aiming
-- `POST /game/{game_id}/aim-shot` - Add shot to aiming queue
+### Phase 2: Aiming ✅
+- ✅ `POST /game/{game_id}/aim-shot` - Add shot to aiming queue
   - Body: `{"coord": "A1"}`
   - Returns: `{"success": true, "aimed_count": 3, "shots_available": 6}`
 
-- `DELETE /game/{game_id}/aim-shot/{coord}` - Remove shot from aiming queue
+- ✅ `DELETE /game/{game_id}/aim-shot/{coord}` - Remove shot from aiming queue
   - Returns: `{"success": true, "aimed_count": 2}`
 
-- `GET /game/{game_id}/aimed-shots` - Get currently aimed shots
+- ✅ `GET /game/{game_id}/aimed-shots` - Get currently aimed shots
   - Returns: `{"coords": ["A1", "B2", "C3"], "count": 3}`
 
-### Phase 3: Firing
+- ⏳ `GET /game/{game_id}/aiming-interface` - Get HTMX aiming interface component
+  - Returns: HTML with shots fired board, aimed shots list, counter, fire button
+
+### Phase 3: Firing ⏳
 - `POST /game/{game_id}/fire-shots` - Submit aimed shots
   - Returns: `{"success": true, "waiting_for_opponent": true, "round_number": 1}`
 
 - `GET /game/{game_id}/round-status` - Check if round resolved
   - Returns: `{"resolved": false, "waiting_for": ["player2_id"]}`
 
-### Phase 4: Feedback
+### Phase 4: Feedback ⏳
 - `GET /game/{game_id}/round-results/{round_number}` - Get round results
   - Returns: `{"hits_made": {"Carrier": 2}, "ships_sunk": ["Destroyer"], ...}`
 
-### Phase 5: Game End
+### Phase 5: Game End ⏳
 - `POST /game/{game_id}/surrender` - Surrender the game
   - Returns: `{"game_over": true, "winner_id": "opponent_id"}`
 
-### Phase 6: Real-Time
+### Phase 6: Real-Time ⏳
 - `GET /game/{game_id}/long-poll?version={version}` - Wait for round change
   - Returns: `{"version": 2, "round_resolved": true}` or 204 No Content after timeout
 
-### Phase 7: State
+### Phase 7: State ⏳
 - `GET /game/{game_id}/state` - Get complete game state
   - Returns: Full game state including boards, rounds, history
 
@@ -919,14 +992,37 @@ class GameplayService:
 
 ## HTMX/Template Components
 
-### Phase 2: Aiming UI
-**Component**: `templates/components/aiming_board.html`
-- Clickable opponent board cells
-- Visual feedback for selected shots
-- Shots aimed counter: "Shots Aimed: 3/6"
-- Fire Shots button (enabled when shots aimed)
+### Phase 2: Aiming UI ✅ (with updates needed)
 
-### Phase 3: Firing UI
+**Component**: `templates/components/shots_fired_board.html` (renamed from opponent_board.html)
+- Shows past fired shots with round numbers (read-only)
+- Shows currently aimed shots (highlighted, clickable to remove)
+- Shows available cells for aiming (clickable to aim)
+- Shows unavailable cells (disabled)
+- Integrates with HTMX for dynamic updates
+
+**Component**: `templates/components/aimed_shots_list.html` ✅
+- Shows list of currently aimed shots
+- Remove button for each shot
+- Empty state message when no shots aimed
+
+**Component**: `templates/components/shot_counter.html` ✅
+- Shows "Shots Aimed: X/Y available"
+- Shows limit reached message
+- Shows remaining shots message
+
+**Component**: `templates/components/fire_shots_button.html` ✅
+- Fire button with shot count
+- Disabled when no shots aimed
+- Enabled when shots aimed
+- Shows hint when disabled
+
+**Component**: `templates/components/aiming_interface.html` ✅
+- Wrapper component combining all aiming components
+- Error message display
+- Integrates all sub-components
+
+### Phase 3: Firing UI ⏳
 **Component**: `templates/components/waiting_state.html`
 - "Waiting for opponent to fire..." message
 - Loading spinner/indicator
@@ -938,17 +1034,12 @@ class GameplayService:
 - Ships sunk notifications
 - Transition to next round
 
-### Phase 4: Hit Feedback UI
+### Phase 4: Hit Feedback UI ⏳
 **Component**: `templates/components/hits_made_area.html`
 - 5 ship rows (Carrier, Battleship, Cruiser, Submarine, Destroyer)
 - Round number markers for each hit
 - "SUNK" indicator for sunk ships
 - Total hits counter per ship
-
-**Component**: `templates/components/shots_fired_board.html`
-- 10x10 grid with round numbers
-- Hit/miss indicators
-- Color coding by round
 
 **Component**: `templates/components/my_ships_board.html`
 - Ship positions visible
@@ -956,13 +1047,13 @@ class GameplayService:
 - Hit/miss indicators on ships
 - Sunk ship highlighting
 
-### Phase 5: Game End UI
+### Phase 5: Game End UI ⏳
 **Component**: `templates/components/game_over.html`
 - Win/Loss/Draw message
 - Final statistics
 - "Return to Lobby" button
 
-### Phase 6: Real-Time UI
+### Phase 6: Real-Time UI ⏳
 **HTMX Attributes**: Add to waiting state component
 ```html
 <div hx-get="/game/{game_id}/long-poll?version={version}"
@@ -971,7 +1062,7 @@ class GameplayService:
      hx-target="#game-container">
 ```
 
-### Phase 7: Error Handling UI
+### Phase 7: Error Handling UI ⏳
 **Component**: `templates/components/error_message.html`
 - Network error display
 - Opponent disconnect warning
@@ -986,46 +1077,46 @@ class GameplayService:
 ## Testing Strategy
 
 ### Unit Tests (`tests/unit/`)
-**Phase 1**: 
+**Phase 1** ✅: 
 - `test_round.py` - Round, Shot, HitResult, RoundResult models
 - `test_game_board.py` - Shot recording, hit tracking, shots available
 
-**Phase 2**:
-- `test_gameplay_service.py` - Aiming logic, validation
+**Phase 2** ✅:
+- `test_gameplay_service.py` - Aiming logic, validation (8 tests passing)
 
-**Phase 3**:
+**Phase 3** ⏳:
 - `test_gameplay_service.py` - Firing, round resolution, hit detection
 
-**Phase 4**:
+**Phase 4** ⏳:
 - `test_gameplay_service.py` - Hit feedback calculation
 - `test_game_board.py` - Hits Made tracking
 
-**Phase 5**:
+**Phase 5** ⏳:
 - `test_gameplay_service.py` - Ship sinking, game over detection
 
-**Phase 6**:
+**Phase 6** ⏳:
 - `test_gameplay_service.py` - Version tracking, async waiting
 
-**Phase 7**:
+**Phase 7** ⏳:
 - `test_gameplay_service.py` - State management, error handling
 
 ### Integration Tests (`tests/endpoint/`)
-**Phase 2**:
-- `test_gameplay_endpoints.py` - Aiming endpoints
+**Phase 2** ✅:
+- `test_gameplay_endpoints.py` - Aiming endpoints (11 tests passing)
 
-**Phase 3**:
+**Phase 3** ⏳:
 - `test_gameplay_endpoints.py` - Firing endpoints
 
-**Phase 4**:
+**Phase 4** ⏳:
 - `test_gameplay_endpoints.py` - Round results endpoints
 
-**Phase 5**:
+**Phase 5** ⏳:
 - `test_gameplay_endpoints.py` - Surrender endpoint
 
-**Phase 6**:
+**Phase 6** ⏳:
 - `test_gameplay_endpoints.py` - Long-polling endpoint
 
-**Phase 7**:
+**Phase 7** ⏳:
 - `test_gameplay_endpoints.py` - State endpoint, error scenarios
 
 ### BDD Tests (`tests/bdd/`)
@@ -1037,92 +1128,86 @@ class GameplayService:
 
 ## Implementation Order (Step-by-Step)
 
-### Session 1: Phase 1 (Foundation)
-1. Create `game/round.py` with domain models
-2. Write unit tests for Round, Shot, HitResult, RoundResult
-3. Enhance GameBoard with shot tracking methods
-4. Write unit tests for shot recording
-5. Implement shots available calculation
-6. Run all tests, refactor
-7. **Delegate to @type-hint-enforcer** for verification
+### ✅ Session 1: Phase 1 (Foundation) - COMPLETE
+1. ✅ Created `game/round.py` with domain models
+2. ✅ Wrote unit tests for Round, Shot, HitResult, RoundResult
+3. ✅ Enhanced GameBoard with shot tracking methods
+4. ✅ Wrote unit tests for shot recording
+5. ✅ Implemented shots available calculation
+6. ✅ All tests passing, refactored
 
-### Session 2: Phase 2 (Aiming - Part 1)
-1. Create `services/gameplay_service.py`
-2. Write unit tests for `aim_shot()` method
-3. Implement `aim_shot()` with basic validation
-4. Write unit tests for duplicate detection
-5. Implement duplicate validation
-6. Run all tests, refactor
-7. **Delegate to @fastapi-service-builder** for service review
+### ✅ Session 2-3: Phase 2 Cycles 2.1-2.5 (Aiming - Part 1) - COMPLETE
+1. ✅ Created `services/gameplay_service.py`
+2. ✅ Wrote unit tests for `aim_shot()`, `get_aimed_shots()`, `clear_aimed_shot()`
+3. ✅ Implemented aiming methods with validation
+4. ✅ Wrote integration tests for aiming endpoints
+5. ✅ Created JSON endpoints in `main.py`
+6. ✅ Created HTMX template components
+7. ✅ 19 tests passing (8 unit + 11 integration)
 
-### Session 3: Phase 2 (Aiming - Part 2)
-1. Write integration tests for `/game/{id}/aim-shot` endpoint
-2. Create endpoint in `main.py`
-3. Write BDD step definitions for aiming scenarios
-4. **Delegate to @dual-test-implementer** for BDD implementation
-5. **Delegate to @htmx-template-builder** for aiming UI
-6. **Delegate to @css-theme-designer** for styling
-7. Run all tests (unit + integration + BDD)
+### 🔄 Session 4: Phase 2 Cycles 2.6-2.10 (Aiming - Part 2) - IN PROGRESS
+1. ⏳ Rename `opponent_board.html` to `shots_fired_board.html`
+2. ⏳ Integrate board to show past shots and aiming interface
+3. ⏳ Implement cell state management (CellState enum, get_cell_state())
+4. ⏳ Write BDD tests for single-board interaction
+5. ⏳ Test aimed shots list integration
+6. ⏳ Test shot counter updates
+7. ⏳ Test fire button state management
+8. ⏳ Run all tests (unit + integration + BDD)
 
-### Session 4: Phase 3 (Firing - Part 1)
+### ⏳ Session 5: Phase 3 (Firing - Part 1)
 1. Write unit tests for `fire_shots()` method
 2. Implement `fire_shots()` method
 3. Write unit tests for `resolve_round()` method
 4. Implement basic round resolution
 5. Run all tests, refactor
-6. **Delegate to @fastapi-service-builder** for service review
 
-### Session 5: Phase 3 (Firing - Part 2)
+### ⏳ Session 6: Phase 3 (Firing - Part 2)
 1. Write unit tests for hit detection
 2. Implement `_detect_hits()` helper method
 3. Write integration tests for firing endpoint
 4. Create `/game/{id}/fire-shots` endpoint
 5. Write BDD step definitions for firing scenarios
-6. **Delegate to @dual-test-implementer** for BDD implementation
-7. **Delegate to @htmx-template-builder** for waiting UI
-8. Run all tests
+6. Create waiting UI template
+7. Run all tests
 
-### Session 6: Phase 4 (Hit Feedback - Part 1)
+### ⏳ Session 7: Phase 4 (Hit Feedback - Part 1)
 1. Write unit tests for hit feedback calculation
 2. Implement `calculate_hit_feedback()` method
 3. Write unit tests for Hits Made tracking
 4. Enhance GameBoard with hit tracking methods
 5. Run all tests, refactor
-6. **Delegate to @fastapi-service-builder** for service review
 
-### Session 7: Phase 4 (Hit Feedback - Part 2)
+### ⏳ Session 8: Phase 4 (Hit Feedback - Part 2)
 1. Write integration tests for round results endpoint
 2. Create `/game/{id}/round-results/{round}` endpoint
 3. Write BDD step definitions for hit feedback scenarios
-4. **Delegate to @dual-test-implementer** for BDD implementation
-5. **Delegate to @htmx-template-builder** for Hits Made area UI
-6. **Delegate to @css-theme-designer** for styling
-7. Run all tests
+4. Create Hits Made area UI template
+5. Update Shots Fired board to show round numbers
+6. Run all tests
 
-### Session 8: Phase 5 (Ship Sinking & Game End)
+### ⏳ Session 9: Phase 5 (Ship Sinking & Game End)
 1. Write unit tests for ship sinking detection
 2. Implement `is_ship_sunk()` method
 3. Write unit tests for game over detection
 4. Implement `check_game_over()` method
 5. Update `resolve_round()` with sinking logic
 6. Write BDD step definitions for sinking scenarios
-7. **Delegate to @dual-test-implementer** for BDD implementation
-8. **Delegate to @htmx-template-builder** for game over UI
-9. Run all tests
+7. Create game over UI template
+8. Run all tests
 
-### Session 9: Phase 6 (Real-Time Updates)
+### ⏳ Session 10: Phase 6 (Real-Time Updates)
 1. Write unit tests for version tracking
 2. Implement version tracking in Game class
 3. Write unit tests for `wait_for_round_change()`
 4. Implement async waiting logic
 5. Write integration tests for long-polling endpoint
 6. Create `/game/{id}/long-poll` endpoint
-7. **Delegate to @htmx-template-builder** for HTMX integration
+7. Add HTMX long-polling to templates
 8. Write BDD step definitions for real-time scenarios
-9. **Delegate to @dual-test-implementer** for BDD implementation
-10. Run all tests
+9. Run all tests
 
-### Session 10: Phase 7 (Edge Cases & Polish)
+### ⏳ Session 11: Phase 7 (Edge Cases & Polish)
 1. Write unit tests for state management
 2. Implement `get_game_state()` method
 3. Write unit tests for surrender
@@ -1130,16 +1215,114 @@ class GameplayService:
 5. Write integration tests for error handling
 6. Add error handling to all endpoints
 7. Write BDD step definitions for edge cases
-8. **Delegate to @dual-test-implementer** for BDD implementation
-9. **Delegate to @htmx-template-builder** for error UI
-10. **Delegate to @type-hint-enforcer** for final verification
-11. Run all tests, final refactor
+8. Create error UI templates
+9. Run all tests, final refactor
+
+---
+
+## Next Steps for User
+
+### Immediate Next Steps (Phase 2 Completion)
+
+1. **Cycle 2.6: Rename and Integrate Board**
+   - Rename `templates/components/opponent_board.html` to `shots_fired_board.html`
+   - Update template to show:
+     - Past fired shots (from `shots_fired` dict with round numbers)
+     - Currently aimed shots (from `aimed_shots` list)
+     - Available cells (clickable)
+     - Unavailable cells (disabled)
+   - Update `gameplay.html` and `aiming_interface.html` to use renamed component
+   - Test board rendering with mixed states
+
+2. **Cycle 2.7: Implement Cell State Logic**
+   - Create `CellState` enum in `services/gameplay_service.py`
+   - Implement `get_cell_state()` method with unit tests
+   - Update template to use cell state for styling
+   - Test all cell state combinations
+
+3. **Cycle 2.8-2.10: Integration Testing**
+   - Write BDD step definitions for single-board interaction
+   - Test aimed shots list updates
+   - Test shot counter updates
+   - Test fire button state management
+   - Run full BDD test suite
+
+4. **Phase 2 Completion Checklist**
+   - [ ] All unit tests passing
+   - [ ] All integration tests passing
+   - [ ] All BDD scenarios for Phase 2 passing
+   - [ ] Manual UI testing confirms expected behavior
+   - [ ] Code reviewed and refactored
+   - [ ] Ready to move to Phase 3
+
+### Questions for User
+
+1. **Template Structure**: Should we keep the current structure where `aiming_interface.html` wraps all components, or would you prefer a different layout?
+
+2. **Cell Click Behavior**: When a user clicks an aimed cell, should it:
+   - Remove the aim (current plan)
+   - Show a confirmation dialog
+   - Do nothing (require using the remove button in the list)
+
+3. **Visual Design**: Do you have preferences for how the different cell states should look? (colors, icons, etc.)
+
+4. **Error Messages**: Where should error messages appear?
+   - Top of aiming interface (current plan)
+   - Toast/notification
+   - Inline near the board
+
+5. **Testing Priority**: Should we focus on:
+   - Unit tests first, then BDD
+   - BDD first to validate UI behavior
+   - Both in parallel
+
+---
+
+## Summary of Key Changes from Original Plan
+
+### 1. UI Interaction Pattern
+**Before**: Separate "Aimed Shots" board for aiming
+**After**: Single "Shots Fired" board for both viewing past shots and aiming new shots
+
+### 2. Component Structure
+**Before**: `opponent_board.html` (aiming only)
+**After**: `shots_fired_board.html` (past shots + aiming + aimed shots)
+
+### 3. Cell States
+**Added**: Comprehensive cell state management (fired, aimed, available, unavailable)
+
+### 4. New Scenarios
+**Added**: 8 new scenarios covering aimed shots list, shot counter, fire button, and cell states
+
+### 5. Phase 2 Expansion
+**Before**: 10 scenarios, 5 cycles
+**After**: 19 scenarios, 10 cycles (to account for UI integration complexity)
+
+### 6. Testing Approach
+**Enhanced**: More emphasis on BDD testing for UI interaction patterns
 
 ---
 
 ## Potential Challenges & Solutions
 
-### Challenge 1: Simultaneous Shot Resolution (Race Conditions)
+### Challenge 1: Cell State Complexity
+**Problem**: Managing multiple cell states (fired, aimed, available, unavailable) can be complex.
+
+**Solution**:
+- Create clear `CellState` enum
+- Implement `get_cell_state()` method with comprehensive unit tests
+- Use data attributes in HTML for easy state identification
+- CSS classes for visual distinction
+
+### Challenge 2: HTMX Swap Targets
+**Problem**: Multiple components need to update when a shot is aimed/removed.
+
+**Solution**:
+- Use `hx-target="#aiming-interface"` to swap entire interface
+- Alternative: Use HTMX events to trigger multiple updates
+- Consider using `hx-swap="outerHTML"` for clean updates
+
+### Challenge 3: Simultaneous Shot Resolution (Race Conditions)
 **Problem**: Both players might fire at exactly the same time, causing race conditions.
 
 **Solution**:
@@ -1164,7 +1347,7 @@ class GameplayService:
                 await self.resolve_round(game_id)
 ```
 
-### Challenge 2: Long-Polling Timeout Management
+### Challenge 4: Long-Polling Timeout Management
 **Problem**: Long-polling connections might timeout or disconnect.
 
 **Solution**:
@@ -1186,7 +1369,7 @@ async def long_poll(game_id: str, version: int):
         return Response(status_code=204)  # No change
 ```
 
-### Challenge 3: Ship-Based Hit Feedback (Not Coordinate-Based)
+### Challenge 5: Ship-Based Hit Feedback (Not Coordinate-Based)
 **Problem**: Players learn which ship was hit, but not exact coordinates.
 
 **Solution**:
@@ -1206,96 +1389,12 @@ def calculate_hit_feedback(self, shots: list[Coord], opponent_board: GameBoard) 
     return hits_by_ship
 ```
 
-### Challenge 4: Hits Made Area Tracking
-**Problem**: Need to track which ships were hit in which rounds, cumulatively.
-
-**Solution**:
-- Store hits as list of (coord, round_number) tuples per ship
-- Display round numbers in Hits Made area
-- Show cumulative total hits per ship
-
-```python
-@dataclass
-class Ship:
-    ship_type: ShipType
-    positions: list[Coord]
-    hits: list[tuple[Coord, int]] = field(default_factory=list)  # (coord, round)
-    
-    def get_hits_by_round(self) -> dict[int, int]:
-        """Return {round_number: hit_count}"""
-        hits_by_round: dict[int, int] = {}
-        for coord, round_num in self.hits:
-            hits_by_round[round_num] = hits_by_round.get(round_num, 0) + 1
-        return hits_by_round
-```
-
-### Challenge 5: Draw Condition Detection
-**Problem**: Both players might sink all ships in the same round.
-
-**Solution**:
-- Check both players' boards after round resolution
-- If both have all ships sunk, mark as draw
-- Set `is_draw = True` and `winner_id = None`
-
-```python
-def check_game_over(self, game: Game) -> GameOverResult:
-    p1_all_sunk = all(ship.is_sunk for ship in game.board[game.player_1].ships)
-    p2_all_sunk = all(ship.is_sunk for ship in game.board[game.player_2].ships)
-    
-    if p1_all_sunk and p2_all_sunk:
-        return GameOverResult(game_over=True, is_draw=True, winner_id=None)
-    elif p1_all_sunk:
-        return GameOverResult(game_over=True, is_draw=False, winner_id=game.player_2.id)
-    elif p2_all_sunk:
-        return GameOverResult(game_over=True, is_draw=False, winner_id=game.player_1.id)
-    else:
-        return GameOverResult(game_over=False, is_draw=False, winner_id=None)
-```
-
-### Challenge 6: State Synchronization Between Players
-**Problem**: Both players need to see consistent game state.
-
-**Solution**:
-- Use version numbers for change detection
-- Long-polling ensures both players get updates
-- Store authoritative state on server
-- Never trust client-side state
-
-```python
-class Game:
-    def __init__(self):
-        self._round_version: int = 0
-        self._round_change_event: asyncio.Event = asyncio.Event()
-        
-    def _notify_round_change(self):
-        self._round_version += 1
-        self._round_change_event.set()
-        
-    async def wait_for_round_change(self, since_version: int):
-        if self._round_version != since_version:
-            return  # Already changed
-        self._round_change_event.clear()
-        await self._round_change_event.wait()
-```
-
 ---
 
-## Key Principles
+## Conclusion
 
-1. **One cycle at a time** - Don't rush ahead
-2. **RED before GREEN** - Always write failing test first
-3. **GREEN before REFACTOR** - Make it work, then make it good
-4. **Run tests constantly** - After every small change
-5. **Commit frequently** - After each successful cycle
+This updated plan reflects the user feedback on UI interaction patterns and provides a clear roadmap for completing the two-player gameplay implementation. The plan maintains strict TDD discipline while accommodating the more intuitive single-board aiming interface.
 
----
+**Current Status**: Phase 1 complete, Phase 2 Cycles 2.1-2.5 complete, Phase 2 Cycles 2.6-2.10 in progress.
 
-## When to Move to Next Phase
-
-Only move to the next phase when:
-- [ ] All unit tests pass
-- [ ] All integration tests pass
-- [ ] All BDD scenarios pass (FastAPI + Playwright)
-- [ ] Code has been refactored
-- [ ] Type hints verified
-- [ ] No known bugs
+**Next Milestone**: Complete Phase 2 by integrating the Shots Fired board with aiming functionality and passing all BDD scenarios.

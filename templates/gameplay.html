@@ -22,6 +22,11 @@
 </div>
 {% endif %}
 
+{# 
+    Two-column board layout:
+    - Left: Player's own ships and incoming shots
+    - Right: Shots fired at opponent with integrated aiming interface
+#}
 <div class="grid grid-2">
     <!-- Player's Board (Own Ships) -->
     <div class="ship-board-container">
@@ -96,51 +101,30 @@
         </div>
     </div>
 
-    <!-- Opponent's Board (Target Grid) -->
+    <!-- Shots Fired Board (Interactive Aiming) -->
     <div class="ship-board-container">
-        <h3>Opponent's Waters</h3>
-        <p>Track your shots against {{ opponent_name }}</p>
+        <h3>Shots Fired</h3>
+        <p>Aim and fire at {{ opponent_name }}</p>
         
-        {# 10x10 Grid Visualization - Empty for now (ships hidden) #}
-        <table data-testid="opponent-board" class="ship-grid">
-            <thead>
-                <tr>
-                    <th></th>
-                    {% for col in range(1, 11) %}
-                    <th>{{ col }}</th>
-                    {% endfor %}
-                </tr>
-            </thead>
-            <tbody>
-                {% set rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'] %}
-                {% for row in rows %}
-                <tr>
-                    <th>{{ row }}</th>
-                    {% for col in range(1, 11) %}
-                        {% set coord = row ~ col %}
-                        <td data-testid="opponent-cell-{{ coord }}" 
-                            class="ship-grid-cell">
-                            {# Empty for now - will show hits/misses later #}
-                        </td>
-                    {% endfor %}
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        
-        <div class="alert alert-info">
-            <p><strong>Note:</strong> Opponent's ships are hidden. Fire shots to reveal them!</p>
+        {# 
+            Aiming Interface - Loaded via HTMX on page load
+            Contains: shot counter, interactive grid, aimed shots list, fire button
+        #}
+        <div id="aiming-interface"
+             hx-get="/game/{{ game_id }}/aiming-interface"
+             hx-trigger="load"
+             hx-swap="innerHTML">
+            <div class="loading-message" data-testid="aiming-loading">
+                Loading aiming interface...
+            </div>
         </div>
     </div>
 </div>
 
-<div class="actions-section">
-    <h2>Game Actions</h2>
+<div class="game-actions">
+    <h3>Other Actions</h3>
     <div class="btn-group">
-        <button class="btn-secondary" disabled>
-            🎯 Take Shot (Coming Soon)
-        </button>
-        <button class="btn-warning" disabled>
+        <button class="btn btn-warning" disabled>
             🏳️ Surrender (Coming Soon)
         </button>
     </div>

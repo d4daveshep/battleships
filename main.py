@@ -29,6 +29,7 @@ from game.model import (
 )
 from game.player import GameRequest, Player, PlayerStatus
 from services.auth_service import AuthService, PlayerNameValidation
+from services.gameplay_service import AimShotResult, FireShotsResult, GameplayService
 from services.lobby_service import LobbyService
 
 app: FastAPI = FastAPI()
@@ -43,7 +44,7 @@ _game_lobby: Lobby = Lobby()
 # Service instances
 auth_service: AuthService = AuthService()
 lobby_service: LobbyService = LobbyService(_game_lobby)
-
+gameplay_service: GameplayService = GameplayService()
 game_service: GameService = GameService()
 
 
@@ -935,6 +936,275 @@ async def game_page(request: Request, game_id: str) -> HTMLResponse:
     )
 
 
+def _ensure_gameplay_initialized(game_id: str, player_id: str) -> Game:
+    """Ensure game exists, player is authorized, and gameplay is initialized.
+
+    Args:
+        game_id: The ID of the game
+        player_id: The ID of the player
+
+    Returns:
+        The Game object
+
+    Raises:
+        HTTPException: 404 if game not found, 403 if player not authorized
+    """
+    # Verify game exists
+    game: Game | None = game_service.games.get(game_id)
+    if not game:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Game {game_id} not found"
+        )
+
+    # Verify player is in this game
+    if game.player_1.id != player_id and (
+        not game.player_2 or game.player_2.id != player_id
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not a player in this game",
+        )
+
+    # At this point, we know player_2 exists (either player_1 or player_2 matched)
+    assert game.player_2 is not None, "Two-player game must have player_2"
+
+    # Ensure round exists and boards are registered
+    if game_id not in gameplay_service.active_rounds:
+        # Create round 1 for this game
+        gameplay_service.create_round(game_id=game_id, round_number=1)
+
+        # Register player boards
+        current_player: Player = (
+            game.player_1 if game.player_1.id == player_id else game.player_2
+        )
+        opponent: Player = (
+            game.player_2 if game.player_1.id == player_id else game.player_1
+        )
+
+        gameplay_service.register_player_board(
+            game_id=game_id,
+            player_id=current_player.id,
+            board=game.board[current_player],
+        )
+        gameplay_service.register_player_board(
+            game_id=game_id, player_id=opponent.id, board=game.board[opponent]
+        )
+
+    return game
+
+
+@app.post("/game/{game_id}/aim-shot", response_class=HTMLResponse)
+async def aim_shot(
+    request: Request, game_id: str, coord: str = Form(...)
+) -> HTMLResponse:
+    """Add a shot to the aiming queue for current round.
+
+    Args:
+        request: The FastAPI request object containing session data
+        game_id: The ID of the game
+        coord: The coordinate string (from form data)
+
+    Returns:
+        HTML response with updated aiming interface
+
+    Raises:
+        HTTPException: 401 if not authenticated, 400 if validation fails, 404 if game not found
+    """
+    # Get player from session
+    player_id: str = _get_player_id(request)
+
+    # Ensure game exists and gameplay is initialized
+    _ensure_gameplay_initialized(game_id, player_id)
+
+    # Parse coordinate
+    try:
+        coord_enum: Coord = Coord[coord.upper()]
+    except KeyError:
+        # If invalid coordinate, render interface with error
+        return _render_aiming_interface(
+            request, game_id, player_id, error_message=f"Invalid coordinate: {coord}"
+        )
+
+    # Aim the shot
+    result: AimShotResult = gameplay_service.aim_shot(
+        game_id=game_id, player_id=player_id, coord=coord_enum
+    )
+
+    if not result.success:
+        # If aiming failed (e.g. duplicate or limit reached), render interface with error
+        return _render_aiming_interface(
+            request, game_id, player_id, error_message=result.error_message
+        )
+
+    # Return updated aiming interface
+    return _render_aiming_interface(request, game_id, player_id)
+
+
+@app.get("/game/{game_id}/aimed-shots")
+async def get_aimed_shots(request: Request, game_id: str) -> dict[str, Any]:
+    """Get currently aimed shots for player.
+
+    Args:
+        request: The FastAPI request object containing session data
+        game_id: The ID of the game
+
+    Returns:
+        JSON response with list of aimed coordinates
+
+    Raises:
+        HTTPException: 401 if not authenticated, 404 if game not found
+    """
+    # Get player from session
+    player_id: str = _get_player_id(request)
+
+    # Ensure game exists and gameplay is initialized
+    _ensure_gameplay_initialized(game_id, player_id)
+
+    # Get aimed shots
+    aimed_coords: list[Coord] = gameplay_service.get_aimed_shots(game_id, player_id)
+    coord_names: list[str] = [coord.name for coord in aimed_coords]
+
+    # Get shots available
+    shots_available: int = gameplay_service._get_shots_available(game_id, player_id)
+
+    return {
+        "coords": coord_names,
+        "count": len(coord_names),
+        "shots_available": shots_available,
+    }
+
+
+@app.delete("/game/{game_id}/aim-shot/{coord}", response_class=HTMLResponse)
+async def clear_aimed_shot(request: Request, game_id: str, coord: str) -> HTMLResponse:
+    """Remove a shot from aiming queue.
+
+    Args:
+        request: The FastAPI request object containing session data
+        game_id: The ID of the game
+        coord: The coordinate to remove
+
+    Returns:
+        HTML response with updated aiming interface
+
+    Raises:
+        HTTPException: 401 if not authenticated, 400 if invalid coord, 404 if game not found
+    """
+    # Get player from session
+    player_id: str = _get_player_id(request)
+
+    # Ensure game exists and gameplay is initialized
+    _ensure_gameplay_initialized(game_id, player_id)
+
+    # Parse coordinate
+    try:
+        coord_enum: Coord = Coord[coord.upper()]
+    except KeyError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid coordinate: {coord}",
+        )
+
+    # Remove the shot
+    gameplay_service.clear_aimed_shot(
+        game_id=game_id, player_id=player_id, coord=coord_enum
+    )
+
+    # Return updated aiming interface
+    return _render_aiming_interface(request, game_id, player_id)
+
+
+def _render_aiming_interface(
+    request: Request,
+    game_id: str,
+    player_id: str,
+    error_message: str | None = None,
+    waiting_message: str | None = None,
+) -> HTMLResponse:
+    """Render the aiming interface component.
+
+    Args:
+        request: The FastAPI request object
+        game_id: The ID of the game
+        player_id: The ID of the player
+        error_message: Optional error message to display
+        waiting_message: Optional waiting message to display
+
+    Returns:
+        HTML response with aiming interface component
+    """
+    # Get aimed shots
+    aimed_coords: list[Coord] = gameplay_service.get_aimed_shots(game_id, player_id)
+    aimed_shots: list[str] = [coord.name for coord in aimed_coords]
+
+    # Get shots available
+    shots_available: int = gameplay_service._get_shots_available(game_id, player_id)
+
+    # Get previously fired shots
+    shots_fired: dict[str, int] = {}
+    if game_id in gameplay_service.fired_shots:
+        if player_id in gameplay_service.fired_shots[game_id]:
+            for coord, round_num in gameplay_service.fired_shots[game_id][
+                player_id
+            ].items():
+                shots_fired[coord.name] = round_num
+
+    return templates.TemplateResponse(
+        request=request,
+        name="components/aiming_interface.html",
+        context={
+            "game_id": game_id,
+            "aimed_shots": aimed_shots,
+            "shots_fired": shots_fired,
+            "shots_available": shots_available,
+            "aimed_count": len(aimed_shots),
+            "error_message": error_message,
+            "waiting_message": waiting_message,
+        },
+    )
+
+
+@app.post("/game/{game_id}/fire-shots", response_class=HTMLResponse)
+async def fire_shots(request: Request, game_id: str) -> HTMLResponse:
+    """Submit aimed shots."""
+    player_id = _get_player_id(request)
+    _ensure_gameplay_initialized(game_id, player_id)
+
+    result: FireShotsResult = gameplay_service.fire_shots(game_id, player_id)
+
+    if not result.success:
+        return _render_aiming_interface(
+            request, game_id, player_id, error_message=result.message
+        )
+
+    return _render_aiming_interface(
+        request, game_id, player_id, waiting_message="Waiting for opponent to fire..."
+    )
+
+
+@app.get("/game/{game_id}/aiming-interface")
+async def get_aiming_interface(request: Request, game_id: str) -> HTMLResponse:
+    """Get the aiming interface component for HTMX.
+
+    Args:
+        request: The FastAPI request object containing session data
+        game_id: The ID of the game
+
+    Returns:
+        HTML response with aiming interface component
+
+    Raises:
+        HTTPException: 401 if not authenticated, 404 if game not found
+    """
+    # Get player from session
+    player_id: str = _get_player_id(request)
+
+    # Ensure game exists and gameplay is initialized
+    _ensure_gameplay_initialized(game_id, player_id)
+
+    # Render the aiming interface
+    return _render_aiming_interface(request, game_id, player_id)
+
+
 @app.post("/player-name")
 async def validate_player_name(
     request: Request, player_name: str = Form()
@@ -1293,14 +1563,45 @@ async def accept_game_request(
 
 
 @app.post("/test/reset-lobby")
-async def reset_lobby_for_testing() -> dict[str, str]:
-    """Reset lobby state - for testing only"""
-    _game_lobby.players.clear()
-    _game_lobby.game_requests.clear()
-    _game_lobby.version = 0
-    _game_lobby.change_event = asyncio.Event()
-
+async def reset_lobby() -> dict[str, str]:
+    """Reset the lobby state for testing"""
+    global _game_lobby
+    _game_lobby = Lobby()
+    # Update service references
+    lobby_service.lobby = _game_lobby
+    # Clear game service state
+    game_service.games = {}
+    game_service.games_by_player = {}
+    game_service.ship_placement_boards = {}
+    # Clear gameplay service state
+    gameplay_service.active_rounds = {}
+    gameplay_service.player_boards = {}
+    gameplay_service.fired_shots = {}
     return {"status": "lobby cleared"}
+
+
+@app.post("/test/set-gamestate")
+async def set_gamestate(
+    game_id: str = Form(...),
+    player_id: str = Form(...),
+    fired_coords: str = Form(...),  # Comma separated
+    round_number: int = Form(...),
+) -> dict[str, str]:
+    """Set game state for testing."""
+    if game_id not in gameplay_service.fired_shots:
+        gameplay_service.fired_shots[game_id] = {}
+    if player_id not in gameplay_service.fired_shots[game_id]:
+        gameplay_service.fired_shots[game_id][player_id] = {}
+
+    coords = [c.strip() for c in fired_coords.split(",")]
+    for coord_str in coords:
+        try:
+            coord = Coord[coord_str]
+            gameplay_service.fired_shots[game_id][player_id][coord] = round_number
+        except KeyError:
+            pass
+
+    return {"status": "updated"}
 
 
 @app.post("/test/add-player-to-lobby")

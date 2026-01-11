@@ -1,0 +1,35 @@
+{# Aiming Interface Component - Combines all shot aiming components #}
+<div class="aiming-interface" id="aiming-interface" data-testid="aiming-interface">
+    
+    {# Error message display #}
+    {% if error_message %}
+    <div class="alert alert-danger aiming-error" data-testid="aiming-error" role="alert">
+        <span class="alert-icon" aria-hidden="true">⚠️</span>
+        <span class="alert-message">{{ error_message }}</span>
+    </div>
+    {% endif %}
+
+    {# Waiting message display #}
+    {% if waiting_message %}
+    <div class="alert alert-info waiting-message" data-testid="waiting-message" role="alert">
+        <span class="alert-icon" aria-hidden="true">⏳</span>
+        <span class="alert-message">{{ waiting_message }}</span>
+    </div>
+    {% endif %}
+    
+    {# Shot Counter #}
+    {% include "components/shot_counter.html" %}
+    
+    {# Shots Fired Board for Aiming #}
+    <div class="aiming-board-section">
+        <h3>Select Target Coordinates</h3>
+        {% include "components/shots_fired_board.html" %}
+    </div>
+    
+    {# Aimed Shots List #}
+    {% include "components/aimed_shots_list.html" %}
+    
+    {# Fire Shots Button #}
+    {% include "components/fire_shots_button.html" %}
+    
+</div>

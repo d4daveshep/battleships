@@ -64,16 +64,20 @@ class TestAimShotEndpoint:
 
         # Act
         response: Response = client.post(
-            f"/game/{game_id}/aim-shot", json={"coord": "A1"}
+            f"/game/{game_id}/aim-shot", data={"coord": "A1"}
         )
 
         # Assert
         assert response.status_code == status.HTTP_200_OK
-        data: dict[str, Any] = response.json()
-        assert data["success"] is True
-        assert data["aimed_count"] == 1
+
+        # Verify state via GET endpoint
+        state_response: Response = client.get(f"/game/{game_id}/aimed-shots")
+        assert state_response.status_code == status.HTTP_200_OK
+        data: dict[str, Any] = state_response.json()
+
+        assert data["count"] == 1
         assert data["shots_available"] == 6  # All 5 ships unsunk (2+1+1+1+1)
-        assert data["coord"] == "A1"
+        assert "A1" in data["coords"]
 
     def test_aim_shot_endpoint_multiple_shots(self, client: TestClient) -> None:
         """Test aiming multiple shots in sequence."""
@@ -82,24 +86,25 @@ class TestAimShotEndpoint:
 
         # Act - aim 3 shots
         response1: Response = client.post(
-            f"/game/{game_id}/aim-shot", json={"coord": "A1"}
+            f"/game/{game_id}/aim-shot", data={"coord": "A1"}
         )
         response2: Response = client.post(
-            f"/game/{game_id}/aim-shot", json={"coord": "B2"}
+            f"/game/{game_id}/aim-shot", data={"coord": "B2"}
         )
         response3: Response = client.post(
-            f"/game/{game_id}/aim-shot", json={"coord": "C3"}
+            f"/game/{game_id}/aim-shot", data={"coord": "C3"}
         )
 
         # Assert
         assert response1.status_code == status.HTTP_200_OK
-        assert response1.json()["aimed_count"] == 1
-
         assert response2.status_code == status.HTTP_200_OK
-        assert response2.json()["aimed_count"] == 2
-
         assert response3.status_code == status.HTTP_200_OK
-        assert response3.json()["aimed_count"] == 3
+
+        # Verify final state
+        state_response: Response = client.get(f"/game/{game_id}/aimed-shots")
+        data: dict[str, Any] = state_response.json()
+        assert data["count"] == 3
+        assert set(data["coords"]) == {"A1", "B2", "C3"}
 
     def test_aim_shot_endpoint_duplicate(self, client: TestClient) -> None:
         """Test that aiming at the same coordinate twice returns error."""
@@ -108,20 +113,18 @@ class TestAimShotEndpoint:
 
         # Aim at A1 first time
         response1: Response = client.post(
-            f"/game/{game_id}/aim-shot", json={"coord": "A1"}
+            f"/game/{game_id}/aim-shot", data={"coord": "A1"}
         )
         assert response1.status_code == status.HTTP_200_OK
 
         # Act - aim at A1 again
         response2: Response = client.post(
-            f"/game/{game_id}/aim-shot", json={"coord": "A1"}
+            f"/game/{game_id}/aim-shot", data={"coord": "A1"}
         )
 
-        # Assert
-        assert response2.status_code == status.HTTP_400_BAD_REQUEST
-        data: dict[str, Any] = response2.json()
-        assert "detail" in data
-        assert "already selected" in data["detail"].lower()
+        # Assert - returns 200 OK with error message in HTML
+        assert response2.status_code == status.HTTP_200_OK
+        assert "already selected" in response2.text.lower()
 
     def test_aim_shot_endpoint_exceeds_limit(self, client: TestClient) -> None:
         """Test that aiming more shots than available returns error."""
@@ -132,20 +135,18 @@ class TestAimShotEndpoint:
         coords: list[str] = ["A1", "B2", "C3", "D4", "E5", "F6"]
         for coord in coords:
             response: Response = client.post(
-                f"/game/{game_id}/aim-shot", json={"coord": coord}
+                f"/game/{game_id}/aim-shot", data={"coord": coord}
             )
             assert response.status_code == status.HTTP_200_OK
 
         # Act - try to aim a 7th shot
         response: Response = client.post(
-            f"/game/{game_id}/aim-shot", json={"coord": "G7"}
+            f"/game/{game_id}/aim-shot", data={"coord": "G7"}
         )
 
-        # Assert
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-        data: dict[str, Any] = response.json()
-        assert "detail" in data
-        assert "limit" in data["detail"].lower()
+        # Assert - returns 200 OK with error message in HTML
+        assert response.status_code == status.HTTP_200_OK
+        assert "limit" in response.text.lower()
 
     def test_aim_shot_endpoint_invalid_coord(self, client: TestClient) -> None:
         """Test that invalid coordinate format returns error."""
@@ -154,11 +155,12 @@ class TestAimShotEndpoint:
 
         # Act
         response: Response = client.post(
-            f"/game/{game_id}/aim-shot", json={"coord": "INVALID"}
+            f"/game/{game_id}/aim-shot", data={"coord": "INVALID"}
         )
 
-        # Assert
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        # Assert - returns 200 OK with error message in HTML
+        assert response.status_code == status.HTTP_200_OK
+        assert "invalid coordinate" in response.text.lower()
 
 
 class TestGetAimedShotsEndpoint:
@@ -187,7 +189,7 @@ class TestGetAimedShotsEndpoint:
         # Aim at A1, B2, C3
         coords: list[str] = ["A1", "B2", "C3"]
         for coord in coords:
-            client.post(f"/game/{game_id}/aim-shot", json={"coord": coord})
+            client.post(f"/game/{game_id}/aim-shot", data={"coord": coord})
 
         # Act
         response: Response = client.get(f"/game/{game_id}/aimed-shots")
@@ -209,18 +211,21 @@ class TestClearAimedShotEndpoint:
         game_id, player_id = create_test_game_with_boards(client)
 
         # Aim at A1 and B2
-        client.post(f"/game/{game_id}/aim-shot", json={"coord": "A1"})
-        client.post(f"/game/{game_id}/aim-shot", json={"coord": "B2"})
+        client.post(f"/game/{game_id}/aim-shot", data={"coord": "A1"})
+        client.post(f"/game/{game_id}/aim-shot", data={"coord": "B2"})
 
         # Act - remove A1
         response: Response = client.delete(f"/game/{game_id}/aim-shot/A1")
 
         # Assert
         assert response.status_code == status.HTTP_200_OK
-        data: dict[str, Any] = response.json()
-        assert data["success"] is True
-        assert data["aimed_count"] == 1
-        assert data["removed_coord"] == "A1"
+
+        # Verify state via GET endpoint
+        state_response: Response = client.get(f"/game/{game_id}/aimed-shots")
+        data: dict[str, Any] = state_response.json()
+        assert data["count"] == 1
+        assert "A1" not in data["coords"]
+        assert "B2" in data["coords"]
 
     def test_clear_aimed_shot_endpoint_verify_removal(self, client: TestClient) -> None:
         """Test that removed shot is no longer in aimed shots list."""
@@ -228,9 +233,9 @@ class TestClearAimedShotEndpoint:
         game_id, player_id = create_test_game_with_boards(client)
 
         # Aim at A1, B2, C3
-        client.post(f"/game/{game_id}/aim-shot", json={"coord": "A1"})
-        client.post(f"/game/{game_id}/aim-shot", json={"coord": "B2"})
-        client.post(f"/game/{game_id}/aim-shot", json={"coord": "C3"})
+        client.post(f"/game/{game_id}/aim-shot", data={"coord": "A1"})
+        client.post(f"/game/{game_id}/aim-shot", data={"coord": "B2"})
+        client.post(f"/game/{game_id}/aim-shot", data={"coord": "C3"})
 
         # Act - remove B2
         client.delete(f"/game/{game_id}/aim-shot/B2")
@@ -247,16 +252,19 @@ class TestClearAimedShotEndpoint:
         game_id, player_id = create_test_game_with_boards(client)
 
         # Aim at A1 only
-        client.post(f"/game/{game_id}/aim-shot", json={"coord": "A1"})
+        client.post(f"/game/{game_id}/aim-shot", data={"coord": "A1"})
 
         # Act - try to remove B2 (not aimed)
         response: Response = client.delete(f"/game/{game_id}/aim-shot/B2")
 
         # Assert - should succeed but have no effect
         assert response.status_code == status.HTTP_200_OK
-        data: dict[str, Any] = response.json()
-        assert data["success"] is True
-        assert data["aimed_count"] == 1  # Still 1 shot aimed
+
+        # Verify state
+        state_response: Response = client.get(f"/game/{game_id}/aimed-shots")
+        data: dict[str, Any] = state_response.json()
+        assert data["count"] == 1
+        assert "A1" in data["coords"]
 
     def test_clear_aimed_shot_endpoint_invalid_coord(self, client: TestClient) -> None:
         """Test that invalid coordinate format returns error."""

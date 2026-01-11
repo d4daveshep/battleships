@@ -23,6 +23,14 @@ class AimShotResult(NamedTuple):
     aimed_count: int = 0
 
 
+class FireShotsResult(NamedTuple):
+    """Result of firing shots."""
+
+    success: bool
+    message: str
+    waiting_for_opponent: bool = False
+
+
 class GameplayService:
     """Service for managing gameplay actions during a game."""
 
@@ -84,6 +92,14 @@ class GameplayService:
                 aimed_count=0,
             )
 
+        # Check if player has already submitted shots for this round
+        if player_id in round_obj.submitted_players:
+            return AimShotResult(
+                success=False,
+                error_message="Shots already submitted for this round - waiting for opponent",
+                aimed_count=len(round_obj.aimed_shots.get(player_id, [])),
+            )
+
         # Initialize player's aimed shots if not present
         if player_id not in round_obj.aimed_shots:
             round_obj.aimed_shots[player_id] = []
@@ -95,6 +111,16 @@ class GameplayService:
                 error_message=f"Coordinate {coord.name} already selected for this round",
                 aimed_count=len(round_obj.aimed_shots[player_id]),
             )
+
+        # Check if coordinate was already fired in previous rounds
+        if game_id in self.fired_shots:
+            if player_id in self.fired_shots[game_id]:
+                if coord in self.fired_shots[game_id][player_id]:
+                    return AimShotResult(
+                        success=False,
+                        error_message=f"Coordinate {coord.name} already fired at in previous round",
+                        aimed_count=len(round_obj.aimed_shots[player_id]),
+                    )
 
         # Check shot limit
         current_aimed_count = len(round_obj.aimed_shots[player_id])
@@ -206,5 +232,47 @@ class GameplayService:
             if current_aimed_count >= shots_available:
                 return CellState.UNAVAILABLE
 
+            # Check if player has already submitted shots (waiting state)
+            if player_id in round_obj.submitted_players:
+                return CellState.UNAVAILABLE
+
         # Default: cell is available for aiming
         return CellState.AVAILABLE
+
+    def fire_shots(self, game_id: str, player_id: str) -> FireShotsResult:
+        """Submit aimed shots for the current round.
+
+        Args:
+            game_id: The ID of the game
+            player_id: The ID of the player firing
+
+        Returns:
+            FireShotsResult indicating success/failure
+        """
+        round_obj = self.active_rounds.get(game_id)
+        if round_obj is None:
+            return FireShotsResult(success=False, message="No active round")
+
+        if (
+            player_id not in round_obj.aimed_shots
+            or not round_obj.aimed_shots[player_id]
+        ):
+            return FireShotsResult(success=False, message="No shots aimed")
+
+        # Add to submitted players
+        round_obj.submitted_players.add(player_id)
+
+        # Record fired shots (for validation in future rounds)
+        if game_id not in self.fired_shots:
+            self.fired_shots[game_id] = {}
+        if player_id not in self.fired_shots[game_id]:
+            self.fired_shots[game_id][player_id] = {}
+
+        for coord in round_obj.aimed_shots[player_id]:
+            self.fired_shots[game_id][player_id][coord] = round_obj.round_number
+
+        return FireShotsResult(
+            success=True,
+            message="Shots fired!",
+            waiting_for_opponent=True,
+        )

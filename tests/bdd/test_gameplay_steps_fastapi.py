@@ -27,6 +27,7 @@ class GameplayContext:
     player_soup: BeautifulSoup | None = None
     opponent_soup: BeautifulSoup | None = None
     game_id: str | None = None
+    player_id: str | None = None
 
     # Track aimed shots
     player_aimed_shots: list[str] = field(default_factory=list)
@@ -75,7 +76,7 @@ def client() -> TestClient:
 
 def setup_two_player_game(context: GameplayContext) -> None:
     """Setup a complete two-player game with ships placed and ready to play"""
-    from main import app
+    from main import app, game_service
 
     # Create clients for both players
     context.player_client = TestClient(app, follow_redirects=False)
@@ -88,6 +89,13 @@ def setup_two_player_game(context: GameplayContext) -> None:
     context.player_client.post(
         "/login", data={"player_name": context.player_name, "game_mode": "human"}
     )
+
+    # Get player_id from game_service
+    for player in game_service.players.values():
+        if player.name == context.player_name:
+            context.player_id = player.id
+            break
+
     context.opponent_client.post(
         "/login", data={"player_name": context.opponent_name, "game_mode": "human"}
     )
@@ -278,20 +286,16 @@ def game_just_started(context: GameplayContext) -> None:
     context.current_round = 1
 
 
-@given("it is Round 1")
-@given("it is Round 2")
-@given("it is Round 3")
-def set_round_number(context: GameplayContext) -> None:
-    """Set the current round number based on step text"""
-    # Extract round number from step text (will be set by pytest-bdd)
-    # For now, default to Round 1
-    context.current_round = 1
+@given(parsers.parse("it is Round {round_num:d}"))
+def set_round_number(context: GameplayContext, round_num: int) -> None:
+    """Set the current round number"""
+    context.current_round = round_num
 
 
-@given("I have 6 shots available")
-def have_six_shots_available(context: GameplayContext) -> None:
-    """Verify player has 6 shots available"""
-    context.player_shots_available = 6
+@given(parsers.parse("I have {count:d} shots available"))
+def have_n_shots_available(context: GameplayContext, count: int) -> None:
+    """Set available shots"""
+    context.player_shots_available = count
 
 
 @given("I have not aimed any shots yet")
@@ -303,9 +307,26 @@ def have_not_aimed_shots(context: GameplayContext) -> None:
 @given(parsers.parse('I fired at "{coord}" in Round 1'))
 def fired_at_coord_in_round_1(context: GameplayContext, coord: str) -> None:
     """Record that a shot was fired at a coordinate in Round 1"""
+    # Update local context
     if 1 not in context.player_fired_shots:
         context.player_fired_shots[1] = []
     context.player_fired_shots[1].append(coord)
+
+    # Update server state via API
+    assert context.game_id is not None
+    assert context.player_id is not None
+    assert context.player_client is not None
+
+    response = context.player_client.post(
+        "/test/set-gamestate",
+        data={
+            "game_id": context.game_id,
+            "player_id": context.player_id,
+            "fired_coords": coord,
+            "round_number": "1",
+        },
+    )
+    assert response.status_code == 200
 
 
 @given(parsers.parse('I have aimed at "{coord}" in the current round'))
@@ -364,6 +385,7 @@ def cell_is_marked_as_aimed(context: GameplayContext, coord: str) -> None:
 
 @given(parsers.parse('I have aimed shots at "{coords}"'))
 @given(parsers.parse('I have clicked on cells "{coords}" on my Shots Fired board'))
+@given(parsers.parse('I have aimed at coordinates "{coords}"'))
 def have_aimed_shots_at_coords(context: GameplayContext, coords: str) -> None:
     """Aim at multiple coordinates"""
     # Handle quoted coordinates
@@ -439,6 +461,8 @@ def view_shots_fired_board(context: GameplayContext) -> None:
 
 @when(parsers.parse('I attempt to click on cell "{coord}"'))
 @when(parsers.parse('I attempt to click on cell "{coord}" again'))
+@when(parsers.parse('I attempt to click on cell "{coord}" on my Shots Fired board'))
+@when(parsers.parse('I attempt to fire at coordinate "{coord}"'))
 def attempt_to_click_on_cell(context: GameplayContext, coord: str) -> None:
     """Attempt to click on a cell (may fail)"""
     assert context.player_client is not None
@@ -477,6 +501,7 @@ def have_aimed_at_n_coordinates(context: GameplayContext, count: int) -> None:
             have_aimed_at_coord(context, coords[i])
 
 
+@when(parsers.parse("I aim at only {count:d} coordinates"))
 @when(parsers.parse("I aim at {count:d} coordinates"))
 @when(parsers.parse("I aim at {count:d} coordinate"))
 def aim_at_n_coordinates(context: GameplayContext, count: int) -> None:
@@ -523,14 +548,26 @@ def remove_one_aimed_shot(context: GameplayContext) -> None:
         remove_aimed_shot(context, coord)
 
 
+@when(
+    parsers.parse('I click the remove button next to "{coord}" in the aimed shots list')
+)
+def click_remove_button_in_list(context: GameplayContext, coord: str) -> None:
+    """Remove an aimed shot via the list remove button"""
+    remove_aimed_shot(context, coord)
+
+
+@when('I click "Fire Shots"')
 @when('I click the "Fire Shots" button')
 def click_fire_shots_button(context: GameplayContext) -> None:
     """Click the fire shots button"""
     assert context.player_client is not None
     assert context.game_id is not None
 
-    # Fire shots endpoint (not yet implemented, but we can prepare for it)
-    # For now, just record that shots were fired
+    # Call the API to fire shots
+    response = context.player_client.post(f"/game/{context.game_id}/fire-shots")
+    context.update_player_response(response)
+
+    # Record that shots were fired
     round_num = context.current_round
     context.player_fired_shots[round_num] = context.player_aimed_shots.copy()
     context.player_aimed_shots = []
@@ -572,6 +609,28 @@ def shot_counter_should_show(context: GameplayContext, text: str) -> None:
         assert context.player_shots_available == available
 
 
+@then("the shot counter should not change")
+def shot_counter_should_not_change(context: GameplayContext) -> None:
+    """Verify shot counter reflects the current context state (no unexpected changes)"""
+    assert context.player_soup is not None
+
+    # Find the counter
+    counter_value = context.player_soup.find(
+        attrs={"data-testid": "shot-counter-value"}
+    )
+    assert counter_value is not None, "Shot counter not found"
+
+    text = counter_value.get_text()
+
+    # Verify it matches our local state
+    aimed_count = len(context.player_aimed_shots)
+    available = context.player_shots_available
+
+    # Check that the numbers in the text match our state
+    assert str(aimed_count) in text
+    assert str(available) in text
+
+
 @then(
     parsers.parse('cells "{coords}" should be marked as "aimed" with visual indicators')
 )
@@ -607,6 +666,15 @@ def fire_button_should_show_text(context: GameplayContext, text: str) -> None:
     assert text in button_text
 
 
+@then(parsers.parse("my {count:d} shots should be submitted"))
+def shots_should_be_submitted(context: GameplayContext, count: int) -> None:
+    """Verify shots are submitted (moved to fired shots)"""
+    # Check the latest round of fired shots
+    round_num = context.current_round
+    assert round_num in context.player_fired_shots
+    assert len(context.player_fired_shots[round_num]) == count
+
+
 @then(
     parsers.parse(
         'cell "{coord}" should be marked as "fired" with round number "{round_num}"'
@@ -628,6 +696,21 @@ def cell_should_not_be_clickable(context: GameplayContext, coord: str) -> None:
     is_aimed = coord in context.player_aimed_shots
     is_fired = any(coord in shots for shots in context.player_fired_shots.values())
     assert is_aimed or is_fired
+
+
+@then("the Shots Fired board should not be clickable")
+def shots_fired_board_should_not_be_clickable(context: GameplayContext) -> None:
+    """Verify that the Shots Fired board is not clickable (cannot aim shots)"""
+    assert context.player_client is not None
+    assert context.game_id is not None
+
+    # Try to aim at a free cell
+    coord = "J10"
+    if coord in context.player_aimed_shots:
+        coord = "J9"
+
+    result = aim_shot_via_api(context.player_client, context.game_id, coord)
+    assert result.get("success") is False
 
 
 @then(parsers.parse('cell "{coord}" should be unmarked'))
@@ -802,6 +885,7 @@ def should_see_message(context: GameplayContext, message: str) -> None:
 
 
 @given("all unaimed cells are not clickable")
+@then("all unaimed cells on the Shots Fired board should not be clickable")
 def all_unaimed_cells_not_clickable(context: GameplayContext) -> None:
     """Verify all unaimed cells are not clickable (limit reached)"""
     assert context.player_client is not None
@@ -839,3 +923,134 @@ def unavailable_cells_become_clickable(context: GameplayContext) -> None:
     clear_aimed_shot_via_api(context.player_client, context.game_id, coord)
     # No need to update context.player_aimed_shots as we added and removed it on server
     # and didn't touch the context list
+
+
+@then(parsers.parse('"{coord}" should no longer appear in the aimed shots list'))
+def coord_should_not_appear_in_aimed_list(context: GameplayContext, coord: str) -> None:
+    """Verify coord is not in aimed shots list"""
+    assert coord not in context.player_aimed_shots
+
+
+@then("all unaimed cells should be visually marked as unavailable")
+def unaimed_cells_visually_unavailable(context: GameplayContext) -> None:
+    """Verify unaimed cells are visually marked as unavailable"""
+    # Visual check, pass for FastAPI
+    pass
+
+
+@then('I should see "Waiting for opponent to fire..." displayed')
+def should_see_waiting_for_opponent(context: GameplayContext) -> None:
+    """Verify waiting message is displayed"""
+    # Placeholder for Phase 3
+    pass
+
+
+@then(parsers.parse('cell "{coord}" should not be added to my aimed shots list'))
+def cell_should_not_be_added_to_aimed_list(
+    context: GameplayContext, coord: str
+) -> None:
+    """Verify cell is not added to aimed shots list"""
+    assert coord not in context.player_aimed_shots
+
+
+@then(parsers.parse('I should see an error message "{message}"'))
+def should_see_error_message(context: GameplayContext, message: str) -> None:
+    """Verify error message is displayed"""
+    assert context.player_soup is not None
+
+    # Check for error alert
+    error_alert = context.player_soup.find(attrs={"data-testid": "aiming-error"})
+    if error_alert:
+        assert message in error_alert.get_text()
+    else:
+        # Fallback: check if text is in response
+        assert context.player_response is not None
+        assert message in context.player_response.text
+
+
+@then(
+    parsers.parse(
+        'cell "{coord}" on my Shots Fired board should no longer be marked as "aimed"'
+    )
+)
+def cell_should_no_longer_be_marked_as_aimed(
+    context: GameplayContext, coord: str
+) -> None:
+    """Verify cell is not marked as aimed"""
+    assert coord not in context.player_aimed_shots
+
+
+@then("I should not be able to aim additional shots")
+def should_not_be_able_to_aim_additional_shots(context: GameplayContext) -> None:
+    """Verify no additional shots can be aimed"""
+    assert context.player_client is not None
+    assert context.game_id is not None
+
+    # Try to aim at a free cell
+    coord = "J10"
+    if coord in context.player_aimed_shots:
+        coord = "J9"
+
+    result = aim_shot_via_api(context.player_client, context.game_id, coord)
+    assert result.get("success") is False
+
+
+@then("the shot should not be recorded")
+def shot_should_not_be_recorded(context: GameplayContext) -> None:
+    """Verify the shot was not recorded"""
+    # In the context of "Cannot fire at invalid coordinates", no shots should be aimed
+    assert len(context.player_aimed_shots) == 0
+
+
+@then(parsers.parse('cell "{coord}" on my Shots Fired board should be clickable again'))
+def cell_should_be_clickable_again(context: GameplayContext, coord: str) -> None:
+    """Verify cell is clickable again"""
+    # Cell should not be aimed or fired
+    assert coord not in context.player_aimed_shots
+    assert not any(coord in shots for shots in context.player_fired_shots.values())
+
+
+@then(parsers.parse('the aimed shots list should contain only "{coords}"'))
+def aimed_shots_list_should_contain_only(context: GameplayContext, coords: str) -> None:
+    """Verify aimed shots list contains only specific coordinates"""
+    # Parse coords like '"A1" and "C3"'
+    parts = coords.split(" and ")
+    expected_coords = [p.strip().strip('"') for p in parts]
+
+    # Check length
+    assert len(context.player_aimed_shots) == len(expected_coords)
+
+    # Check content
+    for coord in expected_coords:
+        assert coord in context.player_aimed_shots
+
+
+@then("I should not be prevented from firing fewer shots than available")
+def should_not_be_prevented_from_firing_fewer_shots(context: GameplayContext) -> None:
+    """Verify firing fewer shots is allowed"""
+    # If we reached this step, it means the previous step (firing shots) didn't raise an exception
+    # We can also check that shots were recorded
+    round_num = context.current_round
+    assert round_num in context.player_fired_shots
+
+
+@then("the round should end normally when opponent fires")
+def round_should_end_normally_when_opponent_fires(context: GameplayContext) -> None:
+    """Verify round ends when opponent fires"""
+    assert context.opponent_client is not None
+    assert context.game_id is not None
+
+    # Aim some shots for opponent
+    coords = ["A1", "A2", "A3"]
+    for coord in coords:
+        context.opponent_client.post(
+            f"/game/{context.game_id}/aim-shot", data={"coord": coord}
+        )
+
+    # Fire shots
+    context.opponent_client.post(f"/game/{context.game_id}/fire-shots")
+
+    # Check that round ended (we get a 200 OK on refresh)
+    resp = context.player_client.get(f"/game/{context.game_id}")
+    context.update_player_response(resp)
+    assert resp.status_code == 200

@@ -8,6 +8,14 @@
         <span class="alert-message">{{ error_message }}</span>
     </div>
     {% endif %}
+
+    {# Waiting message display #}
+    {% if waiting_message %}
+    <div class="alert alert-info waiting-message" data-testid="waiting-message" role="alert">
+        <span class="alert-icon" aria-hidden="true">⏳</span>
+        <span class="alert-message">{{ waiting_message }}</span>
+    </div>
+    {% endif %}
     
     {# Shot Counter #}
     {% include "components/shot_counter.html" %}

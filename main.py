@@ -29,7 +29,7 @@ from game.model import (
 )
 from game.player import GameRequest, Player, PlayerStatus
 from services.auth_service import AuthService, PlayerNameValidation
-from services.gameplay_service import AimShotResult, GameplayService
+from services.gameplay_service import AimShotResult, FireShotsResult, GameplayService
 from services.lobby_service import LobbyService
 
 app: FastAPI = FastAPI()
@@ -1114,7 +1114,11 @@ async def clear_aimed_shot(request: Request, game_id: str, coord: str) -> HTMLRe
 
 
 def _render_aiming_interface(
-    request: Request, game_id: str, player_id: str, error_message: str | None = None
+    request: Request,
+    game_id: str,
+    player_id: str,
+    error_message: str | None = None,
+    waiting_message: str | None = None,
 ) -> HTMLResponse:
     """Render the aiming interface component.
 
@@ -1123,6 +1127,7 @@ def _render_aiming_interface(
         game_id: The ID of the game
         player_id: The ID of the player
         error_message: Optional error message to display
+        waiting_message: Optional waiting message to display
 
     Returns:
         HTML response with aiming interface component
@@ -1134,9 +1139,14 @@ def _render_aiming_interface(
     # Get shots available
     shots_available: int = gameplay_service._get_shots_available(game_id, player_id)
 
-    # Get previously fired shots (TODO: implement in gameplay_service - Cycle 2.7)
-    # For now, empty dict - will be populated with coord -> round_number mapping
+    # Get previously fired shots
     shots_fired: dict[str, int] = {}
+    if game_id in gameplay_service.fired_shots:
+        if player_id in gameplay_service.fired_shots[game_id]:
+            for coord, round_num in gameplay_service.fired_shots[game_id][
+                player_id
+            ].items():
+                shots_fired[coord.name] = round_num
 
     return templates.TemplateResponse(
         request=request,
@@ -1148,7 +1158,26 @@ def _render_aiming_interface(
             "shots_available": shots_available,
             "aimed_count": len(aimed_shots),
             "error_message": error_message,
+            "waiting_message": waiting_message,
         },
+    )
+
+
+@app.post("/game/{game_id}/fire-shots", response_class=HTMLResponse)
+async def fire_shots(request: Request, game_id: str) -> HTMLResponse:
+    """Submit aimed shots."""
+    player_id = _get_player_id(request)
+    _ensure_gameplay_initialized(game_id, player_id)
+
+    result: FireShotsResult = gameplay_service.fire_shots(game_id, player_id)
+
+    if not result.success:
+        return _render_aiming_interface(
+            request, game_id, player_id, error_message=result.message
+        )
+
+    return _render_aiming_interface(
+        request, game_id, player_id, waiting_message="Waiting for opponent to fire..."
     )
 
 
@@ -1534,14 +1563,45 @@ async def accept_game_request(
 
 
 @app.post("/test/reset-lobby")
-async def reset_lobby_for_testing() -> dict[str, str]:
-    """Reset lobby state - for testing only"""
-    _game_lobby.players.clear()
-    _game_lobby.game_requests.clear()
-    _game_lobby.version = 0
-    _game_lobby.change_event = asyncio.Event()
-
+async def reset_lobby() -> dict[str, str]:
+    """Reset the lobby state for testing"""
+    global _game_lobby
+    _game_lobby = Lobby()
+    # Update service references
+    lobby_service.lobby = _game_lobby
+    # Clear game service state
+    game_service.games = {}
+    game_service.games_by_player = {}
+    game_service.ship_placement_boards = {}
+    # Clear gameplay service state
+    gameplay_service.active_rounds = {}
+    gameplay_service.player_boards = {}
+    gameplay_service.fired_shots = {}
     return {"status": "lobby cleared"}
+
+
+@app.post("/test/set-gamestate")
+async def set_gamestate(
+    game_id: str = Form(...),
+    player_id: str = Form(...),
+    fired_coords: str = Form(...),  # Comma separated
+    round_number: int = Form(...),
+) -> dict[str, str]:
+    """Set game state for testing."""
+    if game_id not in gameplay_service.fired_shots:
+        gameplay_service.fired_shots[game_id] = {}
+    if player_id not in gameplay_service.fired_shots[game_id]:
+        gameplay_service.fired_shots[game_id][player_id] = {}
+
+    coords = [c.strip() for c in fired_coords.split(",")]
+    for coord_str in coords:
+        try:
+            coord = Coord[coord_str]
+            gameplay_service.fired_shots[game_id][player_id][coord] = round_number
+        except KeyError:
+            pass
+
+    return {"status": "updated"}
 
 
 @app.post("/test/add-player-to-lobby")

@@ -1176,9 +1176,16 @@ async def fire_shots(request: Request, game_id: str) -> HTMLResponse:
             request, game_id, player_id, error_message=result.message
         )
 
-    return _render_aiming_interface(
-        request, game_id, player_id, waiting_message="Waiting for opponent to fire..."
-    )
+    # Check if round is resolved or still waiting
+    if result.waiting_for_opponent:
+        return _render_aiming_interface(
+            request, game_id, player_id, waiting_message="Waiting for opponent to fire..."
+        )
+    else:
+        # Round is resolved - show round results (will be implemented in Phase 4)
+        return _render_aiming_interface(
+            request, game_id, player_id, waiting_message="Round resolved! (Results coming in Phase 4)"
+        )
 
 
 @app.get("/game/{game_id}/aiming-interface")

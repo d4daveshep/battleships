@@ -3,7 +3,7 @@
 from enum import Enum
 from typing import NamedTuple
 from game.model import Coord, GameBoard
-from game.round import Round
+from game.round import Round, RoundResult, Shot, HitResult
 
 
 class CellState(Enum):
@@ -253,6 +253,10 @@ class GameplayService:
         if round_obj is None:
             return FireShotsResult(success=False, message="No active round")
 
+        # Check if player has already submitted shots for this round
+        if player_id in round_obj.submitted_players:
+            return FireShotsResult(success=False, message="Shots already submitted for this round")
+
         if (
             player_id not in round_obj.aimed_shots
             or not round_obj.aimed_shots[player_id]
@@ -271,8 +275,115 @@ class GameplayService:
         for coord in round_obj.aimed_shots[player_id]:
             self.fired_shots[game_id][player_id][coord] = round_obj.round_number
 
+        # Check if both players have submitted - if so, resolve the round
+        # Assuming 2-player game for now
+        if len(round_obj.submitted_players) == 2:
+            self.resolve_round(game_id)
+            return FireShotsResult(
+                success=True,
+                message="Round resolved!",
+                waiting_for_opponent=False,
+            )
+
         return FireShotsResult(
             success=True,
             message="Shots fired!",
             waiting_for_opponent=True,
         )
+
+    def resolve_round(self, game_id: str) -> None:
+        """Resolve the current round after both players have fired.
+
+        Args:
+            game_id: The ID of the game
+        """
+        round_obj = self.active_rounds.get(game_id)
+        if round_obj is None or round_obj.is_resolved:
+            return
+
+        # Create Shot objects for each player
+        player_shots: dict[str, list[Shot]] = {}
+        for player_id, coords in round_obj.aimed_shots.items():
+            player_shots[player_id] = [
+                Shot(coord=coord, round_number=round_obj.round_number, player_id=player_id)
+                for coord in coords
+            ]
+
+        # Detect hits for each player
+        player_ids = list(round_obj.submitted_players)
+        hits_made: dict[str, list[HitResult]] = {}
+        
+        # For 2-player game, detect hits for each player against their opponent
+        if len(player_ids) == 2:
+            player1_id = player_ids[0]
+            player2_id = player_ids[1]
+            
+            # Player 1 hits on player 2's board
+            hits_made[player1_id] = self._detect_hits(
+                game_id=game_id,
+                player_id=player1_id,
+                shots=round_obj.aimed_shots[player1_id],
+                opponent_id=player2_id,
+            )
+            
+            # Player 2 hits on player 1's board
+            hits_made[player2_id] = self._detect_hits(
+                game_id=game_id,
+                player_id=player2_id,
+                shots=round_obj.aimed_shots[player2_id],
+                opponent_id=player1_id,
+            )
+
+        # Create RoundResult
+        result = RoundResult(
+            round_number=round_obj.round_number,
+            player_shots=player_shots,
+            hits_made=hits_made,
+            ships_sunk={},
+            game_over=False,
+            winner_id=None,
+            is_draw=False,
+        )
+
+        # Mark round as resolved
+        round_obj.is_resolved = True
+        round_obj.result = result
+
+    def _detect_hits(
+        self, game_id: str, player_id: str, shots: list[Coord], opponent_id: str
+    ) -> list[HitResult]:
+        """Detect which shots hit opponent ships.
+
+        Args:
+            game_id: The ID of the game
+            player_id: The ID of the player who fired the shots
+            shots: List of coordinates that were fired at
+            opponent_id: The ID of the opponent whose board to check
+
+        Returns:
+            List of HitResult objects for shots that hit ships
+        """
+        hits: list[HitResult] = []
+
+        # Get opponent's board
+        if game_id not in self.player_boards:
+            return hits
+
+        opponent_board = self.player_boards[game_id].get(opponent_id)
+        if opponent_board is None:
+            return hits
+
+        # Check each shot against opponent's ships
+        for coord in shots:
+            ship_type = opponent_board.ship_type_at(coord)
+            if ship_type is not None:
+                # Hit! Create HitResult (is_sinking_hit will be determined in Phase 5)
+                hits.append(
+                    HitResult(
+                        ship_type=ship_type,
+                        coord=coord,
+                        is_sinking_hit=False,  # Will be implemented in Phase 5
+                    )
+                )
+
+        return hits

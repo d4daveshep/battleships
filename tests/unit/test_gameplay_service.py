@@ -366,3 +366,287 @@ class TestCellState:
 
         # Assert
         assert state == CellState.FIRED
+
+
+class TestFireShots:
+    """Tests for firing shots and entering waiting state."""
+
+    def test_fire_shots_first_player_enters_waiting_state(self) -> None:
+        """Test that when the first player fires, they enter a waiting state."""
+        # Arrange
+        service = GameplayService()
+        game_id = "game123"
+        player1_id = "player1"
+        player2_id = "player2"
+        round_number = 1
+
+        board1 = create_board_with_all_ships()
+        board2 = create_board_with_all_ships()
+
+        service.create_round(game_id=game_id, round_number=round_number)
+        service.register_player_board(game_id=game_id, player_id=player1_id, board=board1)
+        service.register_player_board(game_id=game_id, player_id=player2_id, board=board2)
+
+        # Aim some shots for player1
+        service.aim_shot(game_id=game_id, player_id=player1_id, coord=Coord.A1)
+        service.aim_shot(game_id=game_id, player_id=player1_id, coord=Coord.B2)
+
+        # Act - player1 fires their shots
+        result = service.fire_shots(game_id=game_id, player_id=player1_id)
+
+        # Assert
+        assert result.success is True
+        assert result.waiting_for_opponent is True
+        assert "waiting" in result.message.lower() or "fired" in result.message.lower()
+
+        # Verify player1 is in submitted_players
+        round_obj = service.active_rounds[game_id]
+        assert player1_id in round_obj.submitted_players
+
+        # Verify aimed shots are still in the round (not cleared yet)
+        assert len(round_obj.aimed_shots[player1_id]) == 2
+
+    def test_fire_shots_no_shots_aimed_fails(self) -> None:
+        """Test that firing without aiming any shots fails."""
+        # Arrange
+        service = GameplayService()
+        game_id = "game123"
+        player_id = "player1"
+        round_number = 1
+
+        board = create_board_with_all_ships()
+
+        service.create_round(game_id=game_id, round_number=round_number)
+        service.register_player_board(game_id=game_id, player_id=player_id, board=board)
+
+        # Act - try to fire without aiming
+        result = service.fire_shots(game_id=game_id, player_id=player_id)
+
+        # Assert
+        assert result.success is False
+        assert "no shots" in result.message.lower()
+
+    def test_fire_shots_already_submitted_fails(self) -> None:
+        """Test that firing shots twice in the same round fails."""
+        # Arrange
+        service = GameplayService()
+        game_id = "game123"
+        player_id = "player1"
+        round_number = 1
+
+        board = create_board_with_all_ships()
+
+        service.create_round(game_id=game_id, round_number=round_number)
+        service.register_player_board(game_id=game_id, player_id=player_id, board=board)
+
+        # Aim and fire shots
+        service.aim_shot(game_id=game_id, player_id=player_id, coord=Coord.A1)
+        service.fire_shots(game_id=game_id, player_id=player_id)
+
+        # Act - try to fire again
+        result = service.fire_shots(game_id=game_id, player_id=player_id)
+
+        # Assert
+        assert result.success is False
+        assert "already" in result.message.lower() or "submitted" in result.message.lower()
+
+
+class TestRoundResolution:
+    """Tests for resolving rounds when both players fire."""
+
+    def test_resolve_round_when_both_players_fire(self) -> None:
+        """Test that round is resolved when both players have fired."""
+        # Arrange
+        service = GameplayService()
+        game_id = "game123"
+        player1_id = "player1"
+        player2_id = "player2"
+        round_number = 1
+
+        board1 = create_board_with_all_ships()
+        board2 = create_board_with_all_ships()
+
+        service.create_round(game_id=game_id, round_number=round_number)
+        service.register_player_board(game_id=game_id, player_id=player1_id, board=board1)
+        service.register_player_board(game_id=game_id, player_id=player2_id, board=board2)
+
+        # Player 1 aims and fires
+        service.aim_shot(game_id=game_id, player_id=player1_id, coord=Coord.A1)
+        service.aim_shot(game_id=game_id, player_id=player1_id, coord=Coord.B2)
+        service.fire_shots(game_id=game_id, player_id=player1_id)
+
+        # Player 2 aims and fires
+        service.aim_shot(game_id=game_id, player_id=player2_id, coord=Coord.C3)
+        service.aim_shot(game_id=game_id, player_id=player2_id, coord=Coord.D4)
+        result = service.fire_shots(game_id=game_id, player_id=player2_id)
+
+        # Assert - second player should trigger resolution
+        assert result.success is True
+        assert result.waiting_for_opponent is False  # Round is resolved, not waiting
+
+        # Verify round is marked as resolved
+        round_obj = service.active_rounds[game_id]
+        assert round_obj.is_resolved is True
+        assert round_obj.result is not None
+
+    def test_resolve_round_creates_round_result(self) -> None:
+        """Test that resolving a round creates a RoundResult object."""
+        # Arrange
+        service = GameplayService()
+        game_id = "game123"
+        player1_id = "player1"
+        player2_id = "player2"
+        round_number = 1
+
+        board1 = create_board_with_all_ships()
+        board2 = create_board_with_all_ships()
+
+        service.create_round(game_id=game_id, round_number=round_number)
+        service.register_player_board(game_id=game_id, player_id=player1_id, board=board1)
+        service.register_player_board(game_id=game_id, player_id=player2_id, board=board2)
+
+        # Both players aim and fire
+        service.aim_shot(game_id=game_id, player_id=player1_id, coord=Coord.A1)
+        service.fire_shots(game_id=game_id, player_id=player1_id)
+
+        service.aim_shot(game_id=game_id, player_id=player2_id, coord=Coord.B2)
+        service.fire_shots(game_id=game_id, player_id=player2_id)
+
+        # Assert - check RoundResult was created
+        round_obj = service.active_rounds[game_id]
+        assert round_obj.result is not None
+        assert round_obj.result.round_number == round_number
+        assert player1_id in round_obj.result.player_shots
+        assert player2_id in round_obj.result.player_shots
+        assert len(round_obj.result.player_shots[player1_id]) == 1
+        assert len(round_obj.result.player_shots[player2_id]) == 1
+
+
+class TestHitDetection:
+    """Tests for detecting hits on opponent ships."""
+
+    def test_detect_hits_on_opponent_ships(self) -> None:
+        """Test that hits are correctly detected when shots hit opponent ships."""
+        # Arrange
+        service = GameplayService()
+        game_id = "game123"
+        player1_id = "player1"
+        player2_id = "player2"
+        round_number = 1
+
+        # Create boards with ships at known positions
+        board1 = GameBoard()
+        board1.place_ship(Ship(ShipType.CARRIER), Coord.A1, Orientation.HORIZONTAL)  # A1-E1
+        board1.place_ship(Ship(ShipType.DESTROYER), Coord.C3, Orientation.HORIZONTAL)  # C3-D3
+
+        board2 = GameBoard()
+        board2.place_ship(Ship(ShipType.BATTLESHIP), Coord.B2, Orientation.HORIZONTAL)  # B2-E2
+        board2.place_ship(Ship(ShipType.CRUISER), Coord.F5, Orientation.VERTICAL)  # F5-F7
+
+        service.create_round(game_id=game_id, round_number=round_number)
+        service.register_player_board(game_id=game_id, player_id=player1_id, board=board1)
+        service.register_player_board(game_id=game_id, player_id=player2_id, board=board2)
+
+        # Player 1 aims at player 2's ships (B2 hits Battleship, F5 hits Cruiser, A1 misses)
+        service.aim_shot(game_id=game_id, player_id=player1_id, coord=Coord.B2)
+        service.aim_shot(game_id=game_id, player_id=player1_id, coord=Coord.F5)
+        service.aim_shot(game_id=game_id, player_id=player1_id, coord=Coord.A1)  # Miss
+        service.fire_shots(game_id=game_id, player_id=player1_id)
+
+        # Player 2 aims at player 1's ships (A1 hits Carrier, C3 hits Destroyer, J10 misses)
+        service.aim_shot(game_id=game_id, player_id=player2_id, coord=Coord.A1)
+        service.aim_shot(game_id=game_id, player_id=player2_id, coord=Coord.C3)
+        service.aim_shot(game_id=game_id, player_id=player2_id, coord=Coord.J10)  # Miss
+        service.fire_shots(game_id=game_id, player_id=player2_id)
+
+        # Assert - check hits were detected
+        round_obj = service.active_rounds[game_id]
+        result = round_obj.result
+
+        # Player 1 should have 2 hits (B2 on Battleship, F5 on Cruiser)
+        assert player1_id in result.hits_made
+        assert len(result.hits_made[player1_id]) == 2
+        hit_coords_p1 = {hit.coord for hit in result.hits_made[player1_id]}
+        assert Coord.B2 in hit_coords_p1
+        assert Coord.F5 in hit_coords_p1
+
+        # Player 2 should have 2 hits (A1 on Carrier, C3 on Destroyer)
+        assert player2_id in result.hits_made
+        assert len(result.hits_made[player2_id]) == 2
+        hit_coords_p2 = {hit.coord for hit in result.hits_made[player2_id]}
+        assert Coord.A1 in hit_coords_p2
+        assert Coord.C3 in hit_coords_p2
+
+    def test_detect_hits_includes_ship_type(self) -> None:
+        """Test that hit results include the correct ship type."""
+        # Arrange
+        service = GameplayService()
+        game_id = "game123"
+        player1_id = "player1"
+        player2_id = "player2"
+        round_number = 1
+
+        board1 = GameBoard()
+        board1.place_ship(Ship(ShipType.CARRIER), Coord.A1, Orientation.HORIZONTAL)
+
+        board2 = GameBoard()
+        board2.place_ship(Ship(ShipType.DESTROYER), Coord.B2, Orientation.HORIZONTAL)
+
+        service.create_round(game_id=game_id, round_number=round_number)
+        service.register_player_board(game_id=game_id, player_id=player1_id, board=board1)
+        service.register_player_board(game_id=game_id, player_id=player2_id, board=board2)
+
+        # Player 1 hits player 2's Destroyer at B2
+        service.aim_shot(game_id=game_id, player_id=player1_id, coord=Coord.B2)
+        service.fire_shots(game_id=game_id, player_id=player1_id)
+
+        # Player 2 hits player 1's Carrier at A1
+        service.aim_shot(game_id=game_id, player_id=player2_id, coord=Coord.A1)
+        service.fire_shots(game_id=game_id, player_id=player2_id)
+
+        # Assert - check ship types
+        round_obj = service.active_rounds[game_id]
+        result = round_obj.result
+
+        # Player 1 hit Destroyer
+        p1_hit = result.hits_made[player1_id][0]
+        assert p1_hit.ship_type == ShipType.DESTROYER
+        assert p1_hit.coord == Coord.B2
+
+        # Player 2 hit Carrier
+        p2_hit = result.hits_made[player2_id][0]
+        assert p2_hit.ship_type == ShipType.CARRIER
+        assert p2_hit.coord == Coord.A1
+
+    def test_detect_hits_no_hits_when_all_miss(self) -> None:
+        """Test that no hits are detected when all shots miss."""
+        # Arrange
+        service = GameplayService()
+        game_id = "game123"
+        player1_id = "player1"
+        player2_id = "player2"
+        round_number = 1
+
+        board1 = GameBoard()
+        board1.place_ship(Ship(ShipType.CARRIER), Coord.A1, Orientation.HORIZONTAL)
+
+        board2 = GameBoard()
+        board2.place_ship(Ship(ShipType.DESTROYER), Coord.B2, Orientation.HORIZONTAL)
+
+        service.create_round(game_id=game_id, round_number=round_number)
+        service.register_player_board(game_id=game_id, player_id=player1_id, board=board1)
+        service.register_player_board(game_id=game_id, player_id=player2_id, board=board2)
+
+        # Both players aim at empty cells
+        service.aim_shot(game_id=game_id, player_id=player1_id, coord=Coord.J10)
+        service.fire_shots(game_id=game_id, player_id=player1_id)
+
+        service.aim_shot(game_id=game_id, player_id=player2_id, coord=Coord.J9)
+        service.fire_shots(game_id=game_id, player_id=player2_id)
+
+        # Assert - no hits
+        round_obj = service.active_rounds[game_id]
+        result = round_obj.result
+
+        assert len(result.hits_made[player1_id]) == 0
+        assert len(result.hits_made[player2_id]) == 0

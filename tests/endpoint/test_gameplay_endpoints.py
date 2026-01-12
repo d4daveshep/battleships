@@ -276,3 +276,58 @@ class TestClearAimedShotEndpoint:
 
         # Assert
         assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+class TestFireShotsEndpoint:
+    """Tests for POST /game/{game_id}/fire-shots endpoint."""
+
+    def test_fire_shots_endpoint_first_player_waits(self, client: TestClient) -> None:
+        """Test that first player to fire enters waiting state."""
+        # Arrange
+        game_id, player_id = create_test_game_with_boards(client)
+
+        # Aim some shots
+        client.post(f"/game/{game_id}/aim-shot", data={"coord": "A1"})
+        client.post(f"/game/{game_id}/aim-shot", data={"coord": "B2"})
+
+        # Act - fire shots
+        response: Response = client.post(f"/game/{game_id}/fire-shots")
+
+        # Assert
+        assert response.status_code == status.HTTP_200_OK
+        assert "waiting" in response.text.lower()
+
+    def test_fire_shots_endpoint_no_shots_aimed(self, client: TestClient) -> None:
+        """Test that firing without aiming returns error."""
+        # Arrange
+        game_id, player_id = create_test_game_with_boards(client)
+
+        # Act - try to fire without aiming
+        response: Response = client.post(f"/game/{game_id}/fire-shots")
+
+        # Assert
+        assert response.status_code == status.HTTP_200_OK
+        assert "no shots" in response.text.lower()
+
+    def test_fire_shots_endpoint_already_submitted(self, client: TestClient) -> None:
+        """Test that firing twice returns error."""
+        # Arrange
+        game_id, player_id = create_test_game_with_boards(client)
+
+        # Aim and fire
+        client.post(f"/game/{game_id}/aim-shot", data={"coord": "A1"})
+        client.post(f"/game/{game_id}/fire-shots")
+
+        # Act - try to fire again
+        response: Response = client.post(f"/game/{game_id}/fire-shots")
+
+        # Assert
+        assert response.status_code == status.HTTP_200_OK
+        assert "already" in response.text.lower() or "submitted" in response.text.lower()
+
+    def test_fire_shots_endpoint_round_resolution(self, client: TestClient) -> None:
+        """Test that round is resolved when both players fire (multiplayer scenario)."""
+        # This test requires a multiplayer game setup
+        # For now, we'll skip it as it requires more complex setup
+        # The service layer tests already cover round resolution logic
+        pytest.skip("Multiplayer round resolution requires complex test setup")

@@ -1190,7 +1190,10 @@ async def fire_shots(request: Request, game_id: str) -> HTMLResponse:
     # Check if round is resolved or still waiting
     if result.waiting_for_opponent:
         return _render_aiming_interface(
-            request, game_id, player_id, waiting_message="Waiting for opponent to fire..."
+            request,
+            game_id,
+            player_id,
+            waiting_message="Waiting for opponent to fire...",
         )
     else:
         # Round is resolved - show round results
@@ -1201,20 +1204,20 @@ async def fire_shots(request: Request, game_id: str) -> HTMLResponse:
             )
 
         round_result = round_obj.result
-        
+
         # Get opponent ID
         game = game_service.games.get(game_id)
         if game is None:
             return _render_aiming_interface(
                 request, game_id, player_id, error_message="Game not found"
             )
-        
+
         opponent_id: str
         if game.player_1.id == player_id:
             opponent_id = game.player_2.id if game.player_2 else ""
         else:
             opponent_id = game.player_1.id
-        
+
         # Calculate hit feedback for display
         my_hits = gameplay_service.calculate_hit_feedback(
             round_result.hits_made.get(player_id, [])
@@ -1222,7 +1225,7 @@ async def fire_shots(request: Request, game_id: str) -> HTMLResponse:
         opponent_hits = gameplay_service.calculate_hit_feedback(
             round_result.hits_made.get(opponent_id, [])
         )
-        
+
         return templates.TemplateResponse(
             request=request,
             name="components/round_results.html",
@@ -1244,7 +1247,7 @@ async def get_aiming_interface(request: Request, game_id: str) -> HTMLResponse:
         game_id: The ID of the game
 
     Returns:
-        HTML response with aiming interface component
+        HTML response with aiming interface component or round results
 
     Raises:
         HTTPException: 401 if not authenticated, 404 if game not found
@@ -1255,7 +1258,60 @@ async def get_aiming_interface(request: Request, game_id: str) -> HTMLResponse:
     # Ensure game exists and gameplay is initialized
     _ensure_gameplay_initialized(game_id, player_id)
 
-    # Render the aiming interface
+    # Check if there's an active round and if it's resolved
+    round_obj = gameplay_service.active_rounds.get(game_id)
+
+    # If round exists and is resolved, show round results
+    if round_obj is not None and round_obj.is_resolved:
+        round_result = round_obj.result
+        if round_result is None:
+            return _render_aiming_interface(
+                request, game_id, player_id, error_message="Round not found"
+            )
+
+        # Get opponent ID
+        game = game_service.games.get(game_id)
+        if game is None:
+            return _render_aiming_interface(
+                request, game_id, player_id, error_message="Game not found"
+            )
+
+        opponent_id: str
+        if game.player_1.id == player_id:
+            opponent_id = game.player_2.id if game.player_2 else ""
+        else:
+            opponent_id = game.player_1.id
+
+        # Calculate hit feedback for display
+        my_hits = gameplay_service.calculate_hit_feedback(
+            round_result.hits_made.get(player_id, [])
+        )
+        opponent_hits = gameplay_service.calculate_hit_feedback(
+            round_result.hits_made.get(opponent_id, [])
+        )
+
+        return templates.TemplateResponse(
+            request=request,
+            name="components/round_results.html",
+            context={
+                "round_number": round_result.round_number,
+                "my_hits": my_hits,
+                "opponent_hits": opponent_hits,
+                "game_id": game_id,
+            },
+        )
+
+    # Check if player is waiting for opponent
+    if round_obj is not None and player_id in round_obj.submitted_players:
+        # Player has submitted but round not resolved yet - show waiting message
+        return _render_aiming_interface(
+            request,
+            game_id,
+            player_id,
+            waiting_message="Waiting for opponent to fire...",
+        )
+
+    # Normal aiming interface
     return _render_aiming_interface(request, game_id, player_id)
 
 

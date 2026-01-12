@@ -353,3 +353,109 @@ class TestFireShotsEndpoint:
         # For now, we'll skip it as it requires more complex setup
         # The service layer tests already cover round resolution logic
         pytest.skip("Multiplayer round resolution requires complex test setup")
+
+
+class TestGetAimingInterfacePolling:
+    """Tests for GET /game/{game_id}/aiming-interface endpoint polling behavior."""
+
+    def test_polling_returns_waiting_message_when_player_submitted(
+        self, client: TestClient
+    ) -> None:
+        """Test that polling returns waiting message when player has submitted but round not resolved."""
+        # Arrange
+        game_id, player_id = create_test_game_with_boards(client)
+
+        # Aim and fire shots
+        client.post(f"/game/{game_id}/aim-shot", data={"coord": "A1"})
+        client.post(f"/game/{game_id}/aim-shot", data={"coord": "B2"})
+        client.post(f"/game/{game_id}/fire-shots")
+
+        # Act - poll the aiming interface
+        response: Response = client.get(f"/game/{game_id}/aiming-interface")
+
+        # Assert - should still show waiting message
+        assert response.status_code == status.HTTP_200_OK
+        assert "waiting" in response.text.lower()
+        assert 'hx-trigger="every 2s"' in response.text
+
+    def test_polling_returns_aiming_interface_when_no_submission(
+        self, client: TestClient
+    ) -> None:
+        """Test that polling returns normal aiming interface when player hasn't submitted."""
+        # Arrange
+        game_id, player_id = create_test_game_with_boards(client)
+
+        # Act - poll the aiming interface without firing
+        response: Response = client.get(f"/game/{game_id}/aiming-interface")
+
+        # Assert - should show normal aiming interface
+        assert response.status_code == status.HTTP_200_OK
+        assert "waiting" not in response.text.lower()
+        assert (
+            "Select Target Coordinates" in response.text
+            or "shots-fired-board" in response.text
+        )
+
+    def test_polling_returns_round_results_after_both_players_fire(
+        self, game_paired: tuple[TestClient, TestClient]
+    ) -> None:
+        """Test that polling returns round results when round is resolved (multiplayer)."""
+        # Arrange - Get Alice and Bob paired and ready to play
+        alice_client, bob_client = game_paired
+
+        # Both players start the game
+        alice_client.post("/start-game", data={"action": "start_game"})
+        bob_client.post("/start-game", data={"action": "start_game"})
+
+        # Both players place ships randomly
+        alice_client.post("/random-ship-placement", data={"player_name": "Alice"})
+        bob_client.post("/random-ship-placement", data={"player_name": "Bob"})
+
+        # Alice readies first (gets 200 OK - waiting for Bob)
+        alice_ready_resp = alice_client.post(
+            "/ready-for-game", data={"player_name": "Alice"}, follow_redirects=False
+        )
+        assert alice_ready_resp.status_code == status.HTTP_200_OK
+
+        # Bob readies second (gets 303 redirect - game starts)
+        bob_ready_resp = bob_client.post(
+            "/ready-for-game", data={"player_name": "Bob"}, follow_redirects=False
+        )
+        assert bob_ready_resp.status_code == status.HTTP_303_SEE_OTHER
+        game_id: str = bob_ready_resp.headers["location"].split("/")[-1]
+
+        # Alice fires first (should enter waiting state)
+        alice_client.post(f"/game/{game_id}/aim-shot", data={"coord": "A1"})
+        alice_client.post(f"/game/{game_id}/aim-shot", data={"coord": "A2"})
+        alice_fire_resp = alice_client.post(f"/game/{game_id}/fire-shots")
+
+        # Verify Alice is waiting
+        assert alice_fire_resp.status_code == status.HTTP_200_OK
+        assert "waiting" in alice_fire_resp.text.lower()
+
+        # Alice polls while waiting (should still show waiting)
+        alice_poll_resp1 = alice_client.get(f"/game/{game_id}/aiming-interface")
+        assert alice_poll_resp1.status_code == status.HTTP_200_OK
+        assert "waiting" in alice_poll_resp1.text.lower()
+
+        # Bob fires (should resolve the round)
+        bob_client.post(f"/game/{game_id}/aim-shot", data={"coord": "B1"})
+        bob_client.post(f"/game/{game_id}/aim-shot", data={"coord": "B2"})
+        bob_fire_resp = bob_client.post(f"/game/{game_id}/fire-shots")
+
+        # Bob should see round results immediately
+        assert bob_fire_resp.status_code == status.HTTP_200_OK
+        assert "Round" in bob_fire_resp.text
+
+        # Act - Alice polls again (should now get round results)
+        alice_poll_resp2 = alice_client.get(f"/game/{game_id}/aiming-interface")
+
+        # Assert - Alice should see round results
+        assert alice_poll_resp2.status_code == status.HTTP_200_OK
+        assert "Round" in alice_poll_resp2.text
+        assert "waiting" not in alice_poll_resp2.text.lower()
+        # Should have round results component
+        assert (
+            "round-results" in alice_poll_resp2.text
+            or "Continue" in alice_poll_resp2.text
+        )

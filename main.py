@@ -904,6 +904,17 @@ async def game_page(request: Request, game_id: str) -> HTMLResponse:
     player_board_data: dict[str, Any] = {
         "ships": player_board.get_placed_ships_for_display()
     }
+
+    # Get incoming shots (shots received from opponent)
+    shots_received: dict[str, int] = {}
+    for ship_type, hits in player_board.hits_by_ship.items():
+        for coord, round_num in hits:
+            shots_received[coord.name] = round_num
+
+    player_board_data = {
+        "ships": player_board.get_placed_ships_for_display(),
+        "shots_received": shots_received,
+    }
     opponent_board_data: dict[str, Any] = {
         "ships": opponent_board.get_placed_ships_for_display()
     }
@@ -1182,9 +1193,45 @@ async def fire_shots(request: Request, game_id: str) -> HTMLResponse:
             request, game_id, player_id, waiting_message="Waiting for opponent to fire..."
         )
     else:
-        # Round is resolved - show round results (will be implemented in Phase 4)
-        return _render_aiming_interface(
-            request, game_id, player_id, waiting_message="Round resolved! (Results coming in Phase 4)"
+        # Round is resolved - show round results
+        round_obj = gameplay_service.active_rounds.get(game_id)
+        if round_obj is None or round_obj.result is None:
+            return _render_aiming_interface(
+                request, game_id, player_id, error_message="Round not found"
+            )
+
+        round_result = round_obj.result
+        
+        # Get opponent ID
+        game = game_service.games.get(game_id)
+        if game is None:
+            return _render_aiming_interface(
+                request, game_id, player_id, error_message="Game not found"
+            )
+        
+        opponent_id: str
+        if game.player_1.id == player_id:
+            opponent_id = game.player_2.id if game.player_2 else ""
+        else:
+            opponent_id = game.player_1.id
+        
+        # Calculate hit feedback for display
+        my_hits = gameplay_service.calculate_hit_feedback(
+            round_result.hits_made.get(player_id, [])
+        )
+        opponent_hits = gameplay_service.calculate_hit_feedback(
+            round_result.hits_made.get(opponent_id, [])
+        )
+        
+        return templates.TemplateResponse(
+            request=request,
+            name="components/round_results.html",
+            context={
+                "round_number": round_result.round_number,
+                "my_hits": my_hits,
+                "opponent_hits": opponent_hits,
+                "game_id": game_id,
+            },
         )
 
 

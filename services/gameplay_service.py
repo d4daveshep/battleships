@@ -92,6 +92,11 @@ class GameplayService:
                 aimed_count=0,
             )
 
+        # If current round is resolved, create next round
+        if round_obj is not None and round_obj.is_resolved:
+            next_round_number: int = round_obj.round_number + 1
+            round_obj = self.create_round(game_id=game_id, round_number=next_round_number)
+
         # Check if player has already submitted shots for this round
         if player_id in round_obj.submitted_players:
             return AimShotResult(
@@ -334,6 +339,23 @@ class GameplayService:
                 opponent_id=player1_id,
             )
 
+        # Record hits on opponent boards
+        if len(player_ids) == 2:
+            player1_id = player_ids[0]
+            player2_id = player_ids[1]
+            
+            # Record player 1's hits on player 2's board
+            if player2_id in self.player_boards.get(game_id, {}):
+                player2_board = self.player_boards[game_id][player2_id]
+                for hit in hits_made.get(player1_id, []):
+                    player2_board.record_hit(hit.ship_type, hit.coord, round_obj.round_number)
+            
+            # Record player 2's hits on player 1's board
+            if player1_id in self.player_boards.get(game_id, {}):
+                player1_board = self.player_boards[game_id][player1_id]
+                for hit in hits_made.get(player2_id, []):
+                    player1_board.record_hit(hit.ship_type, hit.coord, round_obj.round_number)
+
         # Create RoundResult
         result = RoundResult(
             round_number=round_obj.round_number,
@@ -387,3 +409,24 @@ class GameplayService:
                 )
 
         return hits
+
+    def calculate_hit_feedback(self, hits: list[HitResult]) -> dict[str, int]:
+        """Calculate ship-based hit feedback from hit results.
+        
+        Converts coordinate-based hits into ship-based feedback showing
+        which ships were hit and how many times (without exposing coordinates).
+        
+        Args:
+            hits: List of HitResult objects
+            
+        Returns:
+            Dictionary mapping ship names to hit counts
+            Example: {"Carrier": 2, "Destroyer": 1}
+        """
+        feedback: dict[str, int] = {}
+        
+        for hit in hits:
+            ship_name: str = hit.ship_type.ship_name
+            feedback[ship_name] = feedback.get(ship_name, 0) + 1
+                
+        return feedback

@@ -297,6 +297,26 @@ class TestFireShotsEndpoint:
         assert response.status_code == status.HTTP_200_OK
         assert "waiting" in response.text.lower()
 
+    def test_fire_shots_waiting_state_has_polling_attributes(
+        self, client: TestClient
+    ) -> None:
+        """Test that waiting state includes HTMX polling attributes."""
+        # Arrange
+        game_id, player_id = create_test_game_with_boards(client)
+
+        # Aim some shots
+        client.post(f"/game/{game_id}/aim-shot", data={"coord": "A1"})
+        client.post(f"/game/{game_id}/aim-shot", data={"coord": "B2"})
+
+        # Act - fire shots to enter waiting state
+        response: Response = client.post(f"/game/{game_id}/fire-shots")
+
+        # Assert - verify HTMX polling attributes are present
+        assert response.status_code == status.HTTP_200_OK
+        assert 'hx-get="/game/' in response.text
+        assert 'hx-trigger="every 2s"' in response.text
+        assert 'hx-swap="outerHTML"' in response.text
+
     def test_fire_shots_endpoint_no_shots_aimed(self, client: TestClient) -> None:
         """Test that firing without aiming returns error."""
         # Arrange
@@ -323,7 +343,9 @@ class TestFireShotsEndpoint:
 
         # Assert
         assert response.status_code == status.HTTP_200_OK
-        assert "already" in response.text.lower() or "submitted" in response.text.lower()
+        assert (
+            "already" in response.text.lower() or "submitted" in response.text.lower()
+        )
 
     def test_fire_shots_endpoint_round_resolution(self, client: TestClient) -> None:
         """Test that round is resolved when both players fire (multiplayer scenario)."""

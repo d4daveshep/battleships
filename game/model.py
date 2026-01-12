@@ -184,6 +184,7 @@ class GameBoard:
         self.ships: list[Ship] = []
         self.shots_received: dict[Coord, int] = {}  # coord -> round_number
         self.shots_fired: dict[Coord, int] = {}  # coord -> round_number
+        self.hits_by_ship: dict[ShipType, list[tuple[Coord, int]]] = {}  # ship_type -> [(coord, round_number), ...]
 
     def _invalid_coords(self) -> set[Coord]:
         invalid_coords: set[Coord] = set()
@@ -330,6 +331,31 @@ class GameBoard:
                 "code": ship.ship_type.code,
             }
         return placed_ships
+
+
+    def record_hit(self, ship_type: ShipType, coord: Coord, round_number: int) -> None:
+        """Record a hit on a ship.
+        
+        Args:
+            ship_type: The type of ship that was hit
+            coord: The coordinate where the hit occurred
+            round_number: The round number when the hit occurred
+        """
+        if ship_type not in self.hits_by_ship:
+            self.hits_by_ship[ship_type] = []
+        
+        self.hits_by_ship[ship_type].append((coord, round_number))
+
+    def get_hits_by_ship(self, ship_type: ShipType) -> list[tuple[Coord, int]]:
+        """Get all hits on a specific ship with round numbers.
+        
+        Args:
+            ship_type: The type of ship to get hits for
+            
+        Returns:
+            List of tuples (coord, round_number) for all hits on this ship
+        """
+        return self.hits_by_ship.get(ship_type, [])
 
 
 class GameBoardHelper:

@@ -2,7 +2,7 @@
 
 import pytest
 from game.model import Coord, ShipType, Ship, Orientation, GameBoard
-from game.round import Round
+from game.round import Round, HitResult
 from services.gameplay_service import GameplayService, AimShotResult, CellState
 
 
@@ -650,3 +650,65 @@ class TestHitDetection:
 
         assert len(result.hits_made[player1_id]) == 0
         assert len(result.hits_made[player2_id]) == 0
+
+class TestHitFeedbackCalculation:
+    """Tests for calculating ship-based hit feedback (not coordinate-based)."""
+
+    def test_calculate_hit_feedback_single_ship_single_hit(self) -> None:
+        """Test calculating feedback when one ship is hit once."""
+        # Arrange
+        service = GameplayService()
+        hits = [
+            HitResult(ship_type=ShipType.CARRIER, coord=Coord.A1, is_sinking_hit=False)
+        ]
+
+        # Act
+        feedback = service.calculate_hit_feedback(hits)
+
+        # Assert
+        assert feedback == {"Carrier": 1}
+
+    def test_calculate_hit_feedback_single_ship_multiple_hits(self) -> None:
+        """Test calculating feedback when one ship is hit multiple times."""
+        # Arrange
+        service = GameplayService()
+        hits = [
+            HitResult(ship_type=ShipType.BATTLESHIP, coord=Coord.B2, is_sinking_hit=False),
+            HitResult(ship_type=ShipType.BATTLESHIP, coord=Coord.C2, is_sinking_hit=False),
+            HitResult(ship_type=ShipType.BATTLESHIP, coord=Coord.D2, is_sinking_hit=False),
+        ]
+
+        # Act
+        feedback = service.calculate_hit_feedback(hits)
+
+        # Assert
+        assert feedback == {"Battleship": 3}
+
+    def test_calculate_hit_feedback_multiple_ships(self) -> None:
+        """Test calculating feedback when multiple ships are hit."""
+        # Arrange
+        service = GameplayService()
+        hits = [
+            HitResult(ship_type=ShipType.CARRIER, coord=Coord.A1, is_sinking_hit=False),
+            HitResult(ship_type=ShipType.CARRIER, coord=Coord.B1, is_sinking_hit=False),
+            HitResult(ship_type=ShipType.DESTROYER, coord=Coord.C3, is_sinking_hit=False),
+            HitResult(ship_type=ShipType.CRUISER, coord=Coord.F5, is_sinking_hit=False),
+        ]
+
+        # Act
+        feedback = service.calculate_hit_feedback(hits)
+
+        # Assert
+        assert feedback == {"Carrier": 2, "Destroyer": 1, "Cruiser": 1}
+
+    def test_calculate_hit_feedback_no_hits(self) -> None:
+        """Test calculating feedback when there are no hits."""
+        # Arrange
+        service = GameplayService()
+        hits: list[HitResult] = []
+
+        # Act
+        feedback = service.calculate_hit_feedback(hits)
+
+        # Assert
+        assert feedback == {}

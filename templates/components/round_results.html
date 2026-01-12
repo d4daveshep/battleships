@@ -1,0 +1,37 @@
+{# Round Results Component - Shows results after both players fire #}
+<div class="round-results" data-testid="round-results">
+    <h2>Round {{ round_number }} Complete!</h2>
+    
+    <div class="hits-made">
+        <h3>Your Hits</h3>
+        {% if my_hits %}
+            <ul>
+            {% for ship_name, hit_count in my_hits.items() %}
+                <li>{{ ship_name }}: {{ hit_count }} hit{% if hit_count != 1 %}s{% endif %}</li>
+            {% endfor %}
+            </ul>
+        {% else %}
+            <p>All shots missed</p>
+        {% endif %}
+    </div>
+    
+    <div class="hits-received">
+        <h3>Opponent's Hits</h3>
+        {% if opponent_hits %}
+            <ul>
+            {% for ship_name, hit_count in opponent_hits.items() %}
+                <li>{{ ship_name }}: {{ hit_count }} hit{% if hit_count != 1 %}s{% endif %}</li>
+            {% endfor %}
+            </ul>
+        {% else %}
+            <p>Opponent missed all shots</p>
+        {% endif %}
+    </div>
+    
+    <button hx-get="/game/{{ game_id }}/aiming-interface"
+            hx-target="#aiming-interface"
+            hx-swap="innerHTML"
+            class="btn btn-primary">
+        Continue to Round {{ round_number + 1 }}
+    </button>
+</div>

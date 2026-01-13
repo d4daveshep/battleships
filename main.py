@@ -1683,6 +1683,7 @@ async def reset_lobby() -> dict[str, str]:
     game_service.games = {}
     game_service.games_by_player = {}
     game_service.ship_placement_boards = {}
+    game_service.players = {}  # Clear players dictionary
     # Clear gameplay service state
     gameplay_service.active_rounds = {}
     gameplay_service.player_boards = {}

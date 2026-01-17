@@ -3,7 +3,7 @@
     <h2>Round {{ round_number }} Complete!</h2>
     
     <div class="hits-made">
-        <h3>Your Hits</h3>
+        <h3>Hits Made This Round:</h3>
         {% if my_hits %}
             <ul>
             {% for ship_name, hit_count in my_hits.items() %}
@@ -11,16 +11,27 @@
             {% endfor %}
             </ul>
         {% else %}
-            <p>All shots missed</p>
+            <p>None - all shots missed</p>
         {% endif %}
     </div>
     
     <div class="hits-received">
-        <h3>Opponent's Hits</h3>
+        <h3>Hits Received This Round:</h3>
         {% if opponent_hits %}
             <ul>
             {% for ship_name, hit_count in opponent_hits.items() %}
-                <li>{{ ship_name }}: {{ hit_count }} hit{% if hit_count != 1 %}s{% endif %}</li>
+                <li>Your {{ ship_name }} was hit {{ hit_count }} time{% if hit_count != 1 %}s{% endif %}
+                {% if opponent_hit_details %}
+                    at: 
+                    {% set ship_coords = [] %}
+                    {% for hit in opponent_hit_details %}
+                        {% if hit.ship_type.ship_name == ship_name %}
+                            {% set _ = ship_coords.append(hit.coord.name) %}
+                        {% endif %}
+                    {% endfor %}
+                    {{ ship_coords | join(', ') }}
+                {% endif %}
+                </li>
             {% endfor %}
             </ul>
         {% else %}

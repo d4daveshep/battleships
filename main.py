@@ -1226,6 +1226,9 @@ async def fire_shots(request: Request, game_id: str) -> HTMLResponse:
             round_result.hits_made.get(opponent_id, [])
         )
 
+        # Get detailed hits received (with coordinates) for display
+        opponent_hit_details = round_result.hits_made.get(opponent_id, [])
+
         return templates.TemplateResponse(
             request=request,
             name="components/round_results.html",
@@ -1233,6 +1236,7 @@ async def fire_shots(request: Request, game_id: str) -> HTMLResponse:
                 "round_number": round_result.round_number,
                 "my_hits": my_hits,
                 "opponent_hits": opponent_hits,
+                "opponent_hit_details": opponent_hit_details,
                 "game_id": game_id,
             },
         )
@@ -1290,6 +1294,9 @@ async def get_aiming_interface(request: Request, game_id: str) -> HTMLResponse:
             round_result.hits_made.get(opponent_id, [])
         )
 
+        # Get detailed hits received (with coordinates) for display
+        opponent_hit_details = round_result.hits_made.get(opponent_id, [])
+
         return templates.TemplateResponse(
             request=request,
             name="components/round_results.html",
@@ -1297,6 +1304,7 @@ async def get_aiming_interface(request: Request, game_id: str) -> HTMLResponse:
                 "round_number": round_result.round_number,
                 "my_hits": my_hits,
                 "opponent_hits": opponent_hits,
+                "opponent_hit_details": opponent_hit_details,
                 "game_id": game_id,
             },
         )
@@ -1803,6 +1811,13 @@ async def decline_game_request_for_testing(player_name: str = Form()) -> dict[st
         }
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/test/get-player-id")
+async def get_player_id_for_testing(request: Request) -> dict[str, str | None]:
+    """Get player_id from session - for testing only"""
+    player_id: str | None = request.session.get("player-id")
+    return {"player_id": player_id}
 
 
 if __name__ == "__main__":

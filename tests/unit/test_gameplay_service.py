@@ -651,6 +651,7 @@ class TestHitDetection:
         assert len(result.hits_made[player1_id]) == 0
         assert len(result.hits_made[player2_id]) == 0
 
+
 class TestHitFeedbackCalculation:
     """Tests for calculating ship-based hit feedback (not coordinate-based)."""
 
@@ -712,3 +713,134 @@ class TestHitFeedbackCalculation:
 
         # Assert
         assert feedback == {}
+
+
+class TestSinkingLogic:
+    """Tests for detecting when ships are sunk."""
+
+    def test_resolve_round_detects_sinking_hit(self) -> None:
+        """Test that resolve_round identifies the hit that sinks a ship."""
+        # Arrange
+        service = GameplayService()
+        game_id = "game123"
+        p1_id = "p1"
+        p2_id = "p2"
+        
+        # P2 has a Destroyer (length 2) at B2-B3
+        board2 = GameBoard()
+        board2.place_ship(Ship(ShipType.DESTROYER), Coord.B2, Orientation.HORIZONTAL)
+        
+        # P1 has some ship
+        board1 = GameBoard()
+        board1.place_ship(Ship(ShipType.DESTROYER), Coord.A1, Orientation.HORIZONTAL)
+        
+        service.register_player_board(game_id, p1_id, board1)
+        service.register_player_board(game_id, p2_id, board2)
+        
+        # Round 1: P1 hits B2
+        service.create_round(game_id, 1)
+        service.aim_shot(game_id, p1_id, Coord.B2)
+        service.aim_shot(game_id, p2_id, Coord.J10) # Miss
+        service.fire_shots(game_id, p1_id)
+        service.fire_shots(game_id, p2_id)
+        
+        # Round 2: P1 hits B3 (sinking hit)
+        service.create_round(game_id, 2)
+        service.aim_shot(game_id, p1_id, Coord.B3)
+        service.aim_shot(game_id, p2_id, Coord.J9) # Miss
+        service.fire_shots(game_id, p1_id)
+        service.fire_shots(game_id, p2_id)
+        
+        # Assert
+        round2_result = service.active_rounds[game_id].result
+        assert round2_result is not None
+        p1_hits = round2_result.hits_made[p1_id]
+        assert len(p1_hits) == 1
+        assert p1_hits[0].coord == Coord.B3
+        assert p1_hits[0].is_sinking_hit is True
+        
+        # Check ships_sunk in RoundResult
+        assert p1_id in round2_result.ships_sunk
+        assert ShipType.DESTROYER in round2_result.ships_sunk[p1_id]
+
+
+class TestGameOverDetection:
+    """Tests for detecting game over and winners."""
+
+    def test_resolve_round_detects_game_over(self) -> None:
+        """Test that game over is detected when all ships of one player are sunk."""
+        # Arrange
+        service = GameplayService()
+        game_id = "game123"
+        p1_id = "p1"
+        p2_id = "p2"
+        
+        # P2 has only one ship: Destroyer (length 2) at B2-B3
+        board2 = GameBoard()
+        board2.place_ship(Ship(ShipType.DESTROYER), Coord.B2, Orientation.HORIZONTAL)
+        
+        board1 = GameBoard()
+        board1.place_ship(Ship(ShipType.DESTROYER), Coord.A1, Orientation.HORIZONTAL)
+        
+        service.register_player_board(game_id, p1_id, board1)
+        service.register_player_board(game_id, p2_id, board2)
+        
+        # Round 1: P1 hits B2
+        service.create_round(game_id, 1)
+        service.aim_shot(game_id, p1_id, Coord.B2)
+        service.aim_shot(game_id, p2_id, Coord.J10)
+        service.fire_shots(game_id, p1_id)
+        service.fire_shots(game_id, p2_id)
+        
+        # Round 2: P1 hits B3 (sinks last ship)
+        service.create_round(game_id, 2)
+        service.aim_shot(game_id, p1_id, Coord.B3)
+        service.aim_shot(game_id, p2_id, Coord.J9)
+        service.fire_shots(game_id, p1_id)
+        service.fire_shots(game_id, p2_id)
+        
+        # Assert
+        result = service.active_rounds[game_id].result
+        assert result is not None
+        assert result.game_over is True
+        assert result.winner_id == p1_id
+        assert result.is_draw is False
+
+    def test_resolve_round_detects_draw(self) -> None:
+        """Test that a draw is detected when both players' last ships are sunk in the same round."""
+        # Arrange
+        service = GameplayService()
+        game_id = "game123"
+        p1_id = "p1"
+        p2_id = "p2"
+        
+        # Both have only one ship: Destroyer (length 2)
+        board1 = GameBoard()
+        board1.place_ship(Ship(ShipType.DESTROYER), Coord.A1, Orientation.HORIZONTAL) # A1-A2
+        
+        board2 = GameBoard()
+        board2.place_ship(Ship(ShipType.DESTROYER), Coord.B2, Orientation.HORIZONTAL) # B2-B3
+        
+        service.register_player_board(game_id, p1_id, board1)
+        service.register_player_board(game_id, p2_id, board2)
+        
+        # Round 1: Both hit first part of ship
+        service.create_round(game_id, 1)
+        service.aim_shot(game_id, p1_id, Coord.B2)
+        service.aim_shot(game_id, p2_id, Coord.A1)
+        service.fire_shots(game_id, p1_id)
+        service.fire_shots(game_id, p2_id)
+        
+        # Round 2: Both hit second part of ship (both sunk)
+        service.create_round(game_id, 2)
+        service.aim_shot(game_id, p1_id, Coord.B3)
+        service.aim_shot(game_id, p2_id, Coord.A2)
+        service.fire_shots(game_id, p1_id)
+        service.fire_shots(game_id, p2_id)
+        
+        # Assert
+        result = service.active_rounds[game_id].result
+        assert result is not None
+        assert result.game_over is True
+        assert result.is_draw is True
+        assert result.winner_id is None

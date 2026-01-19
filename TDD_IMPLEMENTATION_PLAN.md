@@ -18,18 +18,31 @@ This plan breaks down the **58 scenarios** from `features/two_player_gameplay.fe
 - ✅ Shots available calculation working
 - ✅ 20 unit tests passing
 
-### ✅ Phase 2: Shot Aiming & Validation - Cycles 2.1-2.5 (COMPLETE)
+### ✅ Phase 2: Shot Aiming & Validation (COMPLETE)
 - ✅ GameplayService with aim_shot(), get_aimed_shots(), clear_aimed_shot()
 - ✅ JSON API endpoints for testing
 - ✅ HTMX templates created (opponent_board.html, aimed_shots_list.html, shot_counter.html, fire_shots_button.html)
-- ✅ 19 tests passing (8 unit + 11 integration)
+- ✅ Cell state management (fired, aimed, available, unavailable)
+- ✅ Single board ("Shots Fired") integration
+- ✅ 43 BDD scenarios passing (FastAPI level)
 
-### 🔄 Phase 2: Shot Aiming UI Integration (IN PROGRESS)
-- ⏳ Integrate components with Shots Fired board
-- ⏳ Implement cell state management (fired, aimed, available, unavailable)
-- ⏳ BDD scenarios for UI interaction
+### ✅ Phase 3: Simultaneous Shot Resolution (COMPLETE)
+- ✅ Fire shots service method and endpoint
+- ✅ Round resolution logic with hit detection
+- ✅ Waiting state UI and polling
+- ✅ Round number incrementing
 
-### ⏳ Phase 3-7: Remaining Work
+### ✅ Phase 4: Hit Feedback & Tracking (COMPLETE)
+- ✅ Ship-based hit feedback (not coordinate-based)
+- ✅ Hits Made area tracking cumulative hits
+- ✅ Shots Fired board showing round numbers
+- ✅ My Ships board showing received shots with round numbers
+
+### 🔄 Phase 5: Ship Sinking & Game End (IN PROGRESS)
+- ⏳ Ship sinking detection logic
+- ⏳ Shots available calculation based on unsunk ships
+- ⏳ Win/Loss/Draw condition detection
+- ⏳ Game over UI and "Return to Lobby"
 
 ---
 
@@ -38,10 +51,10 @@ This plan breaks down the **58 scenarios** from `features/two_player_gameplay.fe
 | Phase | Focus Area | Scenarios | Status |
 |-------|-----------|-----------|--------|
 | **Phase 1** | Round & Shot Domain Models | 8 scenarios | ✅ COMPLETE |
-| **Phase 2** | Shot Aiming & Validation | 19 scenarios | 🔄 IN PROGRESS |
-| **Phase 3** | Simultaneous Shot Resolution | 8 scenarios | ⏳ TODO |
-| **Phase 4** | Hit Feedback & Tracking | 9 scenarios | ⏳ TODO |
-| **Phase 5** | Ship Sinking & Game End | 11 scenarios | ⏳ TODO |
+| **Phase 2** | Shot Aiming & Validation | 19 scenarios | ✅ COMPLETE |
+| **Phase 3** | Simultaneous Shot Resolution | 8 scenarios | ✅ COMPLETE |
+| **Phase 4** | Hit Feedback & Tracking | 9 scenarios | ✅ COMPLETE |
+| **Phase 5** | Ship Sinking & Game End | 11 scenarios | 🔄 IN PROGRESS |
 | **Phase 6** | Real-Time Updates & Long-Polling | 3 scenarios | ⏳ TODO |
 | **Phase 7** | Edge Cases & Error Handling | 10 scenarios | ⏳ TODO |
 

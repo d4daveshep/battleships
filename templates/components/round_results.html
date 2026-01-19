@@ -11,7 +11,13 @@
             {% endfor %}
             </ul>
         {% else %}
-            <p>None - all shots missed</p>
+            <p data-testid="no-hits-made">None - all shots missed</p>
+        {% endif %}
+        
+        {% if ships_sunk_by_me %}
+            {% for ship_type in ships_sunk_by_me %}
+                <p class="ship-sunk-message">You sunk their {{ ship_type.ship_name }}!</p>
+            {% endfor %}
         {% endif %}
     </div>
     
@@ -37,12 +43,42 @@
         {% else %}
             <p>Opponent missed all shots</p>
         {% endif %}
+        
+        {% if ships_sunk_by_opponent %}
+            {% for ship_type in ships_sunk_by_opponent %}
+                <p class="ship-sunk-message">Your {{ ship_type.ship_name }} was sunk!</p>
+            {% endfor %}
+        {% endif %}
     </div>
-    
-    <button hx-get="/game/{{ game_id }}/aiming-interface"
-            hx-target="#aiming-interface"
-            hx-swap="innerHTML"
-            class="btn btn-primary">
-        Continue to Round {{ round_number + 1 }}
-    </button>
+
+    {% if game_over %}
+        <div class="game-over-message alert {% if is_draw %}alert-warning{% elif winner_id == player_id %}alert-success{% else %}alert-danger{% endif %}" data-testid="game-over-message">
+            {% if is_draw %}
+                <h2>Draw!</h2>
+                <p>Both players sunk all ships in the same round</p>
+            {% elif winner_id == player_id %}
+                <h2>You Win!</h2>
+                <p>All opponent ships destroyed!</p>
+            {% else %}
+                <h2>You Lose!</h2>
+                <p>All your ships destroyed!</p>
+            {% endif %}
+            
+            <div class="mt-3">
+                <a href="/lobby" class="btn btn-primary" hx-boost="true">Return to Lobby</a>
+            </div>
+        </div>
+    {% else %}
+        <button hx-get="/game/{{ game_id }}/aiming-interface?clear_round=true"
+                hx-target="#aiming-interface"
+                hx-swap="innerHTML"
+                class="btn btn-primary">
+            Continue to Round {{ round_number + 1 }}
+        </button>
+    {% endif %}
+
+    <div class="game-stats mt-3">
+        <p data-testid="ships-sunk"><strong>Ships Sunk:</strong> {{ ships_sunk_count }}/5</p>
+        <p data-testid="ships-lost"><strong>Ships Lost:</strong> {{ ships_lost_count }}/5</p>
+    </div>
 </div>

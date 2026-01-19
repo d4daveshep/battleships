@@ -13,6 +13,10 @@
         <p class="game-info-item"><strong>Player:</strong> {{ player_name }}</p>
         <p class="game-info-item"><strong>Opponent:</strong> {{ opponent_name }}</p>
         <p class="game-info-item"><strong>Game ID:</strong> {{ game_id }}</p>
+        <div class="game-stats mt-3">
+            <p class="game-stat-item" data-testid="ships-sunk"><strong>Ships Sunk:</strong> {{ ships_sunk_count }}/5</p>
+            <p class="game-stat-item" data-testid="ships-lost"><strong>Ships Lost:</strong> {{ ships_lost_count }}/5</p>
+        </div>
     </div>
 </div>
 
@@ -130,12 +134,85 @@
     </div>
 </div>
 
-<div class="game-actions">
-    <h3>Other Actions</h3>
-    <div class="btn-group">
-        <button class="btn btn-warning" disabled>
-            🏳️ Surrender (Coming Soon)
-        </button>
+<!-- Hits Made Area -->
+<div class="hits-made-area" data-testid="hits-made-area">
+        <h3>Hits Made</h3>
+        <div class="hits-made-grid">
+            {% for ship_name, hits in hits_made_data.items() %}
+            <div class="hits-made-row" data-testid="hits-made-row-{{ ship_name }}">
+                <span class="ship-label">{{ ship_name }}: {{ hits|length }} hit{% if hits|length != 1 %}s{% endif %} total</span>
+                <div class="hit-slots">
+                    {% set ship_length = 0 %}
+                    {% if ship_name == 'Carrier' %}{% set ship_length = 5 %}
+                    {% elif ship_name == 'Battleship' %}{% set ship_length = 4 %}
+                    {% elif ship_name == 'Cruiser' %}{% set ship_length = 3 %}
+                    {% elif ship_name == 'Submarine' %}{% set ship_length = 3 %}
+                    {% elif ship_name == 'Destroyer' %}{% set ship_length = 2 %}
+                    {% endif %}
+                    
+                    {% for i in range(ship_length) %}
+                    <div class="hit-slot {% if i < hits|length %}hit{% endif %}" data-testid="hit-slot-{{ ship_name }}-{{ i }}">
+                        {% if i < hits|length %}
+                            {{ hits[i] }}
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
     </div>
-</div>
+
+<!-- Game Actions -->
+<div class="game-actions">
+        <h3>Other Actions</h3>
+        <div class="btn-group">
+            <button class="btn btn-warning" disabled>
+                🏳️ Surrender (Coming Soon)
+            </button>
+        </div>
+    </div>
+
+    <style>
+        .hits-made-area {
+            margin-top: 2rem;
+            padding: 1rem;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background-color: #f9f9f9;
+        }
+        .hits-made-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .hits-made-row {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        .ship-label {
+            width: 250px;
+            font-weight: bold;
+        }
+        .hit-slots {
+            display: flex;
+            gap: 0.25rem;
+        }
+        .hit-slot {
+            width: 30px;
+            height: 30px;
+            border: 1px solid #ccc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #fff;
+            font-size: 0.8rem;
+        }
+        .hit-slot.hit {
+            background-color: #ffcccc;
+            color: #cc0000;
+            font-weight: bold;
+        }
+    </style>
 {% endblock %}

@@ -929,14 +929,39 @@ async def game_page(request: Request, game_id: str) -> HTMLResponse:
     elif game.status == GameStatus.SETUP:
         status_message = "Setting up the game..."
 
+    # Calculate ships sunk/lost
+    ships_sunk_count = sum(
+        1
+        for ship in opponent_board.ships
+        if opponent_board.is_ship_sunk(ship.ship_type)
+    )
+    ships_lost_count = sum(
+        1 for ship in player_board.ships if player_board.is_ship_sunk(ship.ship_type)
+    )
+
+    # Get current round number
+    round_obj = gameplay_service.active_rounds.get(game_id)
+    round_number = round_obj.round_number if round_obj else 1
+
+    # Get hits made by current player on opponent ships for Hits Made area
+    hits_made_data: dict[str, list[int]] = {}
+    for ship in opponent_board.ships:
+        hits = opponent_board.hits_by_ship.get(ship.ship_type, [])
+        hits_made_data[ship.ship_type.ship_name] = sorted(
+            [round_num for _, round_num in hits]
+        )
+
     template_context: dict[str, Any] = {
         "player_name": current_player.name,
         "opponent_name": opponent_name,
         "game_id": game_id,
         "player_board": player_board_data,
         "opponent_board": opponent_board_data,
-        "round_number": 1,  # Placeholder - will be dynamic later
+        "round_number": round_number,
         "status_message": status_message,
+        "ships_sunk_count": ships_sunk_count,
+        "ships_lost_count": ships_lost_count,
+        "hits_made_data": hits_made_data,
     }
 
     # Render gameplay template
@@ -979,11 +1004,13 @@ def _ensure_gameplay_initialized(game_id: str, player_id: str) -> Game:
     # At this point, we know player_2 exists (either player_1 or player_2 matched)
     assert game.player_2 is not None, "Two-player game must have player_2"
 
-    # Ensure round exists and boards are registered
+    # Ensure round exists
     if game_id not in gameplay_service.active_rounds:
         # Create round 1 for this game
         gameplay_service.create_round(game_id=game_id, round_number=1)
 
+    # Ensure boards are registered
+    if game_id not in gameplay_service.player_boards:
         # Register player boards
         current_player: Player = (
             game.player_1 if game.player_1.id == player_id else game.player_2
@@ -1051,6 +1078,136 @@ async def aim_shot(
     return _render_aiming_interface(request, game_id, player_id)
 
 
+@app.delete("/game/{game_id}/aim-shot/{coord}", response_class=HTMLResponse)
+async def clear_aimed_shot(request: Request, game_id: str, coord: str) -> HTMLResponse:
+    """Remove a shot from the aiming queue for current round.
+
+    Args:
+        request: The FastAPI request object containing session data
+        game_id: The ID of the game
+        coord: The coordinate string (from URL path)
+
+    Returns:
+        HTML response with updated aiming interface
+
+    Raises:
+        HTTPException: 401 if not authenticated, 400 if invalid coord, 404 if game not found
+    """
+    # Get player from session
+    player_id: str = _get_player_id(request)
+
+    # Ensure game exists and gameplay is initialized
+    _ensure_gameplay_initialized(game_id, player_id)
+
+    # Parse coordinate
+    try:
+        coord_enum: Coord = Coord[coord.upper()]
+    except KeyError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid coordinate: {coord}",
+        )
+
+    # Remove the shot
+    gameplay_service.clear_aimed_shot(game_id, player_id, coord_enum)
+
+    # Return updated aiming interface
+    return _render_aiming_interface(request, game_id, player_id)
+
+
+@app.post("/game/{game_id}/fire-shots", response_class=HTMLResponse)
+async def fire_shots(request: Request, game_id: str) -> HTMLResponse:
+    """Fire all aimed shots for the current round.
+
+    Args:
+        request: The FastAPI request object containing session data
+        game_id: The ID of the game
+
+    Returns:
+        HTML response - either aiming interface (waiting) or round results (resolved)
+
+    Raises:
+        HTTPException: 401 if not authenticated, 404 if game not found
+    """
+    # Get player from session
+    player_id: str = _get_player_id(request)
+
+    # Ensure game exists and gameplay is initialized
+    game: Game = _ensure_gameplay_initialized(game_id, player_id)
+
+    # Fire shots
+    result = gameplay_service.fire_shots(game_id=game_id, player_id=player_id)
+
+    if not result.success:
+        return _render_aiming_interface(
+            request, game_id, player_id, error_message=result.message
+        )
+
+    # Check if round was resolved (both players fired)
+    round_obj = gameplay_service.active_rounds.get(game_id)
+
+    if round_obj is not None and round_obj.is_resolved and round_obj.result is not None:
+        # Round resolved - show results
+        round_result = round_obj.result
+        return _render_round_results(request, game_id, player_id, round_result)
+
+    # Waiting for opponent - show aiming interface with waiting message
+    return _render_aiming_interface(
+        request, game_id, player_id, waiting_message=result.message
+    )
+
+
+@app.get("/game/{game_id}/long-poll", response_model=None)
+async def game_long_poll(
+    request: Request, game_id: str, version: int = 0
+) -> HTMLResponse | dict[str, Any]:
+    """Long-polling endpoint for game state updates.
+
+    Args:
+        request: The FastAPI request object containing session data
+        game_id: The ID of the game
+        version: The current version number client has
+
+    Returns:
+        HTML response with round results if round is resolved, or JSON if not resolved
+    """
+    # Get player from session
+    player_id: str = _get_player_id(request)
+
+    # Check if game exists
+    if game_id not in game_service.games:
+        raise HTTPException(status_code=404, detail="Game not found")
+
+    game = game_service.games[game_id]
+
+    # Get current round version
+    current_version = gameplay_service.get_round_version(game_id)
+
+    # If client is up to date, wait for changes (long-polling simulation)
+    if version >= current_version:
+        # Wait up to 2 seconds for changes
+        for _ in range(20):  # 20 * 100ms = 2 seconds
+            await asyncio.sleep(0.1)
+            new_version = gameplay_service.get_round_version(game_id)
+            if new_version > version:
+                current_version = new_version
+                break
+
+    # Check if round is resolved
+    round_obj = gameplay_service.active_rounds.get(game_id)
+    if round_obj is not None and round_obj.is_resolved and round_obj.result is not None:
+        # Round resolved - return HTML round results
+        return _render_round_results(request, game_id, player_id, round_obj.result)
+
+    # Round not resolved - return JSON to continue polling
+    return {
+        "version": current_version,
+        "round_resolved": False,
+        "game_over": game.status == GameStatus.FINISHED,
+        "winner_id": None,
+    }
+
+
 @app.get("/game/{game_id}/aimed-shots")
 async def get_aimed_shots(request: Request, game_id: str) -> dict[str, Any]:
     """Get currently aimed shots for player.
@@ -1083,45 +1240,6 @@ async def get_aimed_shots(request: Request, game_id: str) -> dict[str, Any]:
         "count": len(coord_names),
         "shots_available": shots_available,
     }
-
-
-@app.delete("/game/{game_id}/aim-shot/{coord}", response_class=HTMLResponse)
-async def clear_aimed_shot(request: Request, game_id: str, coord: str) -> HTMLResponse:
-    """Remove a shot from aiming queue.
-
-    Args:
-        request: The FastAPI request object containing session data
-        game_id: The ID of the game
-        coord: The coordinate to remove
-
-    Returns:
-        HTML response with updated aiming interface
-
-    Raises:
-        HTTPException: 401 if not authenticated, 400 if invalid coord, 404 if game not found
-    """
-    # Get player from session
-    player_id: str = _get_player_id(request)
-
-    # Ensure game exists and gameplay is initialized
-    _ensure_gameplay_initialized(game_id, player_id)
-
-    # Parse coordinate
-    try:
-        coord_enum: Coord = Coord[coord.upper()]
-    except KeyError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid coordinate: {coord}",
-        )
-
-    # Remove the shot
-    gameplay_service.clear_aimed_shot(
-        game_id=game_id, player_id=player_id, coord=coord_enum
-    )
-
-    # Return updated aiming interface
-    return _render_aiming_interface(request, game_id, player_id)
 
 
 def _render_aiming_interface(
@@ -1159,6 +1277,13 @@ def _render_aiming_interface(
             ].items():
                 shots_fired[coord.name] = round_num
 
+    # Get current round version
+    round_version = gameplay_service.get_round_version(game_id)
+
+    # Get current round number
+    round_obj = gameplay_service.active_rounds.get(game_id)
+    round_number = round_obj.round_number if round_obj else 1
+
     return templates.TemplateResponse(
         request=request,
         name="components/aiming_interface.html",
@@ -1170,85 +1295,113 @@ def _render_aiming_interface(
             "aimed_count": len(aimed_shots),
             "error_message": error_message,
             "waiting_message": waiting_message,
+            "round_version": round_version,
+            "round_number": round_number,
         },
     )
 
 
-@app.post("/game/{game_id}/fire-shots", response_class=HTMLResponse)
-async def fire_shots(request: Request, game_id: str) -> HTMLResponse:
-    """Submit aimed shots."""
-    player_id = _get_player_id(request)
-    _ensure_gameplay_initialized(game_id, player_id)
+def _render_round_results(
+    request: Request,
+    game_id: str,
+    player_id: str,
+    round_result: Any,
+) -> HTMLResponse:
+    """Render the round results component.
 
-    result: FireShotsResult = gameplay_service.fire_shots(game_id, player_id)
+    Args:
+        request: The FastAPI request object
+        game_id: The ID of the game
+        player_id: The ID of the player
+        round_result: The RoundResult object to render
 
-    if not result.success:
+    Returns:
+        HTML response with round results component
+    """
+    # Get opponent ID
+    game = game_service.games.get(game_id)
+    if game is None:
         return _render_aiming_interface(
-            request, game_id, player_id, error_message=result.message
+            request, game_id, player_id, error_message="Game not found"
         )
 
-    # Check if round is resolved or still waiting
-    if result.waiting_for_opponent:
+    opponent_id: str
+    if game.player_1.id == player_id:
+        opponent_id = game.player_2.id if game.player_2 else ""
+    else:
+        opponent_id = game.player_1.id
+
+    # Calculate hit feedback
+    my_hits = gameplay_service.calculate_hit_feedback(
+        round_result.hits_made.get(player_id, [])
+    )
+    opponent_hits = gameplay_service.calculate_hit_feedback(
+        round_result.hits_made.get(opponent_id, [])
+    )
+
+    # Get detailed hits received
+    opponent_hit_details = round_result.hits_made.get(opponent_id, [])
+
+    # Get ships sunk this round
+    ships_sunk_by_me = round_result.ships_sunk.get(player_id, [])
+    ships_sunk_by_opponent = round_result.ships_sunk.get(opponent_id, [])
+
+    # Calculate total ships sunk/lost
+    current_player = game.player_1 if game.player_1.id == player_id else game.player_2
+    opponent = game.player_2 if game.player_1.id == player_id else game.player_1
+
+    # Handle potential None values
+    if current_player is None or opponent is None:
         return _render_aiming_interface(
             request,
             game_id,
             player_id,
-            waiting_message="Waiting for opponent to fire...",
-        )
-    else:
-        # Round is resolved - show round results
-        round_obj = gameplay_service.active_rounds.get(game_id)
-        if round_obj is None or round_obj.result is None:
-            return _render_aiming_interface(
-                request, game_id, player_id, error_message="Round not found"
-            )
-
-        round_result = round_obj.result
-
-        # Get opponent ID
-        game = game_service.games.get(game_id)
-        if game is None:
-            return _render_aiming_interface(
-                request, game_id, player_id, error_message="Game not found"
-            )
-
-        opponent_id: str
-        if game.player_1.id == player_id:
-            opponent_id = game.player_2.id if game.player_2 else ""
-        else:
-            opponent_id = game.player_1.id
-
-        # Calculate hit feedback for display
-        my_hits = gameplay_service.calculate_hit_feedback(
-            round_result.hits_made.get(player_id, [])
-        )
-        opponent_hits = gameplay_service.calculate_hit_feedback(
-            round_result.hits_made.get(opponent_id, [])
+            error_message="Game not properly initialized",
         )
 
-        # Get detailed hits received (with coordinates) for display
-        opponent_hit_details = round_result.hits_made.get(opponent_id, [])
+    player_board = game.board[current_player]
+    opponent_board = game.board[opponent]
 
-        return templates.TemplateResponse(
-            request=request,
-            name="components/round_results.html",
-            context={
-                "round_number": round_result.round_number,
-                "my_hits": my_hits,
-                "opponent_hits": opponent_hits,
-                "opponent_hit_details": opponent_hit_details,
-                "game_id": game_id,
-            },
-        )
+    ships_sunk_count = sum(
+        1
+        for ship in opponent_board.ships
+        if opponent_board.is_ship_sunk(ship.ship_type)
+    )
+    ships_lost_count = sum(
+        1 for ship in player_board.ships if player_board.is_ship_sunk(ship.ship_type)
+    )
+
+    return templates.TemplateResponse(
+        request=request,
+        name="components/round_results.html",
+        context={
+            "round_number": round_result.round_number,
+            "my_hits": my_hits,
+            "opponent_hits": opponent_hits,
+            "opponent_hit_details": opponent_hit_details,
+            "game_id": game_id,
+            "game_over": round_result.game_over,
+            "winner_id": round_result.winner_id,
+            "is_draw": round_result.is_draw,
+            "player_id": player_id,
+            "ships_sunk_by_me": ships_sunk_by_me,
+            "ships_sunk_by_opponent": ships_sunk_by_opponent,
+            "ships_sunk_count": ships_sunk_count,
+            "ships_lost_count": ships_lost_count,
+        },
+    )
 
 
 @app.get("/game/{game_id}/aiming-interface")
-async def get_aiming_interface(request: Request, game_id: str) -> HTMLResponse:
+async def get_aiming_interface(
+    request: Request, game_id: str, clear_round: bool = False
+) -> HTMLResponse:
     """Get the aiming interface component for HTMX.
 
     Args:
         request: The FastAPI request object containing session data
         game_id: The ID of the game
+        clear_round: If True, clear the resolved round to start next round
 
     Returns:
         HTML response with aiming interface component or round results
@@ -1264,17 +1417,69 @@ async def get_aiming_interface(request: Request, game_id: str) -> HTMLResponse:
 
     # Check if there's an active round and if it's resolved
     round_obj = gameplay_service.active_rounds.get(game_id)
+    game = game_service.games.get(game_id)
 
-    # If round exists and is resolved, show round results
-    if round_obj is not None and round_obj.is_resolved:
-        round_result = round_obj.result
+    # If clear_round is requested and round is resolved, clear it to start next round
+    if (
+        clear_round
+        and round_obj is not None
+        and round_obj.is_resolved
+        and round_obj.result is not None
+        and not round_obj.result.game_over
+    ):
+        # Get the next round number
+        next_round_number = round_obj.round_number + 1
+        # Clear the resolved round and create a new one for the next round
+        del gameplay_service.active_rounds[game_id]
+        round_obj = gameplay_service.create_round(game_id, next_round_number)
+
+    # If game is finished, always show results
+    if game and game.status == GameStatus.FINISHED:
+        # Game is over - show final results
+        if round_obj is not None and round_obj.is_resolved:
+            round_result = round_obj.result
+        else:
+            # Game finished but round not resolved (e.g. via test endpoint)
+            # Create a result for display with ship sinking info
+            game_over, winner_id, is_draw = gameplay_service.check_game_over(game_id)
+            from game.round import RoundResult
+
+            # Calculate which ships were sunk by checking board state
+            game = game_service.games.get(game_id)
+            ships_sunk: dict[str, list[ShipType]] = {}
+            if game and game.player_1 and game.player_2:
+                for pid in [game.player_1.id, game.player_2.id]:
+                    opponent_pid = (
+                        game.player_2.id
+                        if pid == game.player_1.id
+                        else game.player_1.id
+                    )
+                    opponent_board = gameplay_service.player_boards.get(
+                        game_id, {}
+                    ).get(opponent_pid)
+                    if opponent_board:
+                        ships_sunk[pid] = [
+                            ship.ship_type
+                            for ship in opponent_board.ships
+                            if opponent_board.is_ship_sunk(ship.ship_type)
+                        ]
+
+            round_result = RoundResult(
+                round_number=round_obj.round_number if round_obj else 1,
+                player_shots={},
+                hits_made={},
+                ships_sunk=ships_sunk,
+                game_over=game_over,
+                winner_id=winner_id,
+                is_draw=is_draw,
+            )
+
         if round_result is None:
             return _render_aiming_interface(
                 request, game_id, player_id, error_message="Round not found"
             )
 
         # Get opponent ID
-        game = game_service.games.get(game_id)
         if game is None:
             return _render_aiming_interface(
                 request, game_id, player_id, error_message="Game not found"
@@ -1297,6 +1502,31 @@ async def get_aiming_interface(request: Request, game_id: str) -> HTMLResponse:
         # Get detailed hits received (with coordinates) for display
         opponent_hit_details = round_result.hits_made.get(opponent_id, [])
 
+        # Get ships sunk this round
+        ships_sunk_by_me = round_result.ships_sunk.get(player_id, [])
+        ships_sunk_by_opponent = round_result.ships_sunk.get(opponent_id, [])
+
+        # Calculate total ships sunk/lost
+        game = game_service.games.get(game_id)
+        assert game is not None
+        p1 = game.player_1
+        p2 = game.player_2
+        assert p2 is not None
+
+        player_board = game.board[p1 if p1.id == player_id else p2]
+        opponent_board = game.board[p2 if p1.id == player_id else p1]
+
+        ships_sunk_count = sum(
+            1
+            for ship in opponent_board.ships
+            if opponent_board.is_ship_sunk(ship.ship_type)
+        )
+        ships_lost_count = sum(
+            1
+            for ship in player_board.ships
+            if player_board.is_ship_sunk(ship.ship_type)
+        )
+
         return templates.TemplateResponse(
             request=request,
             name="components/round_results.html",
@@ -1306,6 +1536,92 @@ async def get_aiming_interface(request: Request, game_id: str) -> HTMLResponse:
                 "opponent_hits": opponent_hits,
                 "opponent_hit_details": opponent_hit_details,
                 "game_id": game_id,
+                "game_over": round_result.game_over,
+                "winner_id": round_result.winner_id,
+                "is_draw": round_result.is_draw,
+                "player_id": player_id,
+                "ships_sunk_by_me": ships_sunk_by_me,
+                "ships_sunk_by_opponent": ships_sunk_by_opponent,
+                "ships_sunk_count": ships_sunk_count,
+                "ships_lost_count": ships_lost_count,
+            },
+        )
+
+    # If round is resolved but game is NOT finished, show round results
+    # (The round will be cleared when Continue button is clicked with clear_round=true)
+    if (
+        round_obj is not None
+        and round_obj.is_resolved
+        and round_obj.result is not None
+        and not round_obj.result.game_over
+    ):
+        # Show round results (same logic as above for game finished)
+        round_result = round_obj.result
+
+        # Get opponent ID
+        if game is None:
+            return _render_aiming_interface(
+                request, game_id, player_id, error_message="Game not found"
+            )
+
+        opponent_id: str
+        if game.player_1.id == player_id:
+            opponent_id = game.player_2.id if game.player_2 else ""
+        else:
+            opponent_id = game.player_1.id
+
+        # Calculate hit feedback for display
+        my_hits = gameplay_service.calculate_hit_feedback(
+            round_result.hits_made.get(player_id, [])
+        )
+        opponent_hits = gameplay_service.calculate_hit_feedback(
+            round_result.hits_made.get(opponent_id, [])
+        )
+
+        # Get detailed hits received (with coordinates) for display
+        opponent_hit_details = round_result.hits_made.get(opponent_id, [])
+
+        # Get ships sunk this round
+        ships_sunk_by_me = round_result.ships_sunk.get(player_id, [])
+        ships_sunk_by_opponent = round_result.ships_sunk.get(opponent_id, [])
+
+        # Calculate total ships sunk/lost
+        assert game is not None
+        p1 = game.player_1
+        p2 = game.player_2
+        assert p2 is not None
+
+        player_board = game.board[p1 if p1.id == player_id else p2]
+        opponent_board = game.board[p2 if p1.id == player_id else p1]
+
+        ships_sunk_count = sum(
+            1
+            for ship in opponent_board.ships
+            if opponent_board.is_ship_sunk(ship.ship_type)
+        )
+        ships_lost_count = sum(
+            1
+            for ship in player_board.ships
+            if player_board.is_ship_sunk(ship.ship_type)
+        )
+
+        return templates.TemplateResponse(
+            request=request,
+            name="components/round_results.html",
+            context={
+                "round_number": round_result.round_number,
+                "my_hits": my_hits,
+                "opponent_hits": opponent_hits,
+                "opponent_hit_details": opponent_hit_details,
+                "game_id": game_id,
+                "game_over": round_result.game_over,
+                "winner_id": round_result.winner_id,
+                "is_draw": round_result.is_draw,
+                "player_id": player_id,
+                "ships_sunk_by_me": ships_sunk_by_me,
+                "ships_sunk_by_opponent": ships_sunk_by_opponent,
+                "ships_sunk_count": ships_sunk_count,
+                "ships_lost_count": ships_lost_count,
             },
         )
 
@@ -1318,6 +1634,17 @@ async def get_aiming_interface(request: Request, game_id: str) -> HTMLResponse:
             player_id,
             waiting_message="Waiting for opponent to fire...",
         )
+
+    # Check if opponent has fired (but player hasn't)
+    if round_obj is not None:
+        opp_id = game_service.get_opponent_id(player_id)
+        if opp_id and opp_id in round_obj.submitted_players:
+            return _render_aiming_interface(
+                request,
+                game_id,
+                player_id,
+                waiting_message="Opponent has fired - waiting for you",
+            )
 
     # Normal aiming interface
     return _render_aiming_interface(request, game_id, player_id)
@@ -1707,6 +2034,9 @@ async def set_gamestate(
     round_number: int = Form(...),
 ) -> dict[str, str]:
     """Set game state for testing."""
+    # Ensure game exists and gameplay is initialized
+    _ensure_gameplay_initialized(game_id, player_id)
+
     if game_id not in gameplay_service.fired_shots:
         gameplay_service.fired_shots[game_id] = {}
     if player_id not in gameplay_service.fired_shots[game_id]:
@@ -1818,6 +2148,47 @@ async def get_player_id_for_testing(request: Request) -> dict[str, str | None]:
     """Get player_id from session - for testing only"""
     player_id: str | None = request.session.get("player-id")
     return {"player_id": player_id}
+
+
+@app.post("/test/record-hit")
+async def record_hit_for_testing(
+    game_id: str = Form(...),
+    player_id: str = Form(...),  # The player whose ship is hit
+    ship_name: str = Form(...),
+    coord: str = Form(...),
+    round_number: int = Form(...),
+) -> dict[str, str]:
+    """Record a hit on a ship for testing purposes."""
+    # Ensure game exists and gameplay is initialized
+    _ensure_gameplay_initialized(game_id, player_id)
+
+    if game_id not in gameplay_service.player_boards:
+        raise HTTPException(status_code=404, detail="Game not found")
+    if player_id not in gameplay_service.player_boards[game_id]:
+        raise HTTPException(status_code=404, detail="Player not found")
+
+    board = gameplay_service.player_boards[game_id][player_id]
+    ship_type = ShipType.from_ship_name(ship_name)
+    coord_enum = Coord[coord]
+    board.record_hit(ship_type, coord_enum, round_number)
+
+    # Check for game over and update status
+    game_over, winner_id, is_draw = gameplay_service.check_game_over(game_id)
+    if game_over:
+        game = game_service.games.get(game_id)
+        if game:
+            game.status = GameStatus.FINISHED
+
+    # Also record in fired_shots of the ATTACKER
+    attacker_id = game_service.get_opponent_id(player_id)
+    if attacker_id:
+        if game_id not in gameplay_service.fired_shots:
+            gameplay_service.fired_shots[game_id] = {}
+        if attacker_id not in gameplay_service.fired_shots[game_id]:
+            gameplay_service.fired_shots[game_id][attacker_id] = {}
+        gameplay_service.fired_shots[game_id][attacker_id][coord_enum] = round_number
+
+    return {"status": "hit recorded"}
 
 
 if __name__ == "__main__":

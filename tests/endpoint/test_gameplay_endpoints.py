@@ -311,10 +311,11 @@ class TestFireShotsEndpoint:
         # Act - fire shots to enter waiting state
         response: Response = client.post(f"/game/{game_id}/fire-shots")
 
-        # Assert - verify HTMX polling attributes are present
+        # Assert - verify HTMX long-polling attributes are present
         assert response.status_code == status.HTTP_200_OK
         assert 'hx-get="/game/' in response.text
-        assert 'hx-trigger="every 2s"' in response.text
+        # Long-polling uses "load delay:100ms" instead of "every 2s" for better UX
+        assert 'hx-trigger="load delay:100ms"' in response.text
         assert 'hx-swap="outerHTML"' in response.text
 
     def test_fire_shots_endpoint_no_shots_aimed(self, client: TestClient) -> None:
@@ -347,12 +348,52 @@ class TestFireShotsEndpoint:
             "already" in response.text.lower() or "submitted" in response.text.lower()
         )
 
-    def test_fire_shots_endpoint_round_resolution(self, client: TestClient) -> None:
+    def test_fire_shots_endpoint_round_resolution(
+        self, game_paired: tuple[TestClient, TestClient]
+    ) -> None:
         """Test that round is resolved when both players fire (multiplayer scenario)."""
-        # This test requires a multiplayer game setup
-        # For now, we'll skip it as it requires more complex setup
-        # The service layer tests already cover round resolution logic
-        pytest.skip("Multiplayer round resolution requires complex test setup")
+        # Arrange - Setup a multiplayer game
+        alice_client, bob_client = game_paired
+
+        # Both players start the game
+        alice_client.post("/start-game", data={"action": "start_game"})
+        bob_client.post("/start-game", data={"action": "start_game"})
+
+        # Both players place ships randomly
+        alice_client.post("/random-ship-placement", data={"player_name": "Alice"})
+        bob_client.post("/random-ship-placement", data={"player_name": "Bob"})
+
+        # Both players ready up
+        alice_client.post(
+            "/ready-for-game", data={"player_name": "Alice"}, follow_redirects=False
+        )
+        bob_ready_resp = bob_client.post(
+            "/ready-for-game", data={"player_name": "Bob"}, follow_redirects=False
+        )
+
+        # Extract game_id from Bob's redirect
+        assert bob_ready_resp.status_code == status.HTTP_303_SEE_OTHER
+        game_id: str = bob_ready_resp.headers["location"].split("/")[-1]
+
+        # Alice aims and fires first
+        alice_client.post(f"/game/{game_id}/aim-shot", data={"coord": "A1"})
+        alice_client.post(f"/game/{game_id}/aim-shot", data={"coord": "A2"})
+        alice_fire_resp = alice_client.post(f"/game/{game_id}/fire-shots")
+
+        # Assert - Alice should be in waiting state
+        assert alice_fire_resp.status_code == status.HTTP_200_OK
+        assert "waiting" in alice_fire_resp.text.lower()
+
+        # Act - Bob aims and fires (should trigger round resolution)
+        bob_client.post(f"/game/{game_id}/aim-shot", data={"coord": "B1"})
+        bob_client.post(f"/game/{game_id}/aim-shot", data={"coord": "B2"})
+        bob_fire_resp = bob_client.post(f"/game/{game_id}/fire-shots")
+
+        # Assert - Bob should see round results (round resolved)
+        assert bob_fire_resp.status_code == status.HTTP_200_OK
+        assert "Round" in bob_fire_resp.text
+        # Should not be in waiting state since round is resolved
+        assert "round-results" in bob_fire_resp.text or "Continue" in bob_fire_resp.text
 
 
 class TestGetAimingInterfacePolling:
@@ -373,10 +414,11 @@ class TestGetAimingInterfacePolling:
         # Act - poll the aiming interface
         response: Response = client.get(f"/game/{game_id}/aiming-interface")
 
-        # Assert - should still show waiting message
+        # Assert - should still show waiting message with long-polling
         assert response.status_code == status.HTTP_200_OK
         assert "waiting" in response.text.lower()
-        assert 'hx-trigger="every 2s"' in response.text
+        # Long-polling uses "load delay:100ms" instead of "every 2s"
+        assert 'hx-trigger="load delay:100ms"' in response.text
 
     def test_polling_returns_aiming_interface_when_no_submission(
         self, client: TestClient

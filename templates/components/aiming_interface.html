@@ -1,8 +1,8 @@
 {# Aiming Interface Component - Combines all shot aiming components #}
 <div class="aiming-interface" id="aiming-interface" data-testid="aiming-interface"
      {% if waiting_message %}
-     hx-get="/game/{{ game_id }}/aiming-interface"
-     hx-trigger="every 2s"
+     hx-get="/game/{{ game_id }}/long-poll?version={{ round_version }}"
+     hx-trigger="load delay:100ms"
      hx-swap="outerHTML"
      {% endif %}>
     

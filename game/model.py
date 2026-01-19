@@ -64,13 +64,107 @@ class CoordDetails(NamedTuple):
     col_index: int
 
 
-_coords: dict[str, CoordDetails] = {
-    f"{letter}{number}": CoordDetails(ord(letter) - 64, number)
-    for letter in "ABCDEFGHIJ"
-    for number in range(1, 11)
-}
-
-Coord = Enum("Coord", _coords)
+class Coord(Enum):
+    A1 = CoordDetails(1, 1)
+    A2 = CoordDetails(1, 2)
+    A3 = CoordDetails(1, 3)
+    A4 = CoordDetails(1, 4)
+    A5 = CoordDetails(1, 5)
+    A6 = CoordDetails(1, 6)
+    A7 = CoordDetails(1, 7)
+    A8 = CoordDetails(1, 8)
+    A9 = CoordDetails(1, 9)
+    A10 = CoordDetails(1, 10)
+    B1 = CoordDetails(2, 1)
+    B2 = CoordDetails(2, 2)
+    B3 = CoordDetails(2, 3)
+    B4 = CoordDetails(2, 4)
+    B5 = CoordDetails(2, 5)
+    B6 = CoordDetails(2, 6)
+    B7 = CoordDetails(2, 7)
+    B8 = CoordDetails(2, 8)
+    B9 = CoordDetails(2, 9)
+    B10 = CoordDetails(2, 10)
+    C1 = CoordDetails(3, 1)
+    C2 = CoordDetails(3, 2)
+    C3 = CoordDetails(3, 3)
+    C4 = CoordDetails(3, 4)
+    C5 = CoordDetails(3, 5)
+    C6 = CoordDetails(3, 6)
+    C7 = CoordDetails(3, 7)
+    C8 = CoordDetails(3, 8)
+    C9 = CoordDetails(3, 9)
+    C10 = CoordDetails(3, 10)
+    D1 = CoordDetails(4, 1)
+    D2 = CoordDetails(4, 2)
+    D3 = CoordDetails(4, 3)
+    D4 = CoordDetails(4, 4)
+    D5 = CoordDetails(4, 5)
+    D6 = CoordDetails(4, 6)
+    D7 = CoordDetails(4, 7)
+    D8 = CoordDetails(4, 8)
+    D9 = CoordDetails(4, 9)
+    D10 = CoordDetails(4, 10)
+    E1 = CoordDetails(5, 1)
+    E2 = CoordDetails(5, 2)
+    E3 = CoordDetails(5, 3)
+    E4 = CoordDetails(5, 4)
+    E5 = CoordDetails(5, 5)
+    E6 = CoordDetails(5, 6)
+    E7 = CoordDetails(5, 7)
+    E8 = CoordDetails(5, 8)
+    E9 = CoordDetails(5, 9)
+    E10 = CoordDetails(5, 10)
+    F1 = CoordDetails(6, 1)
+    F2 = CoordDetails(6, 2)
+    F3 = CoordDetails(6, 3)
+    F4 = CoordDetails(6, 4)
+    F5 = CoordDetails(6, 5)
+    F6 = CoordDetails(6, 6)
+    F7 = CoordDetails(6, 7)
+    F8 = CoordDetails(6, 8)
+    F9 = CoordDetails(6, 9)
+    F10 = CoordDetails(6, 10)
+    G1 = CoordDetails(7, 1)
+    G2 = CoordDetails(7, 2)
+    G3 = CoordDetails(7, 3)
+    G4 = CoordDetails(7, 4)
+    G5 = CoordDetails(7, 5)
+    G6 = CoordDetails(7, 6)
+    G7 = CoordDetails(7, 7)
+    G8 = CoordDetails(7, 8)
+    G9 = CoordDetails(7, 9)
+    G10 = CoordDetails(7, 10)
+    H1 = CoordDetails(8, 1)
+    H2 = CoordDetails(8, 2)
+    H3 = CoordDetails(8, 3)
+    H4 = CoordDetails(8, 4)
+    H5 = CoordDetails(8, 5)
+    H6 = CoordDetails(8, 6)
+    H7 = CoordDetails(8, 7)
+    H8 = CoordDetails(8, 8)
+    H9 = CoordDetails(8, 9)
+    H10 = CoordDetails(8, 10)
+    I1 = CoordDetails(9, 1)
+    I2 = CoordDetails(9, 2)
+    I3 = CoordDetails(9, 3)
+    I4 = CoordDetails(9, 4)
+    I5 = CoordDetails(9, 5)
+    I6 = CoordDetails(9, 6)
+    I7 = CoordDetails(9, 7)
+    I8 = CoordDetails(9, 8)
+    I9 = CoordDetails(9, 9)
+    I10 = CoordDetails(9, 10)
+    J1 = CoordDetails(10, 1)
+    J2 = CoordDetails(10, 2)
+    J3 = CoordDetails(10, 3)
+    J4 = CoordDetails(10, 4)
+    J5 = CoordDetails(10, 5)
+    J6 = CoordDetails(10, 6)
+    J7 = CoordDetails(10, 7)
+    J8 = CoordDetails(10, 8)
+    J9 = CoordDetails(10, 9)
+    J10 = CoordDetails(10, 10)
 
 
 class CoordHelper:
@@ -184,7 +278,9 @@ class GameBoard:
         self.ships: list[Ship] = []
         self.shots_received: dict[Coord, int] = {}  # coord -> round_number
         self.shots_fired: dict[Coord, int] = {}  # coord -> round_number
-        self.hits_by_ship: dict[ShipType, list[tuple[Coord, int]]] = {}  # ship_type -> [(coord, round_number), ...]
+        self.hits_by_ship: dict[
+            ShipType, list[tuple[Coord, int]]
+        ] = {}  # ship_type -> [(coord, round_number), ...]
 
     def _invalid_coords(self) -> set[Coord]:
         invalid_coords: set[Coord] = set()
@@ -309,7 +405,8 @@ class GameBoard:
         """
         total_shots: int = 0
         for ship in self.ships:
-            total_shots += ship.shots_available
+            if not self.is_ship_sunk(ship.ship_type):
+                total_shots += ship.shots_available
         return total_shots
 
     def get_placed_ships_for_display(self) -> dict[str, dict[str, Any]]:
@@ -332,10 +429,9 @@ class GameBoard:
             }
         return placed_ships
 
-
-    def record_hit(self, ship_type: ShipType, coord: Coord, round_number: int) -> None:
+    def record_hit(self, ship_type: ShipType, coord: Coord, round_number: int) -> bool:
         """Record a hit on a ship.
-        
+
         Args:
             ship_type: The type of ship that was hit
             coord: The coordinate where the hit occurred
@@ -343,19 +439,35 @@ class GameBoard:
         """
         if ship_type not in self.hits_by_ship:
             self.hits_by_ship[ship_type] = []
-        
+
         self.hits_by_ship[ship_type].append((coord, round_number))
+        return self.is_ship_sunk(ship_type)
 
     def get_hits_by_ship(self, ship_type: ShipType) -> list[tuple[Coord, int]]:
         """Get all hits on a specific ship with round numbers.
-        
+
         Args:
             ship_type: The type of ship to get hits for
-            
+
         Returns:
             List of tuples (coord, round_number) for all hits on this ship
         """
         return self.hits_by_ship.get(ship_type, [])
+
+    def is_ship_sunk(self, ship_type: ShipType) -> bool:
+        """Check if a ship of a given type has been sunk.
+
+        A ship is sunk if the number of unique coordinates hit equals its length.
+
+        Args:
+            ship_type: The type of ship to check
+
+        Returns:
+            True if the ship is sunk, False otherwise
+        """
+        hits = self.get_hits_by_ship(ship_type)
+        unique_hits = {coord for coord, round_num in hits}
+        return len(unique_hits) >= ship_type.length
 
 
 class GameBoardHelper:

@@ -369,3 +369,36 @@ class TestRecordHits:
         
         # Assert
         assert len(hits) == 0
+
+class TestShipSinking:
+    """Tests for ship sinking detection logic."""
+
+    def test_is_ship_sunk_returns_false_when_no_hits(self) -> None:
+        """Test that is_ship_sunk returns False when the ship has no hits."""
+        board = GameBoard()
+        board.place_ship(Ship(ShipType.DESTROYER), Coord.A1, Orientation.HORIZONTAL)
+        
+        assert board.is_ship_sunk(ShipType.DESTROYER) is False
+
+    def test_is_ship_sunk_returns_false_when_partially_hit(self) -> None:
+        """Test that is_ship_sunk returns False when the ship is only partially hit."""
+        board = GameBoard()
+        board.place_ship(Ship(ShipType.DESTROYER), Coord.A1, Orientation.HORIZONTAL)
+        board.record_hit(ShipType.DESTROYER, Coord.A1, round_number=1)
+        
+        assert board.is_ship_sunk(ShipType.DESTROYER) is False
+
+    def test_is_ship_sunk_returns_true_when_fully_hit(self) -> None:
+        """Test that is_ship_sunk returns True when the ship is fully hit."""
+        board = GameBoard()
+        board.place_ship(Ship(ShipType.DESTROYER), Coord.A1, Orientation.HORIZONTAL)
+        board.record_hit(ShipType.DESTROYER, Coord.A1, round_number=1)
+        board.record_hit(ShipType.DESTROYER, Coord.A2, round_number=2)
+        
+        assert board.is_ship_sunk(ShipType.DESTROYER) is True
+
+    def test_is_ship_sunk_returns_false_for_non_existent_ship(self) -> None:
+        """Test that is_ship_sunk returns False for a ship type not on the board."""
+        board = GameBoard()
+        
+        assert board.is_ship_sunk(ShipType.CARRIER) is False

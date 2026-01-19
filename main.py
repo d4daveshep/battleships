@@ -1371,25 +1371,50 @@ def _render_round_results(
         1 for ship in player_board.ships if player_board.is_ship_sunk(ship.ship_type)
     )
 
-    return templates.TemplateResponse(
-        request=request,
-        name="components/round_results.html",
-        context={
-            "round_number": round_result.round_number,
-            "my_hits": my_hits,
-            "opponent_hits": opponent_hits,
-            "opponent_hit_details": opponent_hit_details,
-            "game_id": game_id,
-            "game_over": round_result.game_over,
-            "winner_id": round_result.winner_id,
-            "is_draw": round_result.is_draw,
-            "player_id": player_id,
-            "ships_sunk_by_me": ships_sunk_by_me,
-            "ships_sunk_by_opponent": ships_sunk_by_opponent,
-            "ships_sunk_count": ships_sunk_count,
-            "ships_lost_count": ships_lost_count,
-        },
-    )
+    # Render round results
+    round_results_context = {
+        "round_number": round_result.round_number,
+        "my_hits": my_hits,
+        "opponent_hits": opponent_hits,
+        "opponent_hit_details": opponent_hit_details,
+        "game_id": game_id,
+        "game_over": round_result.game_over,
+        "winner_id": round_result.winner_id,
+        "is_draw": round_result.is_draw,
+        "player_id": player_id,
+        "ships_sunk_by_me": ships_sunk_by_me,
+        "ships_sunk_by_opponent": ships_sunk_by_opponent,
+        "ships_sunk_count": ships_sunk_count,
+        "ships_lost_count": ships_lost_count,
+    }
+
+    round_results_content = templates.get_template(
+        "components/round_results.html"
+    ).render(request=request, **round_results_context)
+
+    # Prepare player board data for template (convert Coord keys to strings)
+    shots_received_data: dict[str, int] = {}
+    for coord, round_num in player_board.shots_received.items():
+        shots_received_data[coord.name] = round_num
+
+    print(f"DEBUG: Player {player_id} shots_received: {shots_received_data}")
+
+    player_board_data = {
+        "ships": player_board.get_placed_ships_for_display(),
+        "shots_received": shots_received_data,
+    }
+
+    # Render player board for OOB update
+    player_board_context = {
+        "player_board": player_board_data,
+        "oob": True,
+    }
+
+    player_board_content = templates.get_template(
+        "components/player_board.html"
+    ).render(request=request, **player_board_context)
+
+    return HTMLResponse(content=round_results_content + "\n" + player_board_content)
 
 
 @app.get("/game/{game_id}/aiming-interface")

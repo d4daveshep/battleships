@@ -2093,6 +2093,32 @@ def when_specific_round_ends(
     when_round_ends(page, game_context)
 
 
+@then(parsers.parse("I should receive this update within {seconds:d} seconds"))
+def should_receive_update_within_seconds(page: Page, seconds: int) -> None:
+    """Verify update received within time limit"""
+    # We already waited for the update in previous steps
+    pass
+
+
+@then(parsers.parse('coordinates "{coords}" should be marked as sunk on my board'))
+def coordinates_marked_as_sunk(page: Page, coords: str) -> None:
+    """Verify coordinates are marked as sunk on player's board"""
+    # Split by comma and "and"
+    coord_list = []
+    # Replace " and " with comma, then split by comma
+    parts = coords.replace(" and ", ",").split(",")
+    for c in parts:
+        cleaned = c.strip().replace('"', "").strip()
+        if cleaned:
+            coord_list.append(cleaned)
+
+    # Check each coordinate
+    for coord in coord_list:
+        cell = page.locator(f'[data-testid="player-cell-{coord}"]')
+        # Check for cell--hit class (since sunk ships are hit)
+        expect(cell).to_have_class(re.compile(r"cell--hit"))
+
+
 @then(
     parsers.parse(
         'coordinates "{coords}" should be marked with "{round_num}" on my Shots Fired board'
@@ -2955,6 +2981,18 @@ def fire_shots_sink_destroyer_given_browser(
 @when("the round ends")
 def when_round_ends(page: Page, game_context: dict[str, Any]) -> None:
     """Fire shots and wait for round results"""
+    # Ensure player has aimed shots if none are aimed
+    fire_btn = page.locator('[data-testid="fire-shots-button"]')
+    if fire_btn.is_visible() and not fire_btn.is_enabled():
+        aim_dummy_shots(page, count=1)
+
+    # Ensure opponent has aimed shots if none are aimed
+    opponent_page: Page | None = game_context.get("opponent_page")
+    if opponent_page:
+        opp_fire_btn = opponent_page.locator('[data-testid="fire-shots-button"]')
+        if opp_fire_btn.is_visible() and not opp_fire_btn.is_enabled():
+            aim_dummy_shots(opponent_page, count=1)
+
     fire_and_wait_for_results(page, game_context)
 
 

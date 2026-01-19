@@ -363,6 +363,11 @@ class GameplayService:
                 defender_board = self.player_boards.get(game_id, {}).get(defender_id)
                 if defender_board:
                     for coord in round_obj.aimed_shots.get(attacker_id, []):
+                        # Record shot received on defender board (hit or miss)
+                        defender_board.record_shot_received(
+                            coord, round_obj.round_number
+                        )
+
                         ship_type = defender_board.ship_type_at(coord)
                         if ship_type:
                             is_sunk = defender_board.record_hit(

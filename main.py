@@ -1185,8 +1185,8 @@ async def game_long_poll(
 
     # If client is up to date, wait for changes (long-polling simulation)
     if version >= current_version:
-        # Wait up to 2 seconds for changes
-        for _ in range(20):  # 20 * 100ms = 2 seconds
+        # Wait up to 5 seconds for changes
+        for _ in range(50):  # 50 * 100ms = 5 seconds
             await asyncio.sleep(0.1)
             new_version = gameplay_service.get_round_version(game_id)
             if new_version > version:

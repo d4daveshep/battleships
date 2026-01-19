@@ -258,35 +258,53 @@ def play_round_to_completion(
         player_coords: List of coordinates for player to fire at
         opponent_coords: List of coordinates for opponent to fire at
     """
+    # Ensure both pages are ready for aiming (not already showing results or waiting)
+    # Wait for the shots-fired board to be visible on both pages
+    player_page.wait_for_selector('[data-testid="shots-fired-board"]', timeout=10000)
+    opponent_page.wait_for_selector('[data-testid="shots-fired-board"]', timeout=10000)
+
+    # Wait for shot counter to reset to 0 to ensure we have a fresh round
+    # This avoids race conditions where we might be looking at the previous round's board
+    player_page.wait_for_selector(
+        '[data-testid="shot-counter-value"]:has-text("0")', timeout=10000
+    )
+    opponent_page.wait_for_selector(
+        '[data-testid="shot-counter-value"]:has-text("0")', timeout=10000
+    )
+
+    # Wait for HTMX to settle and event handlers to be attached
+    player_page.wait_for_timeout(1000)
+    opponent_page.wait_for_timeout(1000)
+
     # Player aims shots
     for coord in player_coords:
         cell = player_page.locator(f'[data-testid="shots-fired-cell-{coord}"]')
-        if cell.is_visible():
-            cell.click()
-            player_page.wait_for_timeout(100)
+        cell.click()
+        player_page.wait_for_timeout(200)
 
     # Player fires
     fire_button = player_page.locator('[data-testid="fire-shots-button"]')
-    if fire_button.is_visible() and fire_button.is_enabled():
-        fire_button.click()
-        player_page.wait_for_timeout(500)
+    # Wait for button to be enabled after aiming
+    player_page.wait_for_timeout(500)
+    fire_button.click()
+    player_page.wait_for_timeout(500)
 
     # Opponent aims shots
     for coord in opponent_coords:
         cell = opponent_page.locator(f'[data-testid="shots-fired-cell-{coord}"]')
-        if cell.is_visible():
-            cell.click()
-            opponent_page.wait_for_timeout(100)
+        cell.click()
+        opponent_page.wait_for_timeout(200)
 
     # Opponent fires
     fire_button = opponent_page.locator('[data-testid="fire-shots-button"]')
-    if fire_button.is_visible() and fire_button.is_enabled():
-        fire_button.click()
-        opponent_page.wait_for_timeout(500)
+    # Wait for button to be enabled after aiming
+    opponent_page.wait_for_timeout(500)
+    fire_button.click()
+    opponent_page.wait_for_timeout(500)
 
     # Wait for round results to appear on both pages
-    player_page.wait_for_selector('[data-testid="round-results"]', timeout=10000)
-    opponent_page.wait_for_selector('[data-testid="round-results"]', timeout=10000)
+    player_page.wait_for_selector('[data-testid="round-results"]', timeout=15000)
+    opponent_page.wait_for_selector('[data-testid="round-results"]', timeout=15000)
 
     # Click Continue button on both pages to return to aiming interface
     # The button uses HTMX to swap content into #aiming-interface
@@ -2533,8 +2551,15 @@ def opponent_ship_has_hits_browser(
     normalized_ship = normalize_ship_name(ship_name)
     coords = SHIP_COORDS[normalized_ship][:count]
 
-    # Fill remaining shots with misses (J column is safe)
-    miss_coords = ["J1", "J2", "J3", "J4", "J5", "J6", "J7", "J8", "J9", "J10"]
+    # Get setup round counter to vary miss coordinates
+    setup_round = game_context.get("setup_round_counter", 0)
+    game_context["setup_round_counter"] = setup_round + 1
+
+    # Select miss row based on round (J, H, F, D, B are empty)
+    miss_rows = ["J", "H", "F", "D", "B"]
+    row = miss_rows[setup_round % len(miss_rows)]
+    miss_coords = [f"{row}{i}" for i in range(1, 11)]
+
     player_shots = coords + miss_coords[: 6 - len(coords)]
 
     # Opponent fires misses
@@ -2558,8 +2583,14 @@ def player_ship_has_hits_browser(
     normalized_ship = normalize_ship_name(ship_name)
     coords = SHIP_COORDS[normalized_ship][:count]
 
-    # Fill remaining shots with misses (J column is safe)
-    miss_coords = ["J1", "J2", "J3", "J4", "J5", "J6", "J7", "J8", "J9", "J10"]
+    # Get setup round counter to vary miss coordinates
+    setup_round = game_context.get("setup_round_counter", 0)
+    game_context["setup_round_counter"] = setup_round + 1
+
+    # Select miss row based on round (J, H, F, D, B are empty)
+    miss_rows = ["J", "H", "F", "D", "B"]
+    row = miss_rows[setup_round % len(miss_rows)]
+    miss_coords = [f"{row}{i}" for i in range(1, 11)]
 
     # Player fires misses
     player_shots = miss_coords[:6]

@@ -1249,12 +1249,46 @@ def should_see_ships_lost_count_exact(page: Page, count: str) -> None:
     expect(element).to_contain_text(f"Ships Lost: {count}/5")
 
 
+@then(
+    parsers.parse(
+        'I should see "Ships Sunk: {count}/5" displayed (or higher if others already sunk)'
+    )
+)
+def should_see_ships_sunk_count_at_least(page: Page, count: str) -> None:
+    """Verify ships sunk count is at least the specified amount"""
+    # Use .all() to get all matching elements to avoid strict mode violation
+    # We need to wait for at least one to be visible first
+    page.wait_for_selector('[data-testid="ships-sunk"]')
+    elements = page.locator('[data-testid="ships-sunk"]').all()
+
+    found_match = False
+    last_count = 0
+
+    expected_min = int(count)
+
+    for element in elements:
+        if not element.is_visible():
+            continue
+
+        text = element.text_content() or ""
+        match = re.search(r"Ships Sunk: (\d+)/5", text)
+        if match:
+            actual_count = int(match.group(1))
+            last_count = max(last_count, actual_count)
+            if actual_count >= expected_min:
+                found_match = True
+                break
+
+    assert found_match, (
+        f"Expected at least {expected_min} ships sunk, but found max {last_count} in visible elements"
+    )
+
+
 @then(parsers.parse('I should see "{text}" displayed'))
 def should_see_text_displayed(page: Page, text: str) -> None:
     """Verify text is displayed (with flexible matching for UI variations)"""
     # Special case: Skip if this looks like a ship hits total pattern (handled by specific step)
     # Pattern: "ShipName: N hits total"
-    import re
 
     if re.match(r"^.+:\s+\d+\s+hits?\s+total$", text):
         # This should be handled by the specific step definition

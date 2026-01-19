@@ -373,11 +373,21 @@ def play_round_with_hits_on_ship(
 
     # Get coordinates for the target ship
     target_coords = ship_coords.get(ship_name, [])
-    if not target_coords or hit_count > len(target_coords):
-        raise ValueError(f"Invalid ship {ship_name} or hit count {hit_count}")
+
+    # Filter out coordinates that have already been fired at
+    already_fired = []
+    for shots in context.player_fired_shots.values():
+        already_fired.extend(shots)
+
+    available_coords = [c for c in target_coords if c not in already_fired]
+
+    if not available_coords or hit_count > len(available_coords):
+        raise ValueError(
+            f"Not enough unhit coordinates for {ship_name}. Needed {hit_count}, have {len(available_coords)}"
+        )
 
     # Select coordinates to hit
-    coords_to_hit = target_coords[:hit_count]
+    coords_to_hit = available_coords[:hit_count]
 
     # Fill remaining shots with misses (J column is safe - no ships there)
     all_player_shots = coords_to_hit.copy()
@@ -398,9 +408,10 @@ def play_round_with_hits_on_ship(
 
     # Aim player shots
     for coord in all_player_shots:
-        context.player_client.post(
+        resp = context.player_client.post(
             f"/game/{context.game_id}/aim-shot", data={"coord": coord}
         )
+        assert resp.status_code == 200, f"Failed to aim at {coord}: {resp.text}"
     context.player_aimed_shots = all_player_shots.copy()
 
     if complete_round:
@@ -447,11 +458,21 @@ def setup_opponent_hits_on_player_ship(
 
     # Get coordinates for the target ship
     target_coords = ship_coords.get(ship_name, [])
-    if not target_coords or hit_count > len(target_coords):
-        raise ValueError(f"Invalid ship {ship_name} or hit count {hit_count}")
+
+    # Filter out coordinates that have already been fired at
+    already_fired = []
+    for shots in context.opponent_fired_shots.values():
+        already_fired.extend(shots)
+
+    available_coords = [c for c in target_coords if c not in already_fired]
+
+    if not available_coords or hit_count > len(available_coords):
+        raise ValueError(
+            f"Not enough unhit coordinates for {ship_name}. Needed {hit_count}, have {len(available_coords)}"
+        )
 
     # Select coordinates to hit
-    coords_to_hit = target_coords[:hit_count]
+    coords_to_hit = available_coords[:hit_count]
 
     # Add these to the opponent's aimed shots (don't fire yet - that happens in when_round_ends)
     for coord in coords_to_hit:
@@ -783,6 +804,12 @@ def click_fire_shots_button(context: GameplayContext) -> None:
     # Call the API to fire shots
     response = context.player_client.post(f"/game/{context.game_id}/fire-shots")
     context.update_player_response(response)
+
+    assert response.status_code == 200, f"Failed to fire shots: {response.text}"
+    assert "No shots aimed" not in response.text, "Fire shots failed: No shots aimed"
+    assert "Shots already submitted" not in response.text, (
+        "Fire shots failed: Already submitted"
+    )
 
     # Record that shots were fired
     round_num = context.current_round
@@ -1481,12 +1508,26 @@ def opponent_has_already_fired(context: GameplayContext) -> None:
                 coords.append(coord)
                 break
 
+    print(
+        f"DEBUG: opponent_has_already_fired: shots_available={context.opponent_shots_available}"
+    )
+
     # Aim and fire shots for opponent
     for coord in coords:
-        context.opponent_client.post(
+        resp = context.opponent_client.post(
             f"/game/{context.game_id}/aim-shot", data={"coord": coord}
         )
-    context.opponent_client.post(f"/game/{context.game_id}/fire-shots")
+        assert resp.status_code == 200, (
+            f"Opponent failed to aim at {coord}: {resp.text}"
+        )
+    resp = context.opponent_client.post(f"/game/{context.game_id}/fire-shots")
+    assert resp.status_code == 200, f"Opponent failed to fire shots: {resp.text}"
+    assert "No shots aimed" not in resp.text, (
+        "Opponent fire shots failed: No shots aimed"
+    )
+    assert "Shots already submitted" not in resp.text, (
+        "Opponent fire shots failed: Already submitted"
+    )
 
     # Clear aimed shots after firing
     context.opponent_aimed_shots = []
@@ -1621,6 +1662,9 @@ def update_shots_available(context: GameplayContext) -> None:
         if context.opponent_id:
             context.opponent_shots_available = gameplay_service._get_shots_available(
                 context.game_id, context.opponent_id
+            )
+            print(
+                f"DEBUG: update_shots_available: opponent_shots={context.opponent_shots_available}"
             )
             # Update fired shots
             if context.game_id in gameplay_service.fired_shots:
@@ -1781,9 +1825,28 @@ def should_see_ship_hits_in_summary(
 )
 def ships_sunk_count_step(context: GameplayContext, count: str) -> None:
     """Verify ships sunk count"""
+    # Refresh to get latest state
+    if context.player_client and context.game_id:
+        resp = context.player_client.get(f"/game/{context.game_id}/aiming-interface")
+        context.update_player_response(resp)
+
     assert context.player_soup is not None
     text = context.player_soup.get_text()
-    assert "Ships Sunk:" in text
+
+    # Extract the actual count from the text
+    import re
+
+    match = re.search(r"Ships Sunk: (\d+)/5", text)
+    assert match is not None, f"Ships Sunk count not found in text"
+
+    actual_count = int(match.group(1))
+
+    # Parse expected count (e.g. "2/5" -> 2)
+    expected_count = int(count.split("/")[0])
+
+    assert actual_count >= expected_count, (
+        f"Expected at least {expected_count} ships sunk, but found {actual_count}"
+    )
 
 
 @then(parsers.parse('coordinates "{coords}" should be marked as sunk on my board'))
@@ -2898,13 +2961,11 @@ def fire_hits_battleship_2(context: GameplayContext) -> None:
 
 @when("I fire shots that hit both ships' final positions")
 def fire_hits_multiple_ships(context: GameplayContext) -> None:
-    # Destroyer and Submarine
-    play_round_with_hits_on_ship(
-        context, context.current_round, "Destroyer", 1, complete_round=False
-    )
-    play_round_with_hits_on_ship(
-        context, context.current_round, "Submarine", 1, complete_round=False
-    )
+    # Destroyer (I1, I2) - I1 is hit, aim at I2
+    have_aimed_at_coord(context, "I2")
+
+    # Submarine (G1, G2, G3) - G1, G2 are hit, aim at G3
+    have_aimed_at_coord(context, "G3")
 
 
 @when('I click the "Surrender" button')
@@ -2998,10 +3059,20 @@ def fire_shots_that_sink_opponent_ship(
     context: GameplayContext, ship_name: str
 ) -> None:
     """Aim shots to sink opponent ship"""
-    length = len(SHIP_COORDS[ship_name])
-    play_round_with_hits_on_ship(
-        context, context.current_round, ship_name, length, complete_round=False
-    )
+    # Calculate needed hits
+    ship_coords = SHIP_COORDS[ship_name]
+    already_hit = 0
+    for shots in context.player_fired_shots.values():
+        for coord in ship_coords:
+            if coord in shots:
+                already_hit += 1
+
+    needed = len(ship_coords) - already_hit
+
+    if needed > 0:
+        play_round_with_hits_on_ship(
+            context, context.current_round, ship_name, needed, complete_round=False
+        )
 
 
 @given(parsers.parse("my opponent fires shots that sink my {ship_name}"))
@@ -3010,8 +3081,18 @@ def opponent_fires_shots_that_sink_player_ship(
     context: GameplayContext, ship_name: str
 ) -> None:
     """Opponent aims shots to sink player ship"""
-    length = len(SHIP_COORDS[ship_name])
-    setup_opponent_hits_on_player_ship(context, ship_name, length)
+    # Calculate needed hits
+    ship_coords = SHIP_COORDS[ship_name]
+    already_hit = 0
+    for shots in context.opponent_fired_shots.values():
+        for coord in ship_coords:
+            if coord in shots:
+                already_hit += 1
+
+    needed = len(ship_coords) - already_hit
+
+    if needed > 0:
+        setup_opponent_hits_on_player_ship(context, ship_name, needed)
 
 
 @when(parsers.parse("Round {round_num:d} begins"))
@@ -3228,21 +3309,7 @@ def opponent_sees_your_destroyer_sunk(context: GameplayContext) -> None:
 @given("I fire shots that sink the Destroyer")
 def fire_shots_sink_destroyer_given(context: GameplayContext) -> None:
     """Aim shots to sink destroyer"""
-    # Use test endpoint to ensure it's sunk
-    assert context.game_id is not None
-    assert context.opponent_id is not None
-    assert context.player_client is not None
-    for coord in SHIP_COORDS["Destroyer"]:
-        record_hit_via_api(
-            context.player_client,
-            context.game_id,
-            context.opponent_id,
-            "Destroyer",
-            coord,
-            context.current_round,
-        )
-
-    update_shots_available(context)
+    fire_shots_that_sink_opponent_ship(context, "Destroyer")
 
 
 @then("I should be able to continue playing")

@@ -360,12 +360,12 @@ Feature: Two-Player Simultaneous Multi-Shot Gameplay
     Given it is Round 6
     And my opponent's Destroyer needs 1 more hit to sink
     And my opponent's Submarine needs 1 more hit to sink
-    And I fire shots that hit both ships' final positions
-    When the round ends
+    When I fire shots that hit both ships' final positions
+    And the round ends
     Then I should see "You sunk their Destroyer!" displayed
     And I should see "You sunk their Submarine!" displayed
     And I should see "Ships Sunk: 2/5" displayed (or higher if others already sunk)
-
+    
   Scenario: Both players sink ships in the same round
     Given it is Round 5
     And my opponent's Battleship needs 1 more hit

@@ -2658,38 +2658,35 @@ def should_see_you_sunk_their_destroyer(page: Page) -> None:
 def opponent_ship_has_hits_browser(
     page: Page, ship_name: str, count: int, game_context: dict[str, Any]
 ) -> None:
-    """Set up opponent ship with hits by playing through a round"""
+    """Set up opponent ship with hits using backdoor API for speed"""
     opponent_page: Page | None = game_context.get("opponent_page")
     if not opponent_page:
         return
+
+    game_id = game_context["game_id"]
+    opponent_id = get_player_id_from_page(opponent_page)
 
     # Get coordinates for the ship
     normalized_ship = normalize_ship_name(ship_name)
     coords = SHIP_COORDS[normalized_ship][:count]
 
-    import sys
+    # Record hits via backdoor API
+    for coord in coords:
+        page.request.post(
+            f"{BASE_URL}test/record-hit",
+            form={
+                "game_id": game_id,
+                "player_id": opponent_id,
+                "ship_name": ship_name,
+                "coord": coord,
+                "round_number": 1,
+            },
+        )
 
-    sys.stderr.write(
-        f"\nDEBUG: Setting up hits on {ship_name}. Count: {count}. Coords: {coords}\n"
-    )
-
-    # Get setup round counter to vary miss coordinates
-
-    setup_round = game_context.get("setup_round_counter", 0)
-    game_context["setup_round_counter"] = setup_round + 1
-
-    # Select miss row based on round (J, H, F, D, B are empty)
-    miss_rows = ["J", "H", "F", "D", "B"]
-    row = miss_rows[setup_round % len(miss_rows)]
-    miss_coords = [f"{row}{i}" for i in range(1, 11)]
-
-    player_shots = coords + miss_coords[: 6 - len(coords)]
-
-    # Opponent fires misses
-    opponent_shots = miss_coords[:6]
-
-    # Play the round (this now handles clicking Continue and returning to aiming interface)
-    play_round_to_completion(page, opponent_page, player_shots, opponent_shots)
+    # Reload both pages to reflect changes
+    page.reload()
+    opponent_page.reload()
+    page.wait_for_timeout(500)
 
 
 @given(parsers.parse("my {ship_name} has {count:d} hit already"))
@@ -2697,33 +2694,30 @@ def opponent_ship_has_hits_browser(
 def player_ship_has_hits_browser(
     page: Page, ship_name: str, count: int, game_context: dict[str, Any]
 ) -> None:
-    """Set up player ship with hits by playing through a round"""
-    opponent_page: Page | None = game_context.get("opponent_page")
-    if not opponent_page:
-        return
+    """Set up player ship with hits using backdoor API for speed"""
+    game_id = game_context["game_id"]
+    player_id = get_player_id_from_page(page)
 
     # Get coordinates for the ship
     normalized_ship = normalize_ship_name(ship_name)
     coords = SHIP_COORDS[normalized_ship][:count]
 
-    # Get setup round counter to vary miss coordinates
+    # Record hits via backdoor API
+    for coord in coords:
+        page.request.post(
+            f"{BASE_URL}test/record-hit",
+            form={
+                "game_id": game_id,
+                "player_id": player_id,
+                "ship_name": ship_name,
+                "coord": coord,
+                "round_number": 1,
+            },
+        )
 
-    setup_round = game_context.get("setup_round_counter", 0)
-    game_context["setup_round_counter"] = setup_round + 1
-
-    # Select miss row based on round (J, H, F, D, B are empty)
-    miss_rows = ["J", "H", "F", "D", "B"]
-    row = miss_rows[setup_round % len(miss_rows)]
-    miss_coords = [f"{row}{i}" for i in range(1, 11)]
-
-    # Player fires misses
-    player_shots = miss_coords[:6]
-
-    # Opponent fires at player's ship
-    opponent_shots = coords + miss_coords[: 6 - len(coords)]
-
-    # Play the round (this now handles clicking Continue and returning to aiming interface)
-    play_round_to_completion(page, opponent_page, player_shots, opponent_shots)
+    # Reload page to reflect changes
+    page.reload()
+    page.wait_for_timeout(500)
 
 
 @given(parsers.parse("my {ship_name} is sunk"))
@@ -2855,20 +2849,39 @@ def player_ship_needs_hits_browser(
 def opponent_has_only_ship_remaining_browser(
     page: Page, ship_name: str, game_context: dict[str, Any]
 ) -> None:
-    """Sink all opponent ships except one"""
+    """Sink all opponent ships except one using backdoor API for speed"""
+    opponent_page: Page | None = game_context.get("opponent_page")
+    if not opponent_page:
+        return
+
+    game_id = game_context["game_id"]
+    opponent_id = get_player_id_from_page(opponent_page)
+
     for s in SHIP_COORDS:
         if s != ship_name:
-            opponent_ship_has_hits_browser(page, s, len(SHIP_COORDS[s]), game_context)
+            sink_ship_via_api(page, game_id, opponent_id, s)
+
+    # Reload both pages to reflect changes
+    page.reload()
+    opponent_page.reload()
+    page.wait_for_timeout(1000)
 
 
 @given(parsers.parse("I have only my {ship_name} remaining"))
 def player_has_only_ship_remaining_browser(
     page: Page, ship_name: str, game_context: dict[str, Any]
 ) -> None:
-    """Sink all player ships except one"""
+    """Sink all player ships except one using backdoor API for speed"""
+    game_id = game_context["game_id"]
+    player_id = get_player_id_from_page(page)
+
     for s in SHIP_COORDS:
         if s != ship_name:
-            player_ship_has_hits_browser(page, s, len(SHIP_COORDS[s]), game_context)
+            sink_ship_via_api(page, game_id, player_id, s)
+
+    # Reload page to reflect changes
+    page.reload()
+    page.wait_for_timeout(1000)
 
 
 @given(parsers.parse("I have only my {ship_name} remaining with {count:d} hit"))
@@ -2991,29 +3004,37 @@ def aim_dummy_shots(page: Page, count: int = 1) -> None:
 def opponent_fires_shots_that_sink_player_ship_browser(
     page: Page, ship_name: str, game_context: dict[str, Any]
 ) -> None:
-    """Opponent aims shots to sink player ship AND plays the round"""
+    """Opponent fires shots to sink player ship using backdoor API for speed"""
     opponent_page: Page | None = game_context.get("opponent_page")
     if not opponent_page:
         return
 
-    # Aim at all coordinates of the ship on opponent's page
+    # Use backdoor API to record the remaining hits needed to sink the ship
+    # This is much faster than playing through a round
+    game_id = game_context["game_id"]
+    player_id = get_player_id_from_page(page)
+    opponent_id = get_player_id_from_page(opponent_page)
+
     normalized_ship = normalize_ship_name(ship_name)
     coords = SHIP_COORDS[normalized_ship]
+
+    # Record all hits via backdoor API (including any that weren't already recorded)
     for coord in coords:
-        cell = opponent_page.locator(f'[data-testid="shots-fired-cell-{coord}"]')
-        if cell.is_visible():
-            class_attr = cell.get_attribute("class") or ""
-            if "fired" not in class_attr:
-                cell.click()
-                # Wait for cell to become aimed
-                expect(cell).to_have_class(re.compile(r"cell--aimed"))
+        page.request.post(
+            f"{BASE_URL}test/record-hit",
+            form={
+                "game_id": game_id,
+                "player_id": player_id,
+                "ship_name": ship_name,
+                "coord": coord,
+                "round_number": 1,
+            },
+        )
 
-    # Also aim dummy shots for the player so the round can complete
-    aim_dummy_shots(page, count=1)
-
-    # Fire both and advance
-    fire_and_wait_for_results(page, game_context)
-    advance_to_next_round(page, game_context)
+    # Reload both pages to reflect changes
+    page.reload()
+    opponent_page.reload()
+    page.wait_for_timeout(1000)
 
 
 @given(parsers.parse("I aim shots to sink the opponent's {ship_name}"))

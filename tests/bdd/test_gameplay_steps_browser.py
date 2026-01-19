@@ -193,15 +193,22 @@ def fire_and_wait_for_results(page: Page, game_context: dict[str, Any]) -> None:
 
     # Fire player shots if button enabled
     fire_btn = page.locator('[data-testid="fire-shots-button"]')
-    if fire_btn.is_visible() and fire_btn.is_enabled():
+    if fire_btn.count() > 0 and fire_btn.is_visible() and fire_btn.is_enabled():
         fire_btn.click()
         page.wait_for_timeout(1000)  # Give time for HTMX to process
 
     # Fire opponent shots if button enabled
+    # Use count() first to avoid timeout if button doesn't exist (already fired)
     opp_fire_btn = opponent_page.locator('[data-testid="fire-shots-button"]')
-    if opp_fire_btn.is_visible() and opp_fire_btn.is_enabled():
-        opp_fire_btn.click()
-        opponent_page.wait_for_timeout(1000)  # Give time for HTMX to process
+    if opp_fire_btn.count() > 0:
+        try:
+            # Use shorter timeout to check visibility/enabled state
+            if opp_fire_btn.is_visible(timeout=2000) and opp_fire_btn.is_enabled():
+                opp_fire_btn.click()
+                opponent_page.wait_for_timeout(1000)  # Give time for HTMX to process
+        except Exception:
+            # Button may have disappeared during check (race condition)
+            pass
 
     # Wait for round results to appear on both pages
     # Give extra time for HTMX/long-polling to complete

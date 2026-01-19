@@ -367,11 +367,9 @@ Feature: Two-Player Simultaneous Multi-Shot Gameplay
     And I should see "Ships Sunk: 2/5" displayed (or higher if others already sunk)
     
   Scenario: Both players sink ships in the same round
-    Given it is Round 5
-    And my opponent's Battleship needs 1 more hit
-    And my Carrier needs 1 more hit
-    And I fire shots that sink the opponent's Battleship
-    And my opponent fires shots that sink my Carrier
+    Given it is Round 1
+    And I aim shots to sink the opponent's Battleship
+    And my opponent aims shots to sink my Carrier
     When the round ends
     Then I should see "You sunk their Battleship!" displayed
     And I should see "Your Carrier was sunk!" displayed

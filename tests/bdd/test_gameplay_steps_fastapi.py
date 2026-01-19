@@ -1400,6 +1400,72 @@ def should_see_round_results_within_seconds(
     pass
 
 
+@given(parsers.parse("I aim shots to sink the opponent's {ship_name}"))
+def aim_shots_to_sink_opponent_ship(context: GameplayContext, ship_name: str) -> None:
+    """Aim shots to sink opponent ship without firing"""
+    assert context.player_client is not None
+    assert context.game_id is not None
+
+    # Get coordinates for the ship
+    normalized_ship = ship_name.replace("opponent's ", "").replace("my ", "").strip()
+    coords = SHIP_COORDS[normalized_ship]
+
+    for coord in coords:
+        # Check if already fired
+        already_fired = False
+        for shots in context.player_fired_shots.values():
+            if coord in shots:
+                already_fired = True
+                break
+
+        if not already_fired:
+            aim_shot_via_api(context.player_client, context.game_id, coord)
+            context.player_aimed_shots.append(coord)
+
+
+@given(parsers.parse("my opponent aims shots to sink my {ship_name}"))
+def opponent_aims_shots_to_sink_player_ship(
+    context: GameplayContext, ship_name: str
+) -> None:
+    """Opponent aims shots to sink player ship without firing"""
+    assert context.opponent_client is not None
+    assert context.game_id is not None
+
+    normalized_ship = ship_name.replace("opponent's ", "").replace("my ", "").strip()
+    coords = SHIP_COORDS[normalized_ship]
+
+    for coord in coords:
+        context.opponent_client.post(
+            f"/game/{context.game_id}/aim-shot", data={"coord": coord}
+        )
+
+
+@then("both ships should be marked as sunk")
+def both_ships_marked_as_sunk(context: GameplayContext) -> None:
+    """Verify both ships are marked as sunk in round results"""
+    assert context.player_soup is not None
+
+    round_results = context.player_soup.find(attrs={"data-testid": "round-results"})
+    assert round_results is not None
+
+    text = round_results.get_text()
+    assert "You sunk their Battleship!" in text
+    assert "Your Carrier was sunk!" in text
+
+
+@then("the game should continue to the next round")
+def game_should_continue_to_next_round(context: GameplayContext) -> None:
+    """Verify game continues to next round"""
+    assert context.player_soup is not None
+
+    # Check for Continue button
+    # Use regex or partial match for "Continue"
+    import re
+
+    continue_btn = context.player_soup.find("button", string=re.compile("Continue"))
+    assert continue_btn is not None
+
+
 @then(parsers.parse("the round number should increment to Round {round_num:d}"))
 def round_number_should_increment(context: GameplayContext, round_num: int) -> None:
     """Verify round number has incremented"""

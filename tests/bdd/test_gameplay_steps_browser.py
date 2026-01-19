@@ -1221,6 +1221,26 @@ def shots_should_be_submitted_browser(page: Page, count: int) -> None:
     pass
 
 
+@then("both ships should be marked as sunk")
+def both_ships_marked_as_sunk(page: Page) -> None:
+    """Verify both ships are marked as sunk in round results"""
+    round_results = page.locator('[data-testid="round-results"]')
+    expect(round_results).to_be_visible()
+
+    # Check for opponent's Battleship sunk message
+    expect(round_results.locator('text="You sunk their Battleship!"')).to_be_visible()
+
+    # Check my Carrier sunk message
+    expect(round_results.locator('text="Your Carrier was sunk!"')).to_be_visible()
+
+
+@then("the game should continue to the next round")
+def game_should_continue_to_next_round(page: Page) -> None:
+    """Verify game continues to next round"""
+    # Check for Continue button
+    expect(page.locator('button:has-text("Continue")')).to_be_visible()
+
+
 @then(parsers.parse('I should see "Ships Sunk: {count}" displayed'))
 def should_see_ships_sunk_count_generic(page: Page, count: str) -> None:
     """Verify ships sunk count (generic)"""
@@ -1315,7 +1335,19 @@ def should_see_text_displayed(page: Page, text: str) -> None:
         round_results = page.locator('[data-testid="round-results"]')
         expect(round_results).to_be_visible(timeout=10000)
         expect(round_results.locator('text="None - all shots missed"')).to_be_visible()
+        return
+
+    # Special case: "You sunk their [ShipName]!"
+    # This appears in the round results modal
+    if re.match(r"^You sunk their .+!$", text):
+        round_results = page.locator('[data-testid="round-results"]')
+        expect(round_results).to_be_visible(timeout=10000)
+        # Use a more flexible locator that finds the text anywhere inside the results
+        expect(round_results.locator(f'text="{text}"')).to_be_visible()
+        return
+
     # Special case: "Opponent has fired - waiting for you"
+
     # This feature is not implemented yet - the UI doesn't show this message
     elif text == "Opponent has fired - waiting for you":
         # This feature is not implemented yet - skip for now
@@ -2611,7 +2643,14 @@ def opponent_ship_has_hits_browser(
     normalized_ship = normalize_ship_name(ship_name)
     coords = SHIP_COORDS[normalized_ship][:count]
 
+    import sys
+
+    sys.stderr.write(
+        f"\nDEBUG: Setting up hits on {ship_name}. Count: {count}. Coords: {coords}\n"
+    )
+
     # Get setup round counter to vary miss coordinates
+
     setup_round = game_context.get("setup_round_counter", 0)
     game_context["setup_round_counter"] = setup_round + 1
 
@@ -2644,6 +2683,7 @@ def player_ship_has_hits_browser(
     coords = SHIP_COORDS[normalized_ship][:count]
 
     # Get setup round counter to vary miss coordinates
+
     setup_round = game_context.get("setup_round_counter", 0)
     game_context["setup_round_counter"] = setup_round + 1
 
@@ -2756,6 +2796,7 @@ def player_has_ship_at_browser(page: Page, ship_name: str, coords: str) -> None:
 
 @given(parsers.parse("my opponent's {ship_name} needs {count:d} more hit to sink"))
 @given(parsers.parse("my opponent's {ship_name} needs {count:d} more hits to sink"))
+@given(parsers.parse("my opponent's {ship_name} needs {count:d} more hits"))
 def opponent_ship_needs_hits_browser(
     page: Page, ship_name: str, count: int, game_context: dict[str, Any]
 ) -> None:
@@ -2775,6 +2816,7 @@ def opponent_ship_needs_1_hit_browser(
 
 
 @given(parsers.parse("my {ship_name} needs {count:d} more hit"))
+@given(parsers.parse("my {ship_name} needs {count:d} more hits"))
 def player_ship_needs_hits_browser(
     page: Page, ship_name: str, count: int, game_context: dict[str, Any]
 ) -> None:
@@ -2950,6 +2992,46 @@ def opponent_fires_shots_that_sink_player_ship_browser(
     advance_to_next_round(page, game_context)
 
 
+@given(parsers.parse("I aim shots to sink the opponent's {ship_name}"))
+def aim_shots_to_sink_opponent_ship_browser(
+    page: Page, ship_name: str, game_context: dict[str, Any]
+) -> None:
+    """Aim shots to sink opponent ship without firing"""
+    opponent_page: Page | None = game_context.get("opponent_page")
+    if not opponent_page:
+        return
+
+    # Aim at all coordinates of the ship
+    normalized_ship = normalize_ship_name(ship_name)
+    coords = SHIP_COORDS[normalized_ship]
+    for coord in coords:
+        # Check if already fired
+        cell = page.locator(f'[data-testid="shots-fired-cell-{coord}"]')
+        class_attr = cell.get_attribute("class") or ""
+
+        if "cell--fired" not in class_attr:
+            have_aimed_at_coord(page, coord)
+
+
+@given(parsers.parse("my opponent aims shots to sink my {ship_name}"))
+def opponent_aims_shots_to_sink_player_ship_browser(
+    page: Page, ship_name: str, game_context: dict[str, Any]
+) -> None:
+    """Opponent aims shots to sink player ship without firing"""
+    opponent_page: Page | None = game_context.get("opponent_page")
+    if not opponent_page:
+        return
+
+    # Aim at all coordinates of the ship
+    normalized_ship = normalize_ship_name(ship_name)
+    coords = SHIP_COORDS[normalized_ship]
+    for coord in coords:
+        # Opponent aims
+        cell = opponent_page.locator(f'[data-testid="shots-fired-cell-{coord}"]')
+        cell.click()
+        opponent_page.wait_for_timeout(100)
+
+
 @given(parsers.parse("I fire shots that sink the opponent's {ship_name}"))
 @when(parsers.parse("I fire shots that sink the opponent's {ship_name}"))
 def fire_shots_that_sink_opponent_ship_browser_impl(
@@ -2964,11 +3046,15 @@ def fire_shots_that_sink_opponent_ship_browser_impl(
     normalized_ship = normalize_ship_name(ship_name)
     coords = SHIP_COORDS[normalized_ship]
     for coord in coords:
-        have_aimed_at_coord(page, coord)
-        # have_aimed_at_coord already waits? No, it just clicks.
-        # Let's verify it's aimed
+        # Check if already fired
         cell = page.locator(f'[data-testid="shots-fired-cell-{coord}"]')
-        expect(cell).to_have_class(re.compile(r"cell--aimed"))
+        class_attr = cell.get_attribute("class") or ""
+
+        if "cell--fired" not in class_attr:
+            have_aimed_at_coord(page, coord)
+            # have_aimed_at_coord already waits? No, it just clicks.
+            # Let's verify it's aimed
+            expect(cell).to_have_class(re.compile(r"cell--aimed"))
 
     # Also aim dummy shots for the opponent so the round can complete
     if opponent_page:

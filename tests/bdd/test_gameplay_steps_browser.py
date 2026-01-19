@@ -1449,6 +1449,14 @@ def game_should_be_marked_as_finished(page: Page) -> None:
     expect(page.locator('text="Return to Lobby"')).to_be_visible()
 
 
+@then('I should see an option to "Return to Lobby"')
+def should_see_return_to_lobby_option(page: Page) -> None:
+    """Verify return to lobby button/link is visible"""
+    # The Return to Lobby option can be either a button or a link
+    return_to_lobby = page.locator('text="Return to Lobby"')
+    expect(return_to_lobby).to_be_visible()
+
+
 @then("the shot counter should not change")
 def shot_counter_should_not_change(page: Page) -> None:
     """Verify shot counter does not change"""

@@ -2192,6 +2192,15 @@ def coordinates_marked_as_sunk(page: Page, coords: str) -> None:
 )
 def coords_marked_on_shots_fired_board(page: Page, coords: str, round_num: str) -> None:
     """Verify coordinates are marked with round number on Shots Fired board"""
+    # If round results are showing, click Continue to get back to aiming interface
+    round_results = page.locator('[data-testid="round-results"]')
+    if round_results.is_visible():
+        continue_btn = page.locator('button:has-text("Continue")')
+        if continue_btn.is_visible():
+            continue_btn.click()
+            # Wait for aiming interface to load
+            page.wait_for_selector('[data-testid="aiming-interface"]', timeout=5000)
+
     # Split by comma and remove all quotes and whitespace
     coord_list = []
     for c in coords.split(","):

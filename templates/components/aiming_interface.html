@@ -1,9 +1,10 @@
 {# Aiming Interface Component - Combines all shot aiming components #}
-<div class="aiming-interface" id="aiming-interface" data-testid="aiming-interface"
+<div class="aiming-interface" data-testid="aiming-interface"
      {% if waiting_message %}
      hx-get="/game/{{ game_id }}/long-poll?version={{ round_version }}"
      hx-trigger="load delay:100ms"
-     hx-swap="outerHTML"
+     hx-swap="innerHTML swap:1s"
+     hx-target="#aiming-interface"
      {% endif %}>
     
     {# Error message display #}

@@ -1160,7 +1160,7 @@ async def fire_shots(request: Request, game_id: str) -> HTMLResponse:
 @app.get("/game/{game_id}/long-poll", response_model=None)
 async def game_long_poll(
     request: Request, game_id: str, version: int = 0
-) -> HTMLResponse | dict[str, Any]:
+) -> HTMLResponse:
     """Long-polling endpoint for game state updates.
 
     Args:
@@ -1169,7 +1169,7 @@ async def game_long_poll(
         version: The current version number client has
 
     Returns:
-        HTML response with round results if round is resolved, or JSON if not resolved
+        HTML response with round results if round is resolved, or aiming interface if not resolved
     """
     # Get player from session
     player_id: str = _get_player_id(request)
@@ -1199,13 +1199,10 @@ async def game_long_poll(
         # Round resolved - return HTML round results
         return _render_round_results(request, game_id, player_id, round_obj.result)
 
-    # Round not resolved - return JSON to continue polling
-    return {
-        "version": current_version,
-        "round_resolved": False,
-        "game_over": game.status == GameStatus.FINISHED,
-        "winner_id": None,
-    }
+    # Round not resolved - return aiming interface with waiting message to continue polling
+    return _render_aiming_interface(
+        request, game_id, player_id, waiting_message="Waiting for opponent to fire..."
+    )
 
 
 @app.get("/game/{game_id}/aimed-shots")

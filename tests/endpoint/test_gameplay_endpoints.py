@@ -316,7 +316,9 @@ class TestFireShotsEndpoint:
         assert 'hx-get="/game/' in response.text
         # Long-polling uses "load delay:100ms" instead of "every 2s" for better UX
         assert 'hx-trigger="load delay:100ms"' in response.text
-        assert 'hx-swap="outerHTML"' in response.text
+        # Swap uses innerHTML with target to avoid duplicate ID issues
+        assert 'hx-swap="innerHTML' in response.text
+        assert 'hx-target="#aiming-interface"' in response.text
 
     def test_fire_shots_endpoint_no_shots_aimed(self, client: TestClient) -> None:
         """Test that firing without aiming returns error."""

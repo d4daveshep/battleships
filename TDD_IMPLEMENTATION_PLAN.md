@@ -56,7 +56,7 @@ This plan breaks down the **58 scenarios** from `features/two_player_gameplay.fe
 | **Phase 4** | Hit Feedback & Tracking | 9 scenarios | ✅ COMPLETE |
 | **Phase 5** | Ship Sinking & Game End | 11 scenarios | ✅ COMPLETE |
 | **Phase 6** | Real-Time Updates & Long-Polling | 3 scenarios | ✅ COMPLETE |
-| **Phase 7** | Edge Cases & Error Handling | 10 scenarios | ⏳ TODO |
+| **Phase 7** | Edge Cases & Error Handling | 10 scenarios | 🔄 IN PROGRESS (Step definitions complete, backend features needed) |
 
 ---
 
@@ -1125,9 +1125,15 @@ def no_manual_refresh_browser(page: Page) -> None:
 
 ---
 
-## Phase 7: Edge Cases & Error Handling ⏳ TODO
+## Phase 7: Edge Cases & Error Handling 🔄 IN PROGRESS
 
 **Goal**: Handle edge cases, errors, and special scenarios.
+
+**Current Status**:
+- ✅ All BDD browser step definitions implemented (35+ new steps)
+- ✅ 1/9 browser tests passing (`test_first_round_of_the_game`)
+- ⏳ 8/9 browser tests have step definitions but need backend features
+- ⏳ Backend features needed: disconnect detection, surrender, network error handling, state persistence
 
 ### RED-GREEN-REFACTOR Cycles
 
@@ -1200,24 +1206,27 @@ def step_refresh_maintains_state(page):
 
 **REFACTOR**: Extract state loading logic
 
-### BDD Scenarios to Implement
-- Scenario: Refreshing page maintains game state
-- Scenario: Reconnecting to an in-progress game
-- Scenario: First round of the game
-- Scenario: Multiple hits on same ship in one round
-- Scenario: Hitting multiple different ships in one round
-- Scenario: Firing fewer shots than available
-- Scenario: Handling network error during shot submission
-- Scenario: Opponent disconnects during game
-- Scenario: Opponent reconnects after disconnection
-- Scenario: Player surrenders the game
+### BDD Scenarios Status
+- ✅ Scenario: First round of the game (PASSING)
+- ⏳ Scenario: Refreshing page maintains game state (step defs complete, needs state persistence)
+- ⏳ Scenario: Reconnecting to an in-progress game (step defs complete, needs state persistence)
+- ⏳ Scenario: Multiple hits on same ship in one round (step defs complete, needs backend)
+- ⏳ Scenario: Hitting multiple different ships in one round (step defs complete, needs backend)
+- ⏳ Scenario: Firing fewer shots than available (covered by existing tests)
+- ⏳ Scenario: Handling network error during shot submission (step defs complete, needs error handling)
+- ⏳ Scenario: Opponent disconnects during game (step defs complete, needs disconnect detection)
+- ⏳ Scenario: Opponent reconnects after disconnection (step defs complete, needs reconnect handling)
+- ⏳ Scenario: Player surrenders the game (step defs complete, needs surrender feature)
 
 ### Success Criteria
+- [x] BDD browser step definitions implemented (✅ 35+ steps added)
 - [ ] Unit tests pass for all edge cases
 - [ ] Integration tests pass for error handling
-- [ ] BDD scenarios pass for special cases
-- [ ] Page refresh maintains state
-- [ ] Surrender works correctly
+- [ ] BDD browser tests pass for special cases (1/9 passing)
+- [ ] Page refresh maintains state (backend feature needed)
+- [ ] Surrender works correctly (backend feature needed)
+- [ ] Disconnect detection implemented (backend feature needed)
+- [ ] Network error handling implemented (backend feature needed)
 
 ---
 

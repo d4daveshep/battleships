@@ -31,5 +31,11 @@ jobs:
       # - name: Run ruff formatter check
       #   run: uv run ruff format --check .
 
-      - name: Run pytest unit tests
+      - name: Run unit tests with pytest
         run: uv run pytest tests/unit/
+
+      - name: Run endpoint tests with pytest
+        run: uv run pytest tests/endpoint/
+
+      - name: Run BDD Fastapi tests with pytest
+        run: uv run pytest tests/bdd/*fastapi.py

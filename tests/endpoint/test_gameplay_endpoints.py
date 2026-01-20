@@ -556,6 +556,81 @@ class TestLongPollingEndpoint:
         assert elapsed < 1.0  # Should be nearly instant
         assert response.status_code == status.HTTP_200_OK
 
+    def test_long_poll_returns_aiming_interface_when_no_change(
+        self, client: TestClient
+    ) -> None:
+        """Test that long-poll returns aiming interface when no round change occurs."""
+        # Arrange
+        game_id, player_id = create_test_game_with_boards(client)
+
+        from main import gameplay_service
+
+        # Get current version
+        current_version = gameplay_service.get_round_version(game_id)
+
+        # Act - long-poll with current version and short timeout
+        response = client.get(
+            f"/game/{game_id}/long-poll?version={current_version}&timeout=1"
+        )
+
+        # Assert - should return aiming interface (no change occurred)
+        assert response.status_code == status.HTTP_200_OK
+        html = response.text
+
+        # Should contain aiming interface elements
+        assert (
+            'data-testid="aiming-interface"' in html
+            or 'data-testid="shot-counter"' in html
+        )
+
+    def test_aiming_interface_template_includes_long_poll_attributes(
+        self, client: TestClient
+    ) -> None:
+        """Test that aiming interface template includes long-poll HTMX attributes when waiting."""
+        # Arrange
+        game_id, player_id = create_test_game_with_boards(client)
+
+        from main import _render_aiming_interface, gameplay_service
+        from starlette.requests import Request
+
+        # Create a mock request
+        scope = {
+            "type": "http",
+            "method": "GET",
+            "headers": [],
+            "query_string": b"",
+            "path": f"/game/{game_id}/aiming-interface",
+        }
+        request = Request(scope)
+
+        # Get current version
+        current_version = gameplay_service.get_round_version(game_id)
+
+        # Act - render aiming interface with waiting message
+        response = _render_aiming_interface(
+            request,
+            game_id,
+            player_id,
+            waiting_message="Waiting for opponent to fire...",
+        )
+
+        # Assert - should include HTMX long-poll attributes
+        # HTMLResponse has a body attribute that's bytes
+        html = (
+            response.body.decode("utf-8")
+            if isinstance(response.body, bytes)
+            else str(response.body)
+        )
+
+        # Check for waiting message
+        assert "Waiting for opponent" in html
+
+        # Check for long-poll HTMX attributes
+        assert "hx-get" in html
+        assert f"/game/{game_id}/long-poll" in html
+        assert f"version={current_version}" in html
+        assert 'hx-trigger="load' in html
+
     # TODO: Add integration tests for two-player long-polling scenarios
     # These require proper two-player game setup which is complex
     # Will be implemented in Cycle 6.3

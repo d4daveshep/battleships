@@ -1,5 +1,6 @@
 """Unit tests for GameplayService - shot aiming and validation."""
 
+import asyncio
 import pytest
 from game.model import Coord, ShipType, Ship, Orientation, GameBoard
 from game.round import Round, HitResult
@@ -384,8 +385,12 @@ class TestFireShots:
         board2 = create_board_with_all_ships()
 
         service.create_round(game_id=game_id, round_number=round_number)
-        service.register_player_board(game_id=game_id, player_id=player1_id, board=board1)
-        service.register_player_board(game_id=game_id, player_id=player2_id, board=board2)
+        service.register_player_board(
+            game_id=game_id, player_id=player1_id, board=board1
+        )
+        service.register_player_board(
+            game_id=game_id, player_id=player2_id, board=board2
+        )
 
         # Aim some shots for player1
         service.aim_shot(game_id=game_id, player_id=player1_id, coord=Coord.A1)
@@ -448,7 +453,9 @@ class TestFireShots:
 
         # Assert
         assert result.success is False
-        assert "already" in result.message.lower() or "submitted" in result.message.lower()
+        assert (
+            "already" in result.message.lower() or "submitted" in result.message.lower()
+        )
 
 
 class TestRoundResolution:
@@ -467,8 +474,12 @@ class TestRoundResolution:
         board2 = create_board_with_all_ships()
 
         service.create_round(game_id=game_id, round_number=round_number)
-        service.register_player_board(game_id=game_id, player_id=player1_id, board=board1)
-        service.register_player_board(game_id=game_id, player_id=player2_id, board=board2)
+        service.register_player_board(
+            game_id=game_id, player_id=player1_id, board=board1
+        )
+        service.register_player_board(
+            game_id=game_id, player_id=player2_id, board=board2
+        )
 
         # Player 1 aims and fires
         service.aim_shot(game_id=game_id, player_id=player1_id, coord=Coord.A1)
@@ -502,8 +513,12 @@ class TestRoundResolution:
         board2 = create_board_with_all_ships()
 
         service.create_round(game_id=game_id, round_number=round_number)
-        service.register_player_board(game_id=game_id, player_id=player1_id, board=board1)
-        service.register_player_board(game_id=game_id, player_id=player2_id, board=board2)
+        service.register_player_board(
+            game_id=game_id, player_id=player1_id, board=board1
+        )
+        service.register_player_board(
+            game_id=game_id, player_id=player2_id, board=board2
+        )
 
         # Both players aim and fire
         service.aim_shot(game_id=game_id, player_id=player1_id, coord=Coord.A1)
@@ -536,16 +551,28 @@ class TestHitDetection:
 
         # Create boards with ships at known positions
         board1 = GameBoard()
-        board1.place_ship(Ship(ShipType.CARRIER), Coord.A1, Orientation.HORIZONTAL)  # A1-E1
-        board1.place_ship(Ship(ShipType.DESTROYER), Coord.C3, Orientation.HORIZONTAL)  # C3-D3
+        board1.place_ship(
+            Ship(ShipType.CARRIER), Coord.A1, Orientation.HORIZONTAL
+        )  # A1-E1
+        board1.place_ship(
+            Ship(ShipType.DESTROYER), Coord.C3, Orientation.HORIZONTAL
+        )  # C3-D3
 
         board2 = GameBoard()
-        board2.place_ship(Ship(ShipType.BATTLESHIP), Coord.B2, Orientation.HORIZONTAL)  # B2-E2
-        board2.place_ship(Ship(ShipType.CRUISER), Coord.F5, Orientation.VERTICAL)  # F5-F7
+        board2.place_ship(
+            Ship(ShipType.BATTLESHIP), Coord.B2, Orientation.HORIZONTAL
+        )  # B2-E2
+        board2.place_ship(
+            Ship(ShipType.CRUISER), Coord.F5, Orientation.VERTICAL
+        )  # F5-F7
 
         service.create_round(game_id=game_id, round_number=round_number)
-        service.register_player_board(game_id=game_id, player_id=player1_id, board=board1)
-        service.register_player_board(game_id=game_id, player_id=player2_id, board=board2)
+        service.register_player_board(
+            game_id=game_id, player_id=player1_id, board=board1
+        )
+        service.register_player_board(
+            game_id=game_id, player_id=player2_id, board=board2
+        )
 
         # Player 1 aims at player 2's ships (B2 hits Battleship, F5 hits Cruiser, A1 misses)
         service.aim_shot(game_id=game_id, player_id=player1_id, coord=Coord.B2)
@@ -593,8 +620,12 @@ class TestHitDetection:
         board2.place_ship(Ship(ShipType.DESTROYER), Coord.B2, Orientation.HORIZONTAL)
 
         service.create_round(game_id=game_id, round_number=round_number)
-        service.register_player_board(game_id=game_id, player_id=player1_id, board=board1)
-        service.register_player_board(game_id=game_id, player_id=player2_id, board=board2)
+        service.register_player_board(
+            game_id=game_id, player_id=player1_id, board=board1
+        )
+        service.register_player_board(
+            game_id=game_id, player_id=player2_id, board=board2
+        )
 
         # Player 1 hits player 2's Destroyer at B2
         service.aim_shot(game_id=game_id, player_id=player1_id, coord=Coord.B2)
@@ -634,8 +665,12 @@ class TestHitDetection:
         board2.place_ship(Ship(ShipType.DESTROYER), Coord.B2, Orientation.HORIZONTAL)
 
         service.create_round(game_id=game_id, round_number=round_number)
-        service.register_player_board(game_id=game_id, player_id=player1_id, board=board1)
-        service.register_player_board(game_id=game_id, player_id=player2_id, board=board2)
+        service.register_player_board(
+            game_id=game_id, player_id=player1_id, board=board1
+        )
+        service.register_player_board(
+            game_id=game_id, player_id=player2_id, board=board2
+        )
 
         # Both players aim at empty cells
         service.aim_shot(game_id=game_id, player_id=player1_id, coord=Coord.J10)
@@ -674,9 +709,15 @@ class TestHitFeedbackCalculation:
         # Arrange
         service = GameplayService()
         hits = [
-            HitResult(ship_type=ShipType.BATTLESHIP, coord=Coord.B2, is_sinking_hit=False),
-            HitResult(ship_type=ShipType.BATTLESHIP, coord=Coord.C2, is_sinking_hit=False),
-            HitResult(ship_type=ShipType.BATTLESHIP, coord=Coord.D2, is_sinking_hit=False),
+            HitResult(
+                ship_type=ShipType.BATTLESHIP, coord=Coord.B2, is_sinking_hit=False
+            ),
+            HitResult(
+                ship_type=ShipType.BATTLESHIP, coord=Coord.C2, is_sinking_hit=False
+            ),
+            HitResult(
+                ship_type=ShipType.BATTLESHIP, coord=Coord.D2, is_sinking_hit=False
+            ),
         ]
 
         # Act
@@ -692,7 +733,9 @@ class TestHitFeedbackCalculation:
         hits = [
             HitResult(ship_type=ShipType.CARRIER, coord=Coord.A1, is_sinking_hit=False),
             HitResult(ship_type=ShipType.CARRIER, coord=Coord.B1, is_sinking_hit=False),
-            HitResult(ship_type=ShipType.DESTROYER, coord=Coord.C3, is_sinking_hit=False),
+            HitResult(
+                ship_type=ShipType.DESTROYER, coord=Coord.C3, is_sinking_hit=False
+            ),
             HitResult(ship_type=ShipType.CRUISER, coord=Coord.F5, is_sinking_hit=False),
         ]
 
@@ -725,32 +768,32 @@ class TestSinkingLogic:
         game_id = "game123"
         p1_id = "p1"
         p2_id = "p2"
-        
+
         # P2 has a Destroyer (length 2) at B2-B3
         board2 = GameBoard()
         board2.place_ship(Ship(ShipType.DESTROYER), Coord.B2, Orientation.HORIZONTAL)
-        
+
         # P1 has some ship
         board1 = GameBoard()
         board1.place_ship(Ship(ShipType.DESTROYER), Coord.A1, Orientation.HORIZONTAL)
-        
+
         service.register_player_board(game_id, p1_id, board1)
         service.register_player_board(game_id, p2_id, board2)
-        
+
         # Round 1: P1 hits B2
         service.create_round(game_id, 1)
         service.aim_shot(game_id, p1_id, Coord.B2)
-        service.aim_shot(game_id, p2_id, Coord.J10) # Miss
+        service.aim_shot(game_id, p2_id, Coord.J10)  # Miss
         service.fire_shots(game_id, p1_id)
         service.fire_shots(game_id, p2_id)
-        
+
         # Round 2: P1 hits B3 (sinking hit)
         service.create_round(game_id, 2)
         service.aim_shot(game_id, p1_id, Coord.B3)
-        service.aim_shot(game_id, p2_id, Coord.J9) # Miss
+        service.aim_shot(game_id, p2_id, Coord.J9)  # Miss
         service.fire_shots(game_id, p1_id)
         service.fire_shots(game_id, p2_id)
-        
+
         # Assert
         round2_result = service.active_rounds[game_id].result
         assert round2_result is not None
@@ -758,7 +801,7 @@ class TestSinkingLogic:
         assert len(p1_hits) == 1
         assert p1_hits[0].coord == Coord.B3
         assert p1_hits[0].is_sinking_hit is True
-        
+
         # Check ships_sunk in RoundResult
         assert p1_id in round2_result.ships_sunk
         assert ShipType.DESTROYER in round2_result.ships_sunk[p1_id]
@@ -774,31 +817,31 @@ class TestGameOverDetection:
         game_id = "game123"
         p1_id = "p1"
         p2_id = "p2"
-        
+
         # P2 has only one ship: Destroyer (length 2) at B2-B3
         board2 = GameBoard()
         board2.place_ship(Ship(ShipType.DESTROYER), Coord.B2, Orientation.HORIZONTAL)
-        
+
         board1 = GameBoard()
         board1.place_ship(Ship(ShipType.DESTROYER), Coord.A1, Orientation.HORIZONTAL)
-        
+
         service.register_player_board(game_id, p1_id, board1)
         service.register_player_board(game_id, p2_id, board2)
-        
+
         # Round 1: P1 hits B2
         service.create_round(game_id, 1)
         service.aim_shot(game_id, p1_id, Coord.B2)
         service.aim_shot(game_id, p2_id, Coord.J10)
         service.fire_shots(game_id, p1_id)
         service.fire_shots(game_id, p2_id)
-        
+
         # Round 2: P1 hits B3 (sinks last ship)
         service.create_round(game_id, 2)
         service.aim_shot(game_id, p1_id, Coord.B3)
         service.aim_shot(game_id, p2_id, Coord.J9)
         service.fire_shots(game_id, p1_id)
         service.fire_shots(game_id, p2_id)
-        
+
         # Assert
         result = service.active_rounds[game_id].result
         assert result is not None
@@ -813,34 +856,201 @@ class TestGameOverDetection:
         game_id = "game123"
         p1_id = "p1"
         p2_id = "p2"
-        
+
         # Both have only one ship: Destroyer (length 2)
         board1 = GameBoard()
-        board1.place_ship(Ship(ShipType.DESTROYER), Coord.A1, Orientation.HORIZONTAL) # A1-A2
-        
+        board1.place_ship(
+            Ship(ShipType.DESTROYER), Coord.A1, Orientation.HORIZONTAL
+        )  # A1-A2
+
         board2 = GameBoard()
-        board2.place_ship(Ship(ShipType.DESTROYER), Coord.B2, Orientation.HORIZONTAL) # B2-B3
-        
+        board2.place_ship(
+            Ship(ShipType.DESTROYER), Coord.B2, Orientation.HORIZONTAL
+        )  # B2-B3
+
         service.register_player_board(game_id, p1_id, board1)
         service.register_player_board(game_id, p2_id, board2)
-        
+
         # Round 1: Both hit first part of ship
         service.create_round(game_id, 1)
         service.aim_shot(game_id, p1_id, Coord.B2)
         service.aim_shot(game_id, p2_id, Coord.A1)
         service.fire_shots(game_id, p1_id)
         service.fire_shots(game_id, p2_id)
-        
+
         # Round 2: Both hit second part of ship (both sunk)
         service.create_round(game_id, 2)
         service.aim_shot(game_id, p1_id, Coord.B3)
         service.aim_shot(game_id, p2_id, Coord.A2)
         service.fire_shots(game_id, p1_id)
         service.fire_shots(game_id, p2_id)
-        
+
         # Assert
         result = service.active_rounds[game_id].result
         assert result is not None
         assert result.game_over is True
         assert result.is_draw is True
         assert result.winner_id is None
+
+
+class TestAsyncWaiting:
+    """Tests for async waiting and version tracking for long-polling."""
+
+    @pytest.mark.asyncio
+    async def test_wait_for_round_change_returns_immediately_if_version_changed(
+        self,
+    ) -> None:
+        """Test that wait_for_round_change returns immediately if version already changed."""
+        # Arrange
+        service = GameplayService()
+        game_id = "test_game"
+
+        # Set initial version to 1
+        service.round_versions[game_id] = 1
+
+        # Act - wait for version 0 (already changed to 1)
+        # This should return immediately without blocking
+        await asyncio.wait_for(
+            service.wait_for_round_change(game_id, since_version=0), timeout=0.5
+        )
+
+        # Assert - if we get here without timeout, it returned immediately
+        assert service.get_round_version(game_id) == 1
+
+    @pytest.mark.asyncio
+    async def test_wait_for_round_change_waits_for_notification(self) -> None:
+        """Test that wait_for_round_change waits until notified."""
+        # Arrange
+        service = GameplayService()
+        game_id = "test_game"
+
+        # Set initial version to 1
+        service.round_versions[game_id] = 1
+
+        # Act - start waiting in background for version 1 to change
+        wait_task = asyncio.create_task(
+            service.wait_for_round_change(game_id, since_version=1)
+        )
+
+        # Give it a moment to start waiting
+        await asyncio.sleep(0.1)
+
+        # Verify task is still running (waiting)
+        assert not wait_task.done()
+
+        # Notify change
+        service._notify_round_change(game_id)
+
+        # Wait should complete quickly
+        await asyncio.wait_for(wait_task, timeout=1.0)
+
+        # Assert - version should have incremented
+        assert service.get_round_version(game_id) == 2
+
+    @pytest.mark.asyncio
+    async def test_wait_for_round_change_timeout(self) -> None:
+        """Test that wait_for_round_change can timeout if no change occurs."""
+        # Arrange
+        service = GameplayService()
+        game_id = "test_game"
+
+        # Set initial version to 1
+        service.round_versions[game_id] = 1
+
+        # Act & Assert - wait should timeout
+        with pytest.raises(asyncio.TimeoutError):
+            await asyncio.wait_for(
+                service.wait_for_round_change(game_id, since_version=1), timeout=0.5
+            )
+
+        # Version should still be 1 (no change)
+        assert service.get_round_version(game_id) == 1
+
+    @pytest.mark.asyncio
+    async def test_notify_round_change_increments_version(self) -> None:
+        """Test that _notify_round_change increments version and wakes waiters."""
+        # Arrange
+        service = GameplayService()
+        game_id = "test_game"
+
+        # Set initial version
+        initial_version = service.get_round_version(game_id)
+
+        # Act
+        service._notify_round_change(game_id)
+
+        # Assert
+        assert service.get_round_version(game_id) == initial_version + 1
+
+    @pytest.mark.asyncio
+    async def test_multiple_waiters_all_notified(self) -> None:
+        """Test that multiple waiters are all notified when round changes."""
+        # Arrange
+        service = GameplayService()
+        game_id = "test_game"
+        service.round_versions[game_id] = 1
+
+        # Start multiple waiters
+        wait_task_1 = asyncio.create_task(
+            service.wait_for_round_change(game_id, since_version=1)
+        )
+        wait_task_2 = asyncio.create_task(
+            service.wait_for_round_change(game_id, since_version=1)
+        )
+        wait_task_3 = asyncio.create_task(
+            service.wait_for_round_change(game_id, since_version=1)
+        )
+
+        # Give them time to start waiting
+        await asyncio.sleep(0.1)
+
+        # Act - notify change
+        service._notify_round_change(game_id)
+
+        # Assert - all should complete
+        await asyncio.wait_for(wait_task_1, timeout=1.0)
+        await asyncio.wait_for(wait_task_2, timeout=1.0)
+        await asyncio.wait_for(wait_task_3, timeout=1.0)
+
+        assert service.get_round_version(game_id) == 2
+
+    @pytest.mark.asyncio
+    async def test_resolve_round_notifies_waiters(self) -> None:
+        """Test that resolve_round calls _notify_round_change."""
+        # Arrange
+        service = GameplayService()
+        game_id = "test_game"
+        p1_id = "player1"
+        p2_id = "player2"
+
+        # Setup boards
+        board1 = create_board_with_all_ships()
+        board2 = create_board_with_all_ships()
+        service.register_player_board(game_id, p1_id, board1)
+        service.register_player_board(game_id, p2_id, board2)
+
+        # Create round and aim shots
+        service.create_round(game_id, 1)
+        service.aim_shot(game_id, p1_id, Coord.A1)
+        service.aim_shot(game_id, p2_id, Coord.B1)
+
+        # Get initial version
+        initial_version = service.get_round_version(game_id)
+
+        # Start waiting for round change
+        wait_task = asyncio.create_task(
+            service.wait_for_round_change(game_id, since_version=initial_version)
+        )
+
+        # Give it time to start waiting
+        await asyncio.sleep(0.1)
+
+        # Act - fire shots (both players) which triggers resolve_round
+        service.fire_shots(game_id, p1_id)
+        service.fire_shots(game_id, p2_id)  # This should resolve and notify
+
+        # Assert - wait should complete
+        await asyncio.wait_for(wait_task, timeout=1.0)
+
+        # Version should have incremented
+        assert service.get_round_version(game_id) > initial_version

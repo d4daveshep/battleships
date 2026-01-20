@@ -1,5 +1,6 @@
 """Integration tests for gameplay endpoints - aiming shots during gameplay."""
 
+import asyncio
 from typing import Any
 
 import pytest
@@ -503,3 +504,71 @@ class TestGetAimingInterfacePolling:
             "round-results" in alice_poll_resp2.text
             or "Continue" in alice_poll_resp2.text
         )
+
+
+class TestLongPollingEndpoint:
+    """Tests for the /game/{game_id}/long-poll endpoint with proper async waiting."""
+
+    def test_long_poll_endpoint_exists_and_accepts_parameters(
+        self, client: TestClient
+    ) -> None:
+        """Test that long-poll endpoint exists and accepts version/timeout parameters."""
+        # Arrange
+        game_id, player_id = create_test_game_with_boards(client)
+
+        from main import gameplay_service
+
+        # Get current version
+        current_version = gameplay_service.get_round_version(game_id)
+
+        # Act - call long-poll with version parameter
+        response = client.get(
+            f"/game/{game_id}/long-poll?version={current_version}&timeout=1"
+        )
+
+        # Assert - should return successfully (will timeout after 1 second)
+        assert response.status_code == status.HTTP_200_OK
+        # Should return some game state (aiming interface or results)
+        assert len(response.text) > 0
+
+    def test_long_poll_returns_immediately_if_version_behind(
+        self, client: TestClient
+    ) -> None:
+        """Test that long-poll returns immediately if client version is behind server."""
+        # Arrange
+        game_id, player_id = create_test_game_with_boards(client)
+
+        from main import gameplay_service
+        import time
+
+        # Trigger a version change
+        gameplay_service._notify_round_change(game_id)
+        current_version = gameplay_service.get_round_version(game_id)
+
+        # Act - long-poll with old version (should return immediately)
+        start_time = time.time()
+        response = client.get(
+            f"/game/{game_id}/long-poll?version={current_version - 1}&timeout=5"
+        )
+        elapsed = time.time() - start_time
+
+        # Assert - should return quickly (not wait for timeout)
+        assert elapsed < 1.0  # Should be nearly instant
+        assert response.status_code == status.HTTP_200_OK
+
+    # TODO: Add integration tests for two-player long-polling scenarios
+    # These require proper two-player game setup which is complex
+    # Will be implemented in Cycle 6.3
+    @pytest.mark.skip(reason="Requires two-player game setup - implement in Cycle 6.3")
+    @pytest.mark.asyncio
+    async def test_long_poll_waits_for_round_resolution(
+        self, client: TestClient
+    ) -> None:
+        """Test that long-poll waits for round to resolve when versions match."""
+        pass
+
+    @pytest.mark.skip(reason="Requires two-player game setup - implement in Cycle 6.3")
+    @pytest.mark.asyncio
+    async def test_long_poll_times_out_gracefully(self, client: TestClient) -> None:
+        """Test that long-poll returns after timeout even if no change occurs."""
+        pass

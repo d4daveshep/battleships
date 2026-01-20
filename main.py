@@ -2189,22 +2189,38 @@ async def record_hit_for_testing(
     # Ensure game exists and gameplay is initialized
     _ensure_gameplay_initialized(game_id, player_id)
 
-    if game_id not in gameplay_service.player_boards:
+    # Get the game to access game.board (source of truth)
+    game: Game | None = game_service.games.get(game_id)
+    if not game:
         raise HTTPException(status_code=404, detail="Game not found")
-    if player_id not in gameplay_service.player_boards[game_id]:
-        raise HTTPException(status_code=404, detail="Player not found")
 
-    board = gameplay_service.player_boards[game_id][player_id]
+    # Find the player in the game
+    target_player: Player | None = None
+    if game.player_1.id == player_id:
+        target_player = game.player_1
+    elif game.player_2 and game.player_2.id == player_id:
+        target_player = game.player_2
+
+    if not target_player:
+        raise HTTPException(status_code=404, detail="Player not found in game")
+
+    # Record hit in game.board (source of truth)
+    board: GameBoard = game.board[target_player]
     ship_type = ShipType.from_ship_name(ship_name)
     coord_enum = Coord[coord]
     is_sunk = board.record_hit(ship_type, coord_enum, round_number)
 
+    # Also update player_boards for backward compatibility with unit tests
+    if game_id in gameplay_service.player_boards:
+        if player_id in gameplay_service.player_boards[game_id]:
+            gameplay_service.player_boards[game_id][player_id].record_hit(
+                ship_type, coord_enum, round_number
+            )
+
     # Check for game over and update status
     game_over, winner_id, is_draw = gameplay_service.check_game_over(game_id)
     if game_over:
-        game = game_service.games.get(game_id)
-        if game:
-            game.status = GameStatus.FINISHED
+        game.status = GameStatus.FINISHED
 
     # Also record in fired_shots of the ATTACKER
     attacker_id = game_service.get_opponent_id(player_id)

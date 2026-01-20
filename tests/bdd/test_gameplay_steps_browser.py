@@ -3196,7 +3196,9 @@ def opponent_aims_shots_to_sink_player_ship_browser(
 
 
 @given(parsers.parse("I fire shots that sink the opponent's {ship_name}"))
+@given(parsers.parse("I fire shots that sink the {ship_name}"))
 @when(parsers.parse("I fire shots that sink the opponent's {ship_name}"))
+@when(parsers.parse("I fire shots that sink the {ship_name}"))
 def fire_shots_that_sink_opponent_ship_browser(
     page: Page, ship_name: str, game_context: dict[str, Any]
 ) -> None:
@@ -3240,12 +3242,15 @@ def fire_shots_that_sink_opponent_ship_browser(
         else:
             print(f"DEBUG: Cell {last_coord} already fired or aimed, skipping")
 
-    # Fire player shots only (don't fire opponent shots - let subsequent steps handle that)
+    # Fire player shots
     fire_button = page.locator('[data-testid="fire-shots-button"]')
     if fire_button.is_visible() and fire_button.is_enabled():
         fire_button.click()
         page.wait_for_timeout(500)
         print("DEBUG: Player fired shots")
+
+    # Also fire opponent shots to complete the round
+    opponent_fires_their_shots(page, game_context)
 
 
 @when(parsers.parse("Round {round_num:d} begins"))

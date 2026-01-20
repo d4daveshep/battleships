@@ -431,9 +431,9 @@ Feature: Two-Player Simultaneous Multi-Shot Gameplay
     Given it is Round 10
     And I have only my Destroyer remaining with 1 hit
     And my opponent has only their Destroyer remaining with 1 hit
-    And I fire shots that sink the opponent's Destroyer
+    When I fire shots that sink the opponent's Destroyer
     And my opponent fires shots that sink my Destroyer
-    When the round ends
+    And the round ends
     Then I should see "Draw!" displayed
     And I should see "Both players sunk all ships in the same round" displayed
     And the game should be marked as finished

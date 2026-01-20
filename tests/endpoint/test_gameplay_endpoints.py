@@ -1,6 +1,7 @@
 """Integration tests for gameplay endpoints - aiming shots during gameplay."""
 
 import asyncio
+import time
 from typing import Any
 
 import pytest
@@ -11,6 +12,7 @@ from httpx import Response
 from game.model import Coord, GameBoard, Orientation, Ship, ShipType
 from game.game_service import Game, GameMode
 from game.player import Player
+from main import app
 
 
 def create_test_game_with_boards(client: TestClient) -> tuple[str, str]:
@@ -53,6 +55,129 @@ def create_test_game_with_boards(client: TestClient) -> tuple[str, str]:
     player_id: str = game.player_1.id
 
     return game_id, player_id
+
+
+def create_two_player_game_with_boards(
+    player_client: TestClient, opponent_client: TestClient
+) -> dict[str, str]:
+    """Helper to create a two-player game with boards set up.
+
+    Args:
+        player_client: TestClient for player 1
+        opponent_client: TestClient for player 2
+
+    Returns:
+        Dict with keys: game_id, player_id, opponent_id, player_name, opponent_name
+    """
+    from main import game_service
+
+    player_name: str = "Player1"
+    opponent_name: str = "Player2"
+
+    # Reset lobby/game state
+    player_client.post("/test/reset-lobby")
+
+    # Login both players
+    player_client.post(
+        "/login", data={"player_name": player_name, "game_mode": "human"}
+    )
+    opponent_client.post(
+        "/login", data={"player_name": opponent_name, "game_mode": "human"}
+    )
+
+    # Get player IDs from game_service
+    player_id: str | None = None
+    opponent_id: str | None = None
+    for player in game_service.players.values():
+        if player.name == player_name:
+            player_id = player.id
+        elif player.name == opponent_name:
+            opponent_id = player.id
+
+    assert player_id is not None
+    assert opponent_id is not None
+
+    # Match players
+    player_client.post("/select-opponent", data={"opponent_name": opponent_name})
+    opponent_client.post("/accept-game-request", data={})
+
+    # Navigate to ship placement
+    resp1: Response = player_client.get(f"/lobby/status/{player_name}")
+    if resp1.status_code in [302, 303]:
+        player_client.get(resp1.headers["location"])
+
+    resp2: Response = opponent_client.get(f"/lobby/status/{opponent_name}")
+    if resp2.status_code in [302, 303]:
+        opponent_client.get(resp2.headers["location"])
+
+    # Start game for both players
+    resp1_start: Response = player_client.post(
+        "/start-game", data={"action": "start_game", "player_name": player_name}
+    )
+    if resp1_start.status_code in [302, 303]:
+        player_client.get(resp1_start.headers["location"])
+
+    resp2_start: Response = opponent_client.post(
+        "/start-game", data={"action": "start_game", "player_name": opponent_name}
+    )
+    if resp2_start.status_code in [302, 303]:
+        opponent_client.get(resp2_start.headers["location"])
+
+    # Place ships for both players (using default positions)
+    ships_to_place: list[tuple[str, str, str]] = [
+        ("Carrier", "A1", "horizontal"),  # A1-A5
+        ("Battleship", "C1", "horizontal"),  # C1-C4 (skipping B row)
+        ("Cruiser", "E1", "horizontal"),  # E1-E3 (skipping D row)
+        ("Submarine", "G1", "horizontal"),  # G1-G3 (skipping F row)
+        ("Destroyer", "I1", "horizontal"),  # I1-I2 (skipping H row)
+    ]
+
+    for ship_name, start_coordinate, orientation in ships_to_place:
+        player_client.post(
+            "/place-ship",
+            data={
+                "player_name": player_name,
+                "ship_name": ship_name,
+                "start_coordinate": start_coordinate,
+                "orientation": orientation,
+            },
+        )
+        opponent_client.post(
+            "/place-ship",
+            data={
+                "player_name": opponent_name,
+                "ship_name": ship_name,
+                "start_coordinate": start_coordinate,
+                "orientation": orientation,
+            },
+        )
+
+    # Mark both players as ready
+    player_client.post("/ready-for-game", data={"player_name": player_name})
+    resp_ready: Response = opponent_client.post(
+        "/ready-for-game", data={"player_name": opponent_name}
+    )
+
+    # Extract game_id from redirect
+    game_id: str | None = None
+    if resp_ready.status_code in [302, 303]:
+        redirect_url: str = resp_ready.headers["location"]
+        if "/game/" in redirect_url:
+            game_id = redirect_url.split("/game/")[1].split("/")[0].split("?")[0]
+
+    assert game_id is not None
+
+    # Navigate to game page for both players
+    player_client.get(f"/game/{game_id}")
+    opponent_client.get(f"/game/{game_id}")
+
+    return {
+        "game_id": game_id,
+        "player_id": player_id,
+        "opponent_id": opponent_id,
+        "player_name": player_name,
+        "opponent_name": opponent_name,
+    }
 
 
 class TestAimShotEndpoint:
@@ -631,19 +756,135 @@ class TestLongPollingEndpoint:
         assert f"version={current_version}" in html
         assert 'hx-trigger="load' in html
 
-    # TODO: Add integration tests for two-player long-polling scenarios
-    # These require proper two-player game setup which is complex
-    # Will be implemented in Cycle 6.3
-    @pytest.mark.skip(reason="Requires two-player game setup - implement in Cycle 6.3")
     @pytest.mark.asyncio
     async def test_long_poll_waits_for_round_resolution(
         self, client: TestClient
     ) -> None:
-        """Test that long-poll waits for round to resolve when versions match."""
-        pass
+        """Test that long-poll waits for round to resolve when versions match.
 
-    @pytest.mark.skip(reason="Requires two-player game setup - implement in Cycle 6.3")
+        This test verifies the async waiting mechanism works correctly by:
+        1. Setting up a two-player game
+        2. Having player 1 fire shots (now waiting for opponent)
+        3. Simulating a long-poll request that waits for round resolution
+        4. Having player 2 fire shots (triggers round resolution)
+        5. Verifying the long-poll returns with round results
+        """
+        # Arrange - create two-player game
+        player_client: TestClient = TestClient(app, follow_redirects=False)
+        opponent_client: TestClient = TestClient(app, follow_redirects=False)
+
+        game_info: dict[str, str] = create_two_player_game_with_boards(
+            player_client, opponent_client
+        )
+        game_id: str = game_info["game_id"]
+
+        from main import gameplay_service
+
+        # Get current round version
+        current_version: int = gameplay_service.get_round_version(game_id)
+
+        # Player aims and fires shots
+        player_client.post(f"/game/{game_id}/aim-shot", data={"coord": "A1"})
+        player_client.post(f"/game/{game_id}/fire-shots", data={})
+
+        # Player is now waiting for opponent - version should be same
+        assert gameplay_service.get_round_version(game_id) == current_version
+
+        # Start long-poll in background using run_in_executor
+        async def long_poll_request() -> Response:
+            """Run sync TestClient request in executor to avoid blocking"""
+            loop = asyncio.get_event_loop()
+            return await loop.run_in_executor(
+                None,
+                lambda: player_client.get(
+                    f"/game/{game_id}/long-poll?version={current_version}&timeout=10"
+                ),
+            )
+
+        # Start the long-poll task
+        long_poll_task = asyncio.create_task(long_poll_request())
+
+        # Give long-poll time to start waiting (important for async event setup)
+        await asyncio.sleep(0.2)
+
+        # Opponent fires shots in executor (to avoid blocking the event loop)
+        async def opponent_fires() -> None:
+            """Run opponent actions in executor"""
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(
+                None,
+                lambda: opponent_client.post(
+                    f"/game/{game_id}/aim-shot", data={"coord": "A1"}
+                ),
+            )
+            await loop.run_in_executor(
+                None,
+                lambda: opponent_client.post(f"/game/{game_id}/fire-shots", data={}),
+            )
+
+        # Fire opponent shots
+        await opponent_fires()
+
+        # Wait for long-poll to complete (with generous timeout)
+        response: Response = await asyncio.wait_for(long_poll_task, timeout=12.0)
+
+        # Assert - response should be successful
+        assert response.status_code == status.HTTP_200_OK
+
+        # Version should have incremented
+        new_version: int = gameplay_service.get_round_version(game_id)
+        assert new_version > current_version
+
+        # Response should contain round results
+        html: str = response.text
+        assert (
+            "Round Results" in html
+            or "round-results" in html
+            or 'data-testid="round-results"' in html
+        )
+
     @pytest.mark.asyncio
     async def test_long_poll_times_out_gracefully(self, client: TestClient) -> None:
         """Test that long-poll returns after timeout even if no change occurs."""
-        pass
+        # Arrange - create two-player game
+        player_client: TestClient = TestClient(app, follow_redirects=False)
+        opponent_client: TestClient = TestClient(app, follow_redirects=False)
+
+        game_info: dict[str, str] = create_two_player_game_with_boards(
+            player_client, opponent_client
+        )
+        game_id: str = game_info["game_id"]
+
+        from main import gameplay_service
+
+        # Get current round version
+        current_version: int = gameplay_service.get_round_version(game_id)
+
+        # Player aims and fires shots
+        player_client.post(f"/game/{game_id}/aim-shot", data={"coord": "A1"})
+        player_client.post(f"/game/{game_id}/fire-shots", data={})
+
+        # Player is now waiting for opponent - version should be same
+        assert gameplay_service.get_round_version(game_id) == current_version
+
+        # Act - long-poll with short timeout (opponent doesn't fire)
+        start_time: float = time.time()
+        response: Response = player_client.get(
+            f"/game/{game_id}/long-poll?version={current_version}&timeout=2"
+        )
+        elapsed: float = time.time() - start_time
+
+        # Assert - should timeout after ~2 seconds
+        assert 1.8 <= elapsed <= 2.5  # Allow some variance for system timing
+        assert response.status_code == status.HTTP_200_OK
+
+        # Version should still be the same (no round resolution)
+        assert gameplay_service.get_round_version(game_id) == current_version
+
+        # Should return aiming interface with waiting message
+        html: str = response.text
+        assert (
+            'data-testid="aiming-interface"' in html
+            or 'data-testid="shot-counter"' in html
+            or "Waiting for opponent" in html
+        )

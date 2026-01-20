@@ -726,12 +726,12 @@ def step_see_win_message(page):
 **Current Status**: 
 - ✅ Basic version tracking implemented (`get_round_version()`, `_notify_round_change()`)
 - ✅ Async waiting implemented (`wait_for_round_change()` with asyncio.Event)
-- ✅ Long-polling endpoint exists (`/game/{game_id}/long-poll`)
-- ⚠️ Current implementation uses polling loop (50 iterations x 100ms) instead of proper async wait
-- ⚠️ HTMX integration exists but has reliability issues (see BDD test comments)
-- ⏳ Need to refactor endpoint to use proper `wait_for_round_change()` with timeout
-- ⏳ Need to improve HTMX template integration
-- ⏳ Need comprehensive testing for all scenarios
+- ✅ Long-polling endpoint refactored to use proper async waiting with `asyncio.wait_for()`
+- ✅ HTMX template integration verified (attributes present when waiting)
+- ✅ Two-player integration tests implemented and passing
+- ✅ Timeout behavior tested and working correctly
+- ⚠️ HTMX reliability in browser tests still has timing issues (see BDD test comments)
+- ⏳ Need to address browser-level HTMX timing issues in Cycle 6.4
 
 ### RED-GREEN-REFACTOR Cycles
 
@@ -972,32 +972,23 @@ async def test_long_poll_returns_round_results_when_both_players_fire(
 
 **REFACTOR**: Ensure version is passed correctly in all templates
 
-#### Cycle 6.3: Test Long-Polling Timeout Behavior
-**RED**: Write integration test for timeout
-```python
-async def test_long_poll_times_out_gracefully(
-    client: TestClient, setup_two_player_game: dict[str, Any]
-) -> None:
-    """Test that long-poll returns after timeout even if no change"""
-    game_id = setup_two_player_game["game_id"]
-    version = gameplay_service.get_round_version(game_id)
-    
-    # Long-poll with short timeout
-    start_time = time.time()
-    response = await client.get(
-        f"/game/{game_id}/long-poll?version={version}&timeout=2"
-    )
-    elapsed = time.time() - start_time
-    
-    # Should timeout after ~2 seconds
-    assert 1.8 <= elapsed <= 2.5  # Allow some variance
-    assert response.status_code == 200
-    # Should return current state (aiming interface)
-```
+#### Cycle 6.3: Test Long-Polling Timeout Behavior ✅ COMPLETE
 
-**GREEN**: Ensure timeout parameter is respected (already implemented)
+**RED**: Write integration tests for two-player long-polling scenarios
+- Created `create_two_player_game_with_boards()` fixture helper
+- Implemented `test_long_poll_waits_for_round_resolution()` - verifies long-poll returns when opponent fires
+- Implemented `test_long_poll_times_out_gracefully()` - verifies timeout behavior when opponent doesn't fire
 
-**REFACTOR**: Add logging for debugging long-poll behavior
+**GREEN**: All tests passing
+- Two-player game setup working correctly
+- Long-poll waits for round resolution and returns with round results
+- Timeout behavior works as expected (returns after ~2 seconds)
+- Used `asyncio.run_in_executor()` to properly test async behavior with sync TestClient
+
+**REFACTOR**: Improved test documentation
+- Added detailed docstrings explaining test flow
+- Used proper async/await patterns for integration tests
+- All 6 long-polling integration tests passing
 
 #### Cycle 6.4: BDD Scenarios Implementation
 **RED**: Implement BDD step definitions for real-time scenarios

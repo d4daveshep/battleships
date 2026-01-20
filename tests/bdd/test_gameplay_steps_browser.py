@@ -768,15 +768,16 @@ def have_already_fired_shots(page: Page, game_context: dict[str, Any]) -> None:
 
 
 @given("I am waiting for my opponent to fire")
-def waiting_for_opponent_to_fire(page: Page) -> None:
-    """Verify player is in waiting state"""
-    # After firing, player should see waiting message or waiting state
-    # The waiting message might be in the aiming interface or as a separate element
-    page.wait_for_timeout(500)
-    # Check for waiting message (optional - might not always be visible)
-    waiting_indicator = page.locator('text="Waiting for opponent"')
-    if waiting_indicator.count() > 0:
-        expect(waiting_indicator.first).to_be_visible()
+def waiting_for_opponent_to_fire(page: Page, game_context: dict[str, Any]) -> None:
+    """Setup: Player has fired and is waiting for opponent
+
+    Note: The 'it is Round N' step just sets context but doesn't actually
+    advance the game. For browser tests, we just fire in the current round
+    (Round 1) and wait. The round number context is mainly for FastAPI tests.
+    """
+    # Just fire shots in the current round and wait
+    # This is the same as "I have already fired my shots"
+    have_already_fired_shots(page, game_context)
 
 
 @given("I fire my shots at the same moment my opponent fires")
@@ -931,26 +932,8 @@ def aim_at_more_coordinates(page: Page, count: int) -> None:
                 click_on_cell(page, coords[i])
 
 
-@when("my opponent fires their shots")
-def opponent_fires_shots_browser(page: Page, game_context: dict[str, Any]) -> None:
-    """Simulate opponent firing their shots"""
-    opponent_page: Page | None = game_context.get("opponent_page")
-    if not opponent_page:
-        raise RuntimeError("Opponent page not found in game_context")
-
-    # Opponent aims at safe coordinates (misses)
-    miss_coords = ["J1", "J2", "J3", "J4", "J5", "J6"]
-    for coord in miss_coords:
-        cell = opponent_page.locator(f'[data-testid="shots-fired-cell-{coord}"]')
-        if cell.is_visible():
-            cell.click()
-            opponent_page.wait_for_timeout(100)
-
-    # Opponent fires
-    fire_button = opponent_page.locator('[data-testid="fire-shots-button"]')
-    if fire_button.is_visible() and fire_button.is_enabled():
-        fire_button.click()
-        opponent_page.wait_for_timeout(500)
+# NOTE: @when("my opponent fires their shots") already exists at line ~1603
+# Do not add duplicate - the existing implementation handles all cases
 
 
 @when("both shots are submitted")

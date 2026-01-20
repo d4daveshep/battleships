@@ -837,9 +837,17 @@ async def ship_placement_opponent_status_long_poll(
 
     Returns immediately if version is None or has changed.
     Otherwise waits up to `timeout` seconds for a state change.
+
+    Returns 204 No Content if player has transitioned to game (no longer in ship placement).
     """
     player: Player = _get_player_from_session(request)
-    opponent_id: str = _get_opponent_id_or_404(player.id)
+
+    # Try to get opponent - if player has moved to game, return 204
+    try:
+        opponent_id: str = _get_opponent_id_or_404(player.id)
+    except HTTPException:
+        # Player is no longer in ship placement (game has started)
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     current_version: int = game_service.get_placement_version()
 
@@ -854,6 +862,13 @@ async def ship_placement_opponent_status_long_poll(
         )
     except asyncio.TimeoutError:
         pass  # Timeout is fine, just return current state
+
+    # Check again if player is still in ship placement after waiting
+    try:
+        opponent_id = _get_opponent_id_or_404(player.id)
+    except HTTPException:
+        # Player transitioned to game during wait
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     return _render_opponent_status(request, opponent_id)
 
@@ -1164,17 +1179,21 @@ async def fire_shots(request: Request, game_id: str) -> HTMLResponse:
 
 @app.get("/game/{game_id}/long-poll", response_model=None)
 async def game_long_poll(
-    request: Request, game_id: str, version: int = 0
+    request: Request, game_id: str, version: int = 0, timeout: int = 30
 ) -> HTMLResponse:
     """Long-polling endpoint for game state updates.
+
+    Waits up to `timeout` seconds for round version to change.
+    Returns immediately if version has already changed.
 
     Args:
         request: The FastAPI request object containing session data
         game_id: The ID of the game
         version: The current version number client has
+        timeout: Maximum seconds to wait for changes (default 30)
 
     Returns:
-        HTML response with round results if round is resolved, or aiming interface if not resolved
+        HTML response with appropriate game state (round results, aiming interface, or game over)
     """
     # Get player from session
     player_id: str = _get_player_id(request)
@@ -1183,31 +1202,77 @@ async def game_long_poll(
     if game_id not in game_service.games:
         raise HTTPException(status_code=404, detail="Game not found")
 
-    game = game_service.games[game_id]
-
     # Get current round version
-    current_version = gameplay_service.get_round_version(game_id)
+    current_version: int = gameplay_service.get_round_version(game_id)
 
-    # If client is up to date, wait for changes (long-polling simulation)
-    if version >= current_version:
-        # Wait up to 5 seconds for changes
-        for _ in range(50):  # 50 * 100ms = 5 seconds
-            await asyncio.sleep(0.1)
-            new_version = gameplay_service.get_round_version(game_id)
-            if new_version > version:
-                current_version = new_version
-                break
+    # If client version is behind, return immediately
+    if version < current_version:
+        return _render_game_state_after_round_change(request, game_id, player_id)
+
+    # Wait for round change with timeout
+    try:
+        await asyncio.wait_for(
+            gameplay_service.wait_for_round_change(game_id, since_version=version),
+            timeout=timeout,
+        )
+    except asyncio.TimeoutError:
+        # Timeout is fine - return current state
+        pass
+
+    # Return updated game state
+    return _render_game_state_after_round_change(request, game_id, player_id)
+
+
+def _render_game_state_after_round_change(
+    request: Request, game_id: str, player_id: str
+) -> HTMLResponse:
+    """Render appropriate game state after round change or timeout.
+
+    Determines the current game state and returns the appropriate HTML component:
+    - Game over screen if game finished
+    - Round results if round just resolved
+    - Aiming interface for next round if ready
+    - Waiting state if opponent hasn't fired yet
+
+    Args:
+        request: The FastAPI request object
+        game_id: The ID of the game
+        player_id: The ID of the player
+
+    Returns:
+        HTML response with appropriate game state component
+    """
+    # Check for game over
+    game_over: bool
+    winner_id: str | None
+    is_draw: bool
+    game_over, winner_id, is_draw = gameplay_service.check_game_over(game_id)
+
+    if game_over:
+        # TODO: Implement _render_game_over when we have the template
+        # For now, show round results with game over info
+        round_obj = gameplay_service.active_rounds.get(game_id)
+        if round_obj and round_obj.result:
+            return _render_round_results(request, game_id, player_id, round_obj.result)
 
     # Check if round is resolved
     round_obj = gameplay_service.active_rounds.get(game_id)
     if round_obj is not None and round_obj.is_resolved and round_obj.result is not None:
-        # Round resolved - return HTML round results
+        # Round resolved - show results and transition to next round
         return _render_round_results(request, game_id, player_id, round_obj.result)
 
-    # Round not resolved - return aiming interface with waiting message to continue polling
-    return _render_aiming_interface(
-        request, game_id, player_id, waiting_message="Waiting for opponent to fire..."
-    )
+    # Check if player has submitted but opponent hasn't
+    if round_obj and player_id in round_obj.submitted_players:
+        # Still waiting for opponent
+        return _render_aiming_interface(
+            request,
+            game_id,
+            player_id,
+            waiting_message="Waiting for opponent to fire...",
+        )
+
+    # Ready for next round (or initial state)
+    return _render_aiming_interface(request, game_id, player_id)
 
 
 @app.get("/game/{game_id}/aimed-shots")

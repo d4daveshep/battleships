@@ -3304,13 +3304,17 @@ def round_begins_step_browser(
     # Check if opponent has aimed shots that need to be fired
     opponent_has_aimed = game_context.get("opponent_has_aimed_shots", False)
 
-    # Check if player has aimed shots
+    # Check if player has aimed shots or is waiting for opponent
     fire_btn = page.locator('[data-testid="fire-shots-button"]')
     player_has_aimed = fire_btn.is_visible() and fire_btn.is_enabled()
 
-    # If neither player has aimed, we need to play a dummy round to apply any
+    # Check if player is waiting for opponent (already fired)
+    waiting_message = page.locator('[data-testid="waiting-message"]')
+    player_waiting = waiting_message.is_visible()
+
+    # If neither player has aimed and player isn't waiting, we need to play a dummy round to apply any
     # hits that were recorded via /test/record-hit
-    if not player_has_aimed and not opponent_has_aimed:
+    if not player_has_aimed and not opponent_has_aimed and not player_waiting:
         # Check if we're in the aiming interface (not at game over)
         counter = page.locator('[data-testid="shot-counter-value"]')
         if counter.is_visible():
@@ -3335,9 +3339,13 @@ def round_begins_step_browser(
             player_has_aimed = True
             opponent_has_aimed = True  # Will aim in opponent_fires_their_shots
 
+    # If player is waiting for opponent, opponent needs to fire
+    if player_waiting:
+        opponent_has_aimed = True
+
     # If opponent has aimed but player hasn't, player needs to aim dummy shots
     # so the round can resolve (requires both players to fire)
-    if opponent_has_aimed and not player_has_aimed:
+    if opponent_has_aimed and not player_has_aimed and not player_waiting:
         # Aim dummy shots for the player
         counter = page.locator('[data-testid="shot-counter-value"]')
         shots_needed = 0
@@ -3376,6 +3384,14 @@ def round_begins_step_browser(
     # If we are at round results after firing, advance
     if page.locator('[data-testid="round-results"]').is_visible():
         advance_to_next_round(page, game_context)
+    else:
+        # Wait a bit for round results to appear
+        try:
+            page.wait_for_selector('[data-testid="round-results"]', timeout=10000)
+            advance_to_next_round(page, game_context)
+        except Exception:
+            # Round results didn't appear - might be at game over or other state
+            pass
 
 
 @then(parsers.parse('my opponent should see "{text}" displayed'))
@@ -3401,7 +3417,35 @@ def opponent_sees_shot_counter_browser(
         return
 
     counter = opponent_page.locator('[data-testid="shot-counter-value"]')
-    if counter.is_visible():
+
+    # Wait for the counter to update to the expected value
+    # This handles the case where the page refreshes or HTMX updates
+    try:
+        # Normalize the expected text to handle whitespace differences
+        expected_normalized = " ".join(text.split())
+
+        # Use a custom wait loop because expect().to_contain_text() is strict about whitespace
+        # and we want to be flexible
+        for _ in range(50):  # 5 seconds (50 * 100ms)
+            if not counter.is_visible():
+                opponent_page.wait_for_timeout(100)
+                continue
+
+            actual_text = counter.text_content() or ""
+            actual_normalized = " ".join(actual_text.split())
+            if expected_normalized in actual_normalized:
+                return
+            opponent_page.wait_for_timeout(100)
+
+        # If we get here, the assertion failed
+        actual_text = counter.text_content() or ""
+        actual_normalized = " ".join(actual_text.split())
+
+        # Fallback to standard assertion for better error reporting
+        # This will fail with a nice diff
+        expect(counter).to_contain_text(text)
+    except Exception:
+        # Fallback to standard assertion for better error reporting
         expect(counter).to_contain_text(text)
 
 

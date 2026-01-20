@@ -1632,51 +1632,65 @@ def opponent_fires_their_shots(page: Page, game_context: dict[str, Any]) -> None
     # Check how many shots are already aimed
     counter = opponent_page.locator('[data-testid="shot-counter-value"]')
     current_shots = 0
+    total_available = 6
     if counter.is_visible():
         counter_text = counter.text_content()
         if counter_text:
             # Remove newlines and extra whitespace
             counter_text = " ".join(counter_text.split())
+            print(f"DEBUG opponent_fires_their_shots: Counter text: '{counter_text}'")
             current_shots = int(counter_text.split("/")[0].strip())
+            # Extract total available from "1/6 available" or "1/1 available"
+            total_part = counter_text.split("/")[1].strip()
+            total_available = int(total_part.split()[0])
+            print(
+                f"DEBUG opponent_fires_their_shots: current_shots={current_shots}, total_available={total_available}"
+            )
 
-    # Aim enough shots to reach 6 total (or the available amount)
-    # Player ships are at: A1-A5 (Carrier), C1-C4 (Battleship), E1-E3 (Cruiser), G1-G3 (Submarine), I1-I2 (Destroyer)
-    # Use J column (safe, no ships) for filler shots to avoid unintended hits
-    coords = [
-        "J1",
-        "J2",
-        "J3",
-        "J4",
-        "J5",
-        "J6",
-        "J7",
-        "J8",
-        "J9",
-        "J10",
-    ]
-    for coord in coords:
-        # Check current shot count
-        if counter.is_visible():
-            counter_text = counter.text_content()
-            if counter_text:
-                # Remove newlines and extra whitespace
-                counter_text = " ".join(counter_text.split())
-                current_shots = int(counter_text.split("/")[0].strip())
-                # Extract just the number from "1 available"
-                total_part = counter_text.split("/")[1].strip()
-                total_available = int(total_part.split()[0])
-                if current_shots >= total_available:
-                    break
+    # If opponent has already aimed enough shots, skip aiming more
+    if current_shots >= total_available:
+        print(
+            f"DEBUG opponent_fires_their_shots: Opponent has already aimed {current_shots}/{total_available} shots, skipping aiming"
+        )
+    else:
+        # Aim enough shots to reach total_available (or the available amount)
+        # Player ships are at: A1-A5 (Carrier), C1-C4 (Battleship), E1-E3 (Cruiser), G1-G3 (Submarine), I1-I2 (Destroyer)
+        # Use J column (safe, no ships) for filler shots to avoid unintended hits
+        coords = [
+            "J1",
+            "J2",
+            "J3",
+            "J4",
+            "J5",
+            "J6",
+            "J7",
+            "J8",
+            "J9",
+            "J10",
+        ]
+        for coord in coords:
+            # Check current shot count
+            if counter.is_visible():
+                counter_text = counter.text_content()
+                if counter_text:
+                    # Remove newlines and extra whitespace
+                    counter_text = " ".join(counter_text.split())
+                    current_shots = int(counter_text.split("/")[0].strip())
+                    # Extract just the number from "1 available"
+                    total_part = counter_text.split("/")[1].strip()
+                    total_available = int(total_part.split()[0])
+                    if current_shots >= total_available:
+                        break
 
-        cell = opponent_page.locator(f'[data-testid="shots-fired-cell-{coord}"]')
-        # Check if cell is available (not already aimed or fired)
-        class_attr = cell.get_attribute("class")
-        if class_attr and ("aimed" in class_attr or "fired" in class_attr):
-            continue
-        # Wait for cell to be visible and clickable
-        if cell.is_visible():
-            cell.click()
-            opponent_page.wait_for_timeout(100)
+            cell = opponent_page.locator(f'[data-testid="shots-fired-cell-{coord}"]')
+            # Check if cell is available (not already aimed or fired)
+            class_attr = cell.get_attribute("class")
+            if class_attr and ("aimed" in class_attr or "fired" in class_attr):
+                continue
+            # Wait for cell to be visible and clickable
+            if cell.is_visible():
+                cell.click()
+                opponent_page.wait_for_timeout(100)
 
     # Wait for fire button to be enabled (should have 6 shots aimed)
     fire_button = opponent_page.locator('[data-testid="fire-shots-button"]')
@@ -2961,8 +2975,10 @@ def opponent_has_only_ship_remaining_browser(
         if s != ship_name:
             sink_ship_via_api(page, game_id, opponent_id, s)
 
-    # Don't reload pages - it clears aimed shots
-    page.wait_for_timeout(500)
+    # Reload opponent page to update the shot counter
+    # (The counter needs to reflect the reduced number of available shots)
+    opponent_page.reload()
+    opponent_page.wait_for_timeout(1000)
 
 
 @given(parsers.parse("I have only my {ship_name} remaining"))
@@ -3117,13 +3133,34 @@ def opponent_fires_shots_that_sink_player_ship_browser(
         continue_btn = opponent_page.locator('button:has-text("Continue")')
         if continue_btn.is_visible():
             continue_btn.click()
-            opponent_page.wait_for_selector(
-                '[data-testid="shots-fired-board"]', timeout=10000
-            )
+            # After clicking Continue, the game might be over (showing game-over screen)
+            # or it might continue to the next round (showing aiming interface)
+            # Wait for either to appear
+            try:
+                opponent_page.wait_for_selector(
+                    '[data-testid="shots-fired-board"], [data-testid="game-over"]',
+                    timeout=10000,
+                )
+            except Exception:
+                # If neither appears, the page might have navigated elsewhere
+                print("DEBUG: Neither aiming interface nor game-over screen appeared")
+                return
             opponent_page.wait_for_timeout(1000)  # Wait for HTMX to settle
 
-    # Ensure the aiming interface is visible
-    opponent_page.wait_for_selector('[data-testid="shots-fired-board"]', timeout=10000)
+    # Check if game is over (both players sunk all ships)
+    if opponent_page.locator('[data-testid="game-over"]').is_visible():
+        print("DEBUG: Game is over, no need to aim shots")
+        return
+
+    # Ensure the aiming interface is visible (only if game is not over)
+    try:
+        opponent_page.wait_for_selector(
+            '[data-testid="shots-fired-board"]', timeout=10000
+        )
+    except Exception:
+        # If aiming interface doesn't appear, game might be over
+        print("DEBUG: Aiming interface not visible, game might be over")
+        return
 
     # Aim at the LAST coordinate of the ship (assuming previous coordinates are already hit)
     # This matches the behavior of fire_shots_that_sink_opponent_ship_browser
@@ -3249,8 +3286,9 @@ def fire_shots_that_sink_opponent_ship_browser(
         page.wait_for_timeout(500)
         print("DEBUG: Player fired shots")
 
-    # Also fire opponent shots to complete the round
-    opponent_fires_their_shots(page, game_context)
+    # Don't fire opponent shots here - let the scenario control when opponent fires
+    # (The opponent might fire in a separate step like "my opponent fires shots that sink my Destroyer")
+    # If the scenario doesn't have a separate step for opponent firing, the "round ends" step will fire opponent shots
 
 
 @when(parsers.parse("Round {round_num:d} begins"))

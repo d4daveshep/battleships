@@ -595,6 +595,8 @@ async def start_game_submit(
         )
 
     # Route based on action
+    # TODO: Why do we have two actions to handle?
+    # What is the difference between start_game and launch_game actions?
     redirect_url: str
     if action == "start_game":
         redirect_url = "/place-ships"
@@ -616,6 +618,7 @@ async def start_game_submit(
     return RedirectResponse(url=redirect_url, status_code=status.HTTP_303_SEE_OTHER)
 
 
+# TODO: This is a huge method with deep nested logic - needs refactoring badly!
 @app.post("/ready-for-game", response_model=None)
 async def ready_for_game(
     request: Request,
@@ -873,6 +876,7 @@ async def game_page(request: Request, game_id: str) -> HTMLResponse:
     player: Player = _get_player_from_session(request)
 
     # Fetch game from game_service
+    # TODO: Why are we using a URL parameter for game_id when it should be in the session already?
     game: Game | None = game_service.games.get(game_id)
     if not game:
         raise HTTPException(
@@ -881,7 +885,7 @@ async def game_page(request: Request, game_id: str) -> HTMLResponse:
 
     # Determine if current player is player_1 or player_2
     current_player: Player
-    opponent: Player | None
+    opponent: Player | None  # TODO: Why would our opponent object be None?
 
     if game.player_1.id == player.id:
         current_player = game.player_1
@@ -898,6 +902,7 @@ async def game_page(request: Request, game_id: str) -> HTMLResponse:
 
     # Get boards for both players
     player_board: GameBoard = game.board[current_player]
+    # TODO: Why create a GameBoard() not attached to a player?
     opponent_board: GameBoard = game.board[opponent] if opponent else GameBoard()
 
     # Convert boards to template-friendly format
@@ -930,6 +935,7 @@ async def game_page(request: Request, game_id: str) -> HTMLResponse:
         status_message = "Setting up the game..."
 
     # Calculate ships sunk/lost
+    # TODO: Move this into the game_service or other game-related class, don't calculate it here
     ships_sunk_count = sum(
         1
         for ship in opponent_board.ships
@@ -941,9 +947,12 @@ async def game_page(request: Request, game_id: str) -> HTMLResponse:
 
     # Get current round number
     round_obj = gameplay_service.active_rounds.get(game_id)
-    round_number = round_obj.round_number if round_obj else 1
+    round_number = (
+        round_obj.round_number if round_obj else 1
+    )  # TODO: Round number should always be in a game-related service
 
     # Get hits made by current player on opponent ships for Hits Made area
+    # TODO: Move this to a display-helper method (or class)
     hits_made_data: dict[str, list[int]] = {}
     for ship in opponent_board.ships:
         hits = opponent_board.hits_by_ship.get(ship.ship_type, [])
@@ -1009,24 +1018,20 @@ def _ensure_gameplay_initialized(game_id: str, player_id: str) -> Game:
         # Create round 1 for this game
         gameplay_service.create_round(game_id=game_id, round_number=1)
 
-    # Ensure boards are registered
-    if game_id not in gameplay_service.player_boards:
-        # Register player boards
-        current_player: Player = (
-            game.player_1 if game.player_1.id == player_id else game.player_2
-        )
-        opponent: Player = (
-            game.player_2 if game.player_1.id == player_id else game.player_1
-        )
+    # Ensure boards are registered (always re-register to ensure sync with game.board)
+    current_player: Player = (
+        game.player_1 if game.player_1.id == player_id else game.player_2
+    )
+    opponent: Player = game.player_2 if game.player_1.id == player_id else game.player_1
 
-        gameplay_service.register_player_board(
-            game_id=game_id,
-            player_id=current_player.id,
-            board=game.board[current_player],
-        )
-        gameplay_service.register_player_board(
-            game_id=game_id, player_id=opponent.id, board=game.board[opponent]
-        )
+    gameplay_service.register_player_board(
+        game_id=game_id,
+        player_id=current_player.id,
+        board=game.board[current_player],
+    )
+    gameplay_service.register_player_board(
+        game_id=game_id, player_id=opponent.id, board=game.board[opponent]
+    )
 
     return game
 
@@ -2192,7 +2197,7 @@ async def record_hit_for_testing(
     board = gameplay_service.player_boards[game_id][player_id]
     ship_type = ShipType.from_ship_name(ship_name)
     coord_enum = Coord[coord]
-    board.record_hit(ship_type, coord_enum, round_number)
+    is_sunk = board.record_hit(ship_type, coord_enum, round_number)
 
     # Check for game over and update status
     game_over, winner_id, is_draw = gameplay_service.check_game_over(game_id)

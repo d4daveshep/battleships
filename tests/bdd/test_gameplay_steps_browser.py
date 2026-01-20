@@ -1603,12 +1603,12 @@ def am_waiting_for_opponent(page: Page) -> None:
 @when("my opponent fires their shots")
 def opponent_fires_their_shots(page: Page, game_context: dict[str, Any]) -> None:
     """Opponent fires their shots"""
-    print("DEBUG: opponent_fires_their_shots called")
+    print("DEBUG opponent_fires_their_shots: Called")
     # Get opponent page from game_context
     opponent_page: Page | None = game_context.get("opponent_page")
     if not opponent_page:
         # Fallback: just wait (test will likely fail)
-        print("DEBUG: No opponent page")
+        print("DEBUG opponent_fires_their_shots: No opponent page")
         page.wait_for_timeout(1000)
         return
 
@@ -1641,20 +1641,18 @@ def opponent_fires_their_shots(page: Page, game_context: dict[str, Any]) -> None
 
     # Aim enough shots to reach 6 total (or the available amount)
     # Player ships are at: A1-A5 (Carrier), C1-C4 (Battleship), E1-E3 (Cruiser), G1-G3 (Submarine), I1-I2 (Destroyer)
+    # Use J column (safe, no ships) for filler shots to avoid unintended hits
     coords = [
-        "A1",
-        "C1",
-        "E1",
-        "E2",
-        "G1",
-        "I1",
-        "I2",
         "J1",
         "J2",
         "J3",
         "J4",
         "J5",
         "J6",
+        "J7",
+        "J8",
+        "J9",
+        "J10",
     ]
     for coord in coords:
         # Check current shot count
@@ -1682,11 +1680,16 @@ def opponent_fires_their_shots(page: Page, game_context: dict[str, Any]) -> None
 
     # Wait for fire button to be enabled (should have 6 shots aimed)
     fire_button = opponent_page.locator('[data-testid="fire-shots-button"]')
+    print(
+        f"DEBUG opponent_fires_their_shots: Fire button visible={fire_button.is_visible()}, enabled={fire_button.is_enabled() if fire_button.is_visible() else 'N/A'}"
+    )
     if fire_button.is_visible() and fire_button.is_enabled():
         # Click fire button
+        print("DEBUG opponent_fires_their_shots: Clicking fire button")
         fire_button.click()
         # Wait for the fire request to complete
         opponent_page.wait_for_timeout(1000)
+        print("DEBUG opponent_fires_their_shots: Fired shots")
 
     # After opponent fires, the player's page should poll and get round results
     # Wait for the player's page to poll (polls every 2s, so wait up to 3s)
@@ -2857,9 +2860,12 @@ def all_player_ships_sunk_browser(page: Page, game_context: dict[str, Any]) -> N
     for ship_name in ["Carrier", "Battleship", "Cruiser", "Submarine", "Destroyer"]:
         sink_ship_via_api(page, game_id, player_id, ship_name)
 
-    # Don't reload page - it clears aimed shots
-    # Wait for game over message or shot counter
-    page.wait_for_timeout(500)
+    # After sinking all ships, the game status is set to FINISHED by /test/record-hit
+    # Reload the page to show the game over state
+    page.reload()
+    page.wait_for_timeout(1000)
+
+    # The aiming interface should now show the game over message
     try:
         expect(page.locator('[data-testid="game-over-message"]')).to_be_visible(
             timeout=5000
@@ -3086,7 +3092,12 @@ def aim_dummy_shots(page: Page, count: int = 1) -> None:
 def opponent_fires_shots_that_sink_player_ship_browser(
     page: Page, ship_name: str, game_context: dict[str, Any]
 ) -> None:
-    """Opponent aims shots to sink player ship (only the last remaining coordinate)"""
+    """Opponent aims and fires shots to sink player ship (only the last remaining coordinate)
+
+    Note: This step aims the final coordinate needed to sink the ship, but does NOT fire yet.
+    The firing happens in the "Round begins" step. This is because in the game, both players
+    must fire in the same round, so we can't have the opponent fire before the player.
+    """
     print(
         f"DEBUG: opponent_fires_shots_that_sink_player_ship_browser called for {ship_name}"
     )
@@ -3139,6 +3150,9 @@ def opponent_fires_shots_that_sink_player_ship_browser(
                 print(f"DEBUG: Opponent shot counter after click: {counter_text}")
         else:
             print(f"DEBUG: Opponent cell {last_coord} already fired or aimed, skipping")
+
+    # Mark in context that opponent has aimed shots that need to be fired
+    game_context["opponent_has_aimed_shots"] = True
 
 
 @given(parsers.parse("I aim shots to sink the opponent's {ship_name}"))
@@ -3239,17 +3253,84 @@ def round_begins_step_browser(
     page: Page, round_num: int, game_context: dict[str, Any]
 ) -> None:
     """Set current round context and ensure previous round is finished"""
-    # If we have aimed shots but not fired, fire them first
+    # Check if we're already at round results (previous round completed)
+    if page.locator('[data-testid="round-results"]').is_visible():
+        advance_to_next_round(page, game_context)
+        return
+
+    # Check if opponent has aimed shots that need to be fired
+    opponent_has_aimed = game_context.get("opponent_has_aimed_shots", False)
+
+    # Check if player has aimed shots
     fire_btn = page.locator('[data-testid="fire-shots-button"]')
-    if fire_btn.is_visible() and fire_btn.is_enabled():
-        # Fire player shots
+    player_has_aimed = fire_btn.is_visible() and fire_btn.is_enabled()
+
+    # If neither player has aimed, we need to play a dummy round to apply any
+    # hits that were recorded via /test/record-hit
+    if not player_has_aimed and not opponent_has_aimed:
+        # Check if we're in the aiming interface (not at game over)
+        counter = page.locator('[data-testid="shot-counter-value"]')
+        if counter.is_visible():
+            # Aim dummy shots for both players to trigger round resolution
+            counter_text = counter.text_content()
+            shots_needed = 6  # Default
+            if counter_text:
+                counter_text = " ".join(counter_text.split())
+                total_part = counter_text.split("/")[1].strip()
+                shots_needed = int(total_part.split()[0])
+
+            # Aim dummy shots for player
+            dummy_coords = ["A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8", "A9", "A10"]
+            for i, coord in enumerate(dummy_coords):
+                if i >= shots_needed:
+                    break
+                cell = page.locator(f'[data-testid="shots-fired-cell-{coord}"]')
+                if cell.is_visible():
+                    cell.click()
+                    page.wait_for_timeout(100)
+
+            player_has_aimed = True
+            opponent_has_aimed = True  # Will aim in opponent_fires_their_shots
+
+    # If opponent has aimed but player hasn't, player needs to aim dummy shots
+    # so the round can resolve (requires both players to fire)
+    if opponent_has_aimed and not player_has_aimed:
+        # Aim dummy shots for the player
+        counter = page.locator('[data-testid="shot-counter-value"]')
+        shots_needed = 0
+        if counter.is_visible():
+            counter_text = counter.text_content()
+            if counter_text:
+                counter_text = " ".join(counter_text.split())
+                total_part = counter_text.split("/")[1].strip()
+                shots_needed = int(total_part.split()[0])
+
+        # Aim at dummy coordinates (opponent ships are at B2-B6, D2-D5, F2-F4, H2-H4, J2-J3)
+        dummy_coords = ["A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8", "A9", "A10"]
+        for i, coord in enumerate(dummy_coords):
+            if i >= shots_needed:
+                break
+            cell = page.locator(f'[data-testid="shots-fired-cell-{coord}"]')
+            if cell.is_visible():
+                cell.click()
+                page.wait_for_timeout(100)
+
+        # Now player should have aimed shots
+        player_has_aimed = fire_btn.is_visible() and fire_btn.is_enabled()
+
+    # Fire player shots if they have aimed
+    if player_has_aimed:
         fire_btn.click()
         page.wait_for_timeout(500)
 
-        # Ensure opponent fires too
+    # Ensure opponent fires their shots
+    if opponent_has_aimed:
         opponent_fires_their_shots(page, game_context)
 
-    # If we are at round results, advance
+    # Clear the flag
+    game_context["opponent_has_aimed_shots"] = False
+
+    # If we are at round results after firing, advance
     if page.locator('[data-testid="round-results"]').is_visible():
         advance_to_next_round(page, game_context)
 

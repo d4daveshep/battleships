@@ -183,12 +183,33 @@ class GameplayService:
         Returns:
             Number of shots available based on unsunk ships
         """
-        if game_id not in self.player_boards:
-            return 0
+        # Try to get board from game.board (source of truth for integration tests)
+        # Fall back to player_boards (for unit tests)
+        board = None
 
-        board = self.player_boards[game_id].get(player_id)
+        try:
+            # Import here to avoid circular dependency
+            from game.game_service import game_service
+
+            # Get board from game.board to ensure we're using the latest board state
+            game = game_service.games.get(game_id)
+            if game:
+                # Find the player in the game
+                if game.player_1.id == player_id:
+                    board = game.board[game.player_1]
+                elif game.player_2 and game.player_2.id == player_id:
+                    board = game.board[game.player_2]
+        except ImportError:
+            # game_service not available (unit tests), use player_boards
+            pass
+
+        # Fall back to player_boards if game.board not available
         if board is None:
-            return 0
+            if game_id not in self.player_boards:
+                return 0
+            board = self.player_boards[game_id].get(player_id)
+            if board is None:
+                return 0
 
         return board.calculate_shots_available()
 
@@ -360,7 +381,34 @@ class GameplayService:
                 hits_made[attacker_id] = []
                 ships_sunk[attacker_id] = []
 
-                defender_board = self.player_boards.get(game_id, {}).get(defender_id)
+                # Try to get defender board from game.board (source of truth)
+                # Fall back to player_boards (for unit tests)
+                defender_board = None
+
+                try:
+                    # Import here to avoid circular dependency
+                    from game.game_service import game_service
+
+                    game = game_service.games.get(game_id)
+                    if game:
+                        # Get defender board from game.board
+                        defender_player = (
+                            game.player_1
+                            if game.player_1.id == defender_id
+                            else game.player_2
+                        )
+                        if defender_player:
+                            defender_board = game.board.get(defender_player)
+                except ImportError:
+                    # game_service not available (unit tests), use player_boards
+                    pass
+
+                # Fall back to player_boards if game.board not available
+                if defender_board is None:
+                    defender_board = self.player_boards.get(game_id, {}).get(
+                        defender_id
+                    )
+
                 if defender_board:
                     for coord in round_obj.aimed_shots.get(attacker_id, []):
                         # Record shot received on defender board (hit or miss)
@@ -408,16 +456,35 @@ class GameplayService:
         Returns:
             tuple of (game_over, winner_id, is_draw)
         """
-        if game_id not in self.player_boards:
-            return False, None, False
+        # Try to get player IDs from game.board (source of truth)
+        # Fall back to player_boards (for unit tests)
+        p1_id = None
+        p2_id = None
 
-        boards = self.player_boards[game_id]
-        if len(boards) < 2:
-            return False, None, False
+        try:
+            # Import here to avoid circular dependency
+            from game.game_service import game_service
 
-        player_ids = list(boards.keys())
-        p1_id = player_ids[0]
-        p2_id = player_ids[1]
+            game = game_service.games.get(game_id)
+            if game and game.player_2:
+                p1_id = game.player_1.id
+                p2_id = game.player_2.id
+        except ImportError:
+            # game_service not available (unit tests), use player_boards
+            pass
+
+        # Fall back to player_boards if game not available
+        if p1_id is None or p2_id is None:
+            if game_id not in self.player_boards:
+                return False, None, False
+
+            boards = self.player_boards[game_id]
+            if len(boards) < 2:
+                return False, None, False
+
+            player_ids = list(boards.keys())
+            p1_id = player_ids[0]
+            p2_id = player_ids[1]
 
         p1_all_sunk = self._all_ships_sunk(game_id, p1_id)
         p2_all_sunk = self._all_ships_sunk(game_id, p2_id)
@@ -433,9 +500,31 @@ class GameplayService:
 
     def _all_ships_sunk(self, game_id: str, player_id: str) -> bool:
         """Check if all ships of a player are sunk."""
-        board = self.player_boards.get(game_id, {}).get(player_id)
-        if not board:
-            return False
+        # Try to get board from game.board (source of truth)
+        # Fall back to player_boards (for unit tests)
+        board = None
+
+        try:
+            # Import here to avoid circular dependency
+            from game.game_service import game_service
+
+            # Get board from game.board
+            game = game_service.games.get(game_id)
+            if game:
+                # Find the player in the game
+                if game.player_1.id == player_id:
+                    board = game.board[game.player_1]
+                elif game.player_2 and game.player_2.id == player_id:
+                    board = game.board[game.player_2]
+        except ImportError:
+            # game_service not available (unit tests), use player_boards
+            pass
+
+        # Fall back to player_boards if game.board not available
+        if board is None:
+            board = self.player_boards.get(game_id, {}).get(player_id)
+            if not board:
+                return False
 
         if not board.ships:
             return False

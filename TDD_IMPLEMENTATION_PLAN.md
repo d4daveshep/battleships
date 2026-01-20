@@ -55,7 +55,7 @@ This plan breaks down the **58 scenarios** from `features/two_player_gameplay.fe
 | **Phase 3** | Simultaneous Shot Resolution | 8 scenarios | ✅ COMPLETE |
 | **Phase 4** | Hit Feedback & Tracking | 9 scenarios | ✅ COMPLETE |
 | **Phase 5** | Ship Sinking & Game End | 11 scenarios | ✅ COMPLETE |
-| **Phase 6** | Real-Time Updates & Long-Polling | 3 scenarios | ✅ COMPLETE (pending browser test verification) |
+| **Phase 6** | Real-Time Updates & Long-Polling | 3 scenarios | ✅ COMPLETE |
 | **Phase 7** | Edge Cases & Error Handling | 10 scenarios | ⏳ TODO |
 
 ---
@@ -719,11 +719,11 @@ def step_see_win_message(page):
 
 ---
 
-## Phase 6: Real-Time Updates & Long-Polling 🔄 IN PROGRESS
+## Phase 6: Real-Time Updates & Long-Polling ✅ COMPLETE
 
 **Goal**: Improve and complete long-polling for real-time round completion updates.
 
-**Current Status**: 
+**Final Status**: 
 - ✅ Basic version tracking implemented (`get_round_version()`, `_notify_round_change()`)
 - ✅ Async waiting implemented (`wait_for_round_change()` with asyncio.Event)
 - ✅ Long-polling endpoint refactored to use proper async waiting with `asyncio.wait_for()`
@@ -731,8 +731,8 @@ def step_see_win_message(page):
 - ✅ Two-player integration tests implemented and passing
 - ✅ Timeout behavior tested and working correctly
 - ✅ BDD browser step definitions implemented for all 3 Phase 6 scenarios
+- ✅ All Phase 6 browser tests passing (regression fixed)
 - ⚠️ HTMX reliability in browser tests still has timing issues (see BDD test comments at line 217-227)
-- ⏳ User to verify browser tests pass with new step definitions
 
 ### RED-GREEN-REFACTOR Cycles
 

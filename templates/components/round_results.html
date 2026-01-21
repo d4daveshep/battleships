@@ -3,15 +3,15 @@
     <h2>Round {{ round_number }} Complete!</h2>
     
     <div class="hits-made">
-        <h3>Hits Made This Round:</h3>
         {% if my_hits %}
+            <h3>Hits Made This Round:</h3>
             <ul>
             {% for ship_name, hit_count in my_hits.items() %}
                 <li>{{ ship_name }}: {{ hit_count }} hit{% if hit_count != 1 %}s{% endif %}</li>
             {% endfor %}
             </ul>
         {% else %}
-            <p data-testid="no-hits-made">None - all shots missed</p>
+            <p data-testid="no-hits-made"><strong>Hits Made This Round:</strong> None</p>
         {% endif %}
         
         {% if ships_sunk_by_me %}

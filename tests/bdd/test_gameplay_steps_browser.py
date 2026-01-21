@@ -147,7 +147,7 @@ def setup_two_player_game_browser(
         ("Destroyer", "I1", "horizontal"),  # I1-I2 (skipping H row)
     ]
 
-    for ship_name, coord, orientation in ships_to_place:
+    for idx, (ship_name, coord, orientation) in enumerate(ships_to_place, start=1):
         # Player places ship
         player_page.locator(
             f'label:has([data-testid="select-ship-{ship_name.lower()}"])'
@@ -157,7 +157,11 @@ def setup_two_player_game_browser(
             f'label:has(input[name="orientation"][value="{orientation}"])'
         ).click()
         player_page.locator('[data-testid="place-ship-button"]').click()
-        player_page.wait_for_timeout(200)
+        # Wait for the ship count to update after placement
+        player_page.wait_for_selector(
+            f'[data-testid="ship-placement-count"]:has-text("{idx} of 5 ships placed")',
+            timeout=5000,
+        )
 
         # Opponent places ship
         opponent_page.locator(
@@ -168,7 +172,11 @@ def setup_two_player_game_browser(
             f'label:has(input[name="orientation"][value="{orientation}"])'
         ).click()
         opponent_page.locator('[data-testid="place-ship-button"]').click()
-        opponent_page.wait_for_timeout(200)
+        # Wait for the ship count to update after placement
+        opponent_page.wait_for_selector(
+            f'[data-testid="ship-placement-count"]:has-text("{idx} of 5 ships placed")',
+            timeout=5000,
+        )
 
     # Mark both players as ready
     player_page.locator('[data-testid="ready-button"]').click()
@@ -1409,11 +1417,41 @@ def should_see_ships_sunk_count_at_least(page: Page, count: str) -> None:
 @then(parsers.parse('I should see "{text}" displayed'))
 def should_see_text_displayed(page: Page, text: str) -> None:
     """Verify text is displayed on the page"""
-    # Special handling for "Round X" text - the UI doesn't display this explicitly
-    # Instead, verify we're in a valid game state for that round
+    # Special handling for "Round X" text
     if text.startswith("Round "):
-        # Just verify we're at the aiming interface (game is active)
-        expect(page.locator('[data-testid="aiming-interface"]')).to_be_visible()
+        # Round number can appear in three places:
+        # 1. In the round results as "Continue to Round X"
+        # 2. In the round indicator heading on the gameplay page
+        # 3. In the aiming interface area (though round number is in a sibling element)
+        continue_button = page.locator(f'button:has-text("Continue to {text}")')
+        round_indicator = page.locator(
+            f'[data-testid="round-indicator"]:has-text("{text}")'
+        )
+
+        # Try to find either the continue button or the round indicator
+        try:
+            if continue_button.is_visible(timeout=2000):
+                # Round results are showing with Continue button
+                return
+        except Exception:
+            pass
+
+        # Otherwise, check for round indicator on the gameplay page
+        # Wait up to 10 seconds for the round to update (long-polling might take time)
+        expect(round_indicator).to_be_visible(timeout=10000)
+    elif text == "Hits Made This Round: None":
+        # Special handling for no-hits case - check for the specific element
+        expect(page.locator('[data-testid="no-hits-made"]')).to_be_visible()
+        expect(page.locator('[data-testid="no-hits-made"]')).to_contain_text(
+            "Hits Made This Round:"
+        )
+        expect(page.locator('[data-testid="no-hits-made"]')).to_contain_text("None")
+    elif text.startswith("Ships Sunk:") or text.startswith("Ships Lost:"):
+        # Ships Sunk/Lost counters use data-testid - look in round results
+        testid = "ships-sunk" if "Sunk" in text else "ships-lost"
+        round_results = page.locator('[data-testid="round-results"]')
+        expect(round_results.locator(f'[data-testid="{testid}"]')).to_be_visible()
+        expect(round_results.locator(f'[data-testid="{testid}"]')).to_contain_text(text)
     else:
         expect(page.locator(f'text="{text}"')).to_be_visible()
 
@@ -1721,6 +1759,20 @@ def opponent_fires_their_shots(page: Page, game_context: dict[str, Any]) -> None
             if cell.is_visible():
                 cell.click()
                 opponent_page.wait_for_timeout(100)
+
+    # Check if opponent has already fired (round results or waiting message visible)
+    if round_results.is_visible():
+        print(
+            "DEBUG opponent_fires_their_shots: Round results visible, opponent already fired"
+        )
+        return
+
+    waiting_msg = opponent_page.locator('[data-testid="waiting-message"]')
+    if waiting_msg.is_visible():
+        print(
+            "DEBUG opponent_fires_their_shots: Waiting message visible, opponent already fired"
+        )
+        return
 
     # Wait for fire button to be enabled (should have 6 shots aimed)
     fire_button = opponent_page.locator('[data-testid="fire-shots-button"]')
@@ -2060,11 +2112,27 @@ def when_round_ends_trigger(page: Page, game_context: dict[str, Any]) -> None:
     # Also fire opponent's shots to actually end the round
     opponent_fires_their_shots(page, game_context)
 
-    # Wait for round results to appear
+    # Wait for round results OR game-over results to appear
+    # (game might end if all ships are sunk)
     opponent_page: Page | None = game_context.get("opponent_page")
     if opponent_page:
-        page.wait_for_selector('[data-testid="round-results"]', timeout=10000)
-        opponent_page.wait_for_selector('[data-testid="round-results"]', timeout=10000)
+        # Wait for either round-results or game-over screen
+        try:
+            page.wait_for_selector(
+                '[data-testid="round-results"], [data-testid="game-over"]',
+                timeout=10000,
+            )
+        except Exception:
+            # If neither appears, try waiting for game-over specifically
+            page.wait_for_selector('[data-testid="game-over"]', timeout=5000)
+
+        try:
+            opponent_page.wait_for_selector(
+                '[data-testid="round-results"], [data-testid="game-over"]',
+                timeout=10000,
+            )
+        except Exception:
+            opponent_page.wait_for_selector('[data-testid="game-over"]', timeout=5000)
 
 
 @then('I should see "Hits Made This Round:" displayed')

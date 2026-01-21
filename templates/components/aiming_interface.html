@@ -5,6 +5,11 @@
      hx-trigger="load delay:100ms"
      hx-swap="innerHTML swap:1s"
      hx-target="#aiming-interface"
+     {% elif aimed_count == 0 %}
+     hx-get="/game/{{ game_id }}/aiming-interface"
+     hx-trigger="every 5s"
+     hx-swap="innerHTML"
+     hx-target="#aiming-interface"
      {% endif %}>
     
     {# Error message display #}

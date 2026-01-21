@@ -3698,23 +3698,14 @@ def all_previous_rounds_shots_displayed(page: Page) -> None:
     shots_board = page.locator('[data-testid="shots-fired-board"]')
     expect(shots_board).to_be_visible()
 
-    # After page reload, check if there are cells with round numbers
-    # Cells with round numbers indicate previously fired shots
-    # Look for cells that contain text (round numbers like "1", "2", etc.)
-    cells_with_numbers = page.locator(
-        '[data-testid^="shots-fired-cell-"]:has-text(/^[0-9]+$/)'
-    )
+    # Look for cells with the "cell--fired" class (indicating previously fired shots)
+    fired_cells = page.locator('[data-testid^="shots-fired-cell-"].cell--fired')
 
-    # If no cells with numbers, try looking for cells with the "fired" class
-    if cells_with_numbers.count() == 0:
-        fired_cells = page.locator('[data-testid^="shots-fired-cell-"].fired')
-        # Should have at least some fired cells from previous rounds
-        assert fired_cells.count() > 0, "Should have fired cells from previous rounds"
-    else:
-        # Should have cells with round numbers
-        assert cells_with_numbers.count() > 0, (
-            "Should have cells with round numbers from previous rounds"
-        )
+    # Should have at least some fired cells from previous rounds
+    fired_count = fired_cells.count()
+    assert fired_count > 0, (
+        f"Should have fired cells from previous rounds, found {fired_count}"
+    )
 
 
 @then("the Hits Made area should show all previous hits")

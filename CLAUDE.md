@@ -14,6 +14,9 @@ This is a variation of the Battleships game used to learn and practice BDD and T
 - **Frontend**: Follow HATEOAS principles. Use only HTML, CSS, and HTMX. No javascript.
 - **Testing**: pytest with BDD support (via pytest-bdd), pytest-asyncio, pytest-cov
 - **Browser Testing**: Playwright for end-to-end testing
+- **HTML Parsing**: BeautifulSoup4 (bs4) for test assertions
+- **Linting**: ruff
+- **HTTP Client**: httpx for test requests
 - **Package Management**: UV (modern Python package manager)
 
 ## Code Style Requirements
@@ -47,7 +50,7 @@ uv run pytest --cov              # Run tests with coverage
 uv run pytest -v                 # Run tests with verbose output
 uv run pytest -k "test_name"     # Run specific test by name pattern
 uv run pytest features/          # Run BDD feature tests
-uv run pytest -m wip             # Run ONLY work-in-progress tests (marked with @pytest.mark.wip)
+uv run pytest -m wip             # Run ONLY work-in-progress tests (marked with `wip` marker)
 uv run pytest tests/unit/        # Run unit tests only
 uv run pytest tests/endpoint/    # Run endpoint/integration tests only
 uv run pytest tests/bdd/         # Run BDD step definitions
@@ -74,14 +77,17 @@ uv run python main.py                      # Alternative way to start server
   - `lobby_service.py` - Lobby operations and real-time updates
 - `templates/` - Jinja2 HTML templates
   - `components/` - Reusable HTMX-compatible components for dynamic updates
+- `static/css/` - CSS stylesheets
 
 ### Testing Structure
 - `features/` - BDD feature files (Gherkin syntax)
   - `login.feature` - Player authentication scenarios
   - `ship_placement.feature` - Ship placement rules and validation
   - `multiplayer_lobby.feature` - Lobby functionality
+  - `multiplayer_ship_placement.feature` - Two-player ship placement coordination
   - `long_polling_updates.feature` - Real-time update scenarios
   - `start_game_confirmation_page.feature` - Game mode selection confirmation
+  - `two_player_gameplay.feature` - Two-player battle phase gameplay
 - `tests/bdd/` - BDD step definitions (both FastAPI and browser-based)
 - `tests/unit/` - Unit tests for individual components (models, services, game logic)
 - `tests/endpoint/` - Integration tests for FastAPI endpoints

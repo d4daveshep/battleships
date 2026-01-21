@@ -1352,21 +1352,54 @@ def _render_aiming_interface(
     round_obj = gameplay_service.active_rounds.get(game_id)
     round_number = round_obj.round_number if round_obj else 1
 
-    return templates.TemplateResponse(
+    # Get hits made data for the Hits Made area
+    game = game_service.games.get(game_id)
+    hits_made_data: dict[str, list[int]] = {}
+    if game:
+        # Determine opponent
+        opponent: Player | None
+        if game.player_1.id == player_id:
+            opponent = game.player_2
+        elif game.player_2 and game.player_2.id == player_id:
+            opponent = game.player_1
+        else:
+            opponent = None
+
+        if opponent:
+            opponent_board: GameBoard = game.board.get(opponent, GameBoard())
+            for ship in opponent_board.ships:
+                hits = opponent_board.hits_by_ship.get(ship.ship_type, [])
+                hits_made_data[ship.ship_type.ship_name] = sorted(
+                    [round_num for _, round_num in hits]
+                )
+
+    # Render aiming interface
+    aiming_interface_html = templates.get_template(
+        "components/aiming_interface.html"
+    ).render(
         request=request,
-        name="components/aiming_interface.html",
-        context={
-            "game_id": game_id,
-            "aimed_shots": aimed_shots,
-            "shots_fired": shots_fired,
-            "shots_available": shots_available,
-            "aimed_count": len(aimed_shots),
-            "error_message": error_message,
-            "waiting_message": waiting_message,
-            "round_version": round_version,
-            "round_number": round_number,
-        },
+        game_id=game_id,
+        aimed_shots=aimed_shots,
+        shots_fired=shots_fired,
+        shots_available=shots_available,
+        aimed_count=len(aimed_shots),
+        error_message=error_message,
+        waiting_message=waiting_message,
+        round_version=round_version,
+        round_number=round_number,
     )
+
+    # Render Hits Made area with OOB swap
+    hits_made_html = templates.get_template("components/hits_made_area.html").render(
+        request=request,
+        hits_made_data=hits_made_data,
+        oob=True,
+    )
+
+    # Combine both HTML fragments
+    combined_html = aiming_interface_html + "\n" + hits_made_html
+
+    return HTMLResponse(content=combined_html)
 
 
 def _render_round_results(
@@ -1482,7 +1515,26 @@ def _render_round_results(
         "components/player_board.html"
     ).render(request=request, **player_board_context)
 
-    return HTMLResponse(content=round_results_content + "\n" + player_board_content)
+    # Get hits made data for the Hits Made area
+    hits_made_data: dict[str, list[int]] = {}
+    for ship in opponent_board.ships:
+        hits = opponent_board.hits_by_ship.get(ship.ship_type, [])
+        hits_made_data[ship.ship_type.ship_name] = sorted(
+            [round_num for _, round_num in hits]
+        )
+
+    # Render Hits Made area with OOB swap
+    hits_made_content = templates.get_template("components/hits_made_area.html").render(
+        request=request, hits_made_data=hits_made_data, oob=True
+    )
+
+    return HTMLResponse(
+        content=round_results_content
+        + "\n"
+        + player_board_content
+        + "\n"
+        + hits_made_content
+    )
 
 
 @app.get("/game/{game_id}/aiming-interface")

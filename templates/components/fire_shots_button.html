@@ -4,7 +4,7 @@
             class="btn btn-primary btn-large fire-shots-btn"
             data-testid="fire-shots-button"
             hx-post="/game/{{ game_id }}/fire-shots"
-            hx-target="#game-content"
+            hx-target="#aiming-interface"
             hx-swap="innerHTML"
             {% if aimed_count == 0 %}disabled{% endif %}
             aria-label="Fire {{ aimed_count }} shot{% if aimed_count != 1 %}s{% endif %}">

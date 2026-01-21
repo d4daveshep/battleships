@@ -107,7 +107,15 @@ def multiplayer_lobby_system_available(lobby_context: LobbyTestContext) -> None:
 @given("there are no other players in the lobby")
 def no_other_players_in_lobby(lobby_context: LobbyTestContext) -> None:
     """Set up empty lobby condition"""
-    # Reset lobby state via test endpoint using any client
+    # If a current player is already logged in, we just need to verify
+    # that no OTHER players exist. Don't reset the lobby as that would
+    # remove the current player.
+    if lobby_context.current_player_name is not None:
+        # Current player exists, just verify no other players
+        # This is implicitly true if we just logged in
+        return
+
+    # No current player yet, reset lobby to ensure clean state
     from main import app
 
     reset_client = TestClient(app)

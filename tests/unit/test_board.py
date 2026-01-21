@@ -300,3 +300,105 @@ class TestShipPlacementExceptionMessages:
         
         assert hasattr(exc_info.value, 'user_message')
         assert exc_info.value.user_message == "Ships must have empty space around them"
+
+
+class TestRecordHits:
+    """Tests for recording hits on ships."""
+
+    def test_record_hit_on_ship(self) -> None:
+        """Test recording a hit on a specific ship."""
+        # Arrange
+        board = GameBoard()
+        board.place_ship(Ship(ShipType.CARRIER), Coord.A1, Orientation.HORIZONTAL)
+        
+        # Act
+        board.record_hit(ship_type=ShipType.CARRIER, coord=Coord.A1, round_number=1)
+        
+        # Assert
+        hits = board.get_hits_by_ship(ShipType.CARRIER)
+        assert len(hits) == 1
+        assert hits[0] == (Coord.A1, 1)
+
+    def test_record_multiple_hits_on_same_ship(self) -> None:
+        """Test recording multiple hits on the same ship."""
+        # Arrange
+        board = GameBoard()
+        board.place_ship(Ship(ShipType.BATTLESHIP), Coord.B2, Orientation.HORIZONTAL)
+        
+        # Act
+        board.record_hit(ship_type=ShipType.BATTLESHIP, coord=Coord.B2, round_number=1)
+        board.record_hit(ship_type=ShipType.BATTLESHIP, coord=Coord.B3, round_number=2)
+        board.record_hit(ship_type=ShipType.BATTLESHIP, coord=Coord.B4, round_number=3)
+        
+        # Assert
+        hits = board.get_hits_by_ship(ShipType.BATTLESHIP)
+        assert len(hits) == 3
+        assert (Coord.B2, 1) in hits
+        assert (Coord.B3, 2) in hits
+        assert (Coord.B4, 3) in hits
+
+    def test_record_hits_on_different_ships(self) -> None:
+        """Test recording hits on different ships."""
+        # Arrange
+        board = GameBoard()
+        board.place_ship(Ship(ShipType.CARRIER), Coord.A1, Orientation.HORIZONTAL)
+        board.place_ship(Ship(ShipType.DESTROYER), Coord.C3, Orientation.HORIZONTAL)
+        
+        # Act
+        board.record_hit(ship_type=ShipType.CARRIER, coord=Coord.A1, round_number=1)
+        board.record_hit(ship_type=ShipType.DESTROYER, coord=Coord.C3, round_number=1)
+        
+        # Assert
+        carrier_hits = board.get_hits_by_ship(ShipType.CARRIER)
+        destroyer_hits = board.get_hits_by_ship(ShipType.DESTROYER)
+        
+        assert len(carrier_hits) == 1
+        assert carrier_hits[0] == (Coord.A1, 1)
+        
+        assert len(destroyer_hits) == 1
+        assert destroyer_hits[0] == (Coord.C3, 1)
+
+    def test_get_hits_by_ship_no_hits(self) -> None:
+        """Test getting hits for a ship that hasn't been hit."""
+        # Arrange
+        board = GameBoard()
+        board.place_ship(Ship(ShipType.CRUISER), Coord.E5, Orientation.VERTICAL)
+        
+        # Act
+        hits = board.get_hits_by_ship(ShipType.CRUISER)
+        
+        # Assert
+        assert len(hits) == 0
+
+class TestShipSinking:
+    """Tests for ship sinking detection logic."""
+
+    def test_is_ship_sunk_returns_false_when_no_hits(self) -> None:
+        """Test that is_ship_sunk returns False when the ship has no hits."""
+        board = GameBoard()
+        board.place_ship(Ship(ShipType.DESTROYER), Coord.A1, Orientation.HORIZONTAL)
+        
+        assert board.is_ship_sunk(ShipType.DESTROYER) is False
+
+    def test_is_ship_sunk_returns_false_when_partially_hit(self) -> None:
+        """Test that is_ship_sunk returns False when the ship is only partially hit."""
+        board = GameBoard()
+        board.place_ship(Ship(ShipType.DESTROYER), Coord.A1, Orientation.HORIZONTAL)
+        board.record_hit(ShipType.DESTROYER, Coord.A1, round_number=1)
+        
+        assert board.is_ship_sunk(ShipType.DESTROYER) is False
+
+    def test_is_ship_sunk_returns_true_when_fully_hit(self) -> None:
+        """Test that is_ship_sunk returns True when the ship is fully hit."""
+        board = GameBoard()
+        board.place_ship(Ship(ShipType.DESTROYER), Coord.A1, Orientation.HORIZONTAL)
+        board.record_hit(ShipType.DESTROYER, Coord.A1, round_number=1)
+        board.record_hit(ShipType.DESTROYER, Coord.A2, round_number=2)
+        
+        assert board.is_ship_sunk(ShipType.DESTROYER) is True
+
+    def test_is_ship_sunk_returns_false_for_non_existent_ship(self) -> None:
+        """Test that is_ship_sunk returns False for a ship type not on the board."""
+        board = GameBoard()
+        
+        assert board.is_ship_sunk(ShipType.CARRIER) is False

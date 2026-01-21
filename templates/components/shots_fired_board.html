@@ -39,10 +39,10 @@
                         {% else %}
                         aria-disabled="true"
                         {% endif %}>
-                        {% if is_aimed %}
-                            <span class="cell-marker cell-marker--aimed" aria-label="Aimed">●</span>
-                        {% elif is_fired %}
+                        {% if is_fired %}
                             <span class="cell-marker cell-marker--fired" aria-label="Fired in round {{ shots_fired[coord] }}">{{ shots_fired[coord] }}</span>
+                        {% elif is_aimed %}
+                            <span class="cell-marker cell-marker--aimed" aria-label="Aimed">●</span>
                         {% endif %}
                     </td>
                 {% endfor %}

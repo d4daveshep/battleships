@@ -99,3 +99,19 @@ class TestGameBoardShotsAvailable:
 
         # Total: Carrier(2) + Destroyer(1) = 3
         assert board.calculate_shots_available() == 3
+
+    def test_calculate_shots_available_excludes_sunk_ships(self) -> None:
+        """Test that sunk ships do not contribute to available shots."""
+        board = GameBoard()
+        board.place_ship(Ship(ShipType.CARRIER), Coord.A1, Orientation.HORIZONTAL)
+        board.place_ship(Ship(ShipType.DESTROYER), Coord.C1, Orientation.HORIZONTAL)
+        
+        # Initially 3 shots
+        assert board.calculate_shots_available() == 3
+        
+        # Sink the Destroyer (length 2)
+        board.record_hit(ShipType.DESTROYER, Coord.C1, round_number=1)
+        board.record_hit(ShipType.DESTROYER, Coord.C2, round_number=2)
+        
+        # Now should only have 2 shots (from Carrier)
+        assert board.calculate_shots_available() == 2

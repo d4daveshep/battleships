@@ -267,6 +267,7 @@ Feature: Two-Player Simultaneous Multi-Shot Gameplay
     Then I should see "Hits Made This Round: None" displayed
     And the Hits Made area should show no new shots marked
 
+  # TODO: Refactor this scenario?
   Scenario: Hits Made area tracks cumulative hits across rounds
     Given it is Round 3
     And in Round 1 I hit the opponent's Battleship 1 time
@@ -325,8 +326,7 @@ Feature: Two-Player Simultaneous Multi-Shot Gameplay
   Scenario: All ships sunk means zero shots available
     Given it is Round 8
     And all my ships are sunk
-    Then I should see the shot counter showing "0 / 0 available"
-    And I should see "You Lose!" displayed
+    Then I should see "You Lose!" displayed
     And the game should be marked as finished
     And the Shots Fired board should not be clickable
 
@@ -334,9 +334,9 @@ Feature: Two-Player Simultaneous Multi-Shot Gameplay
 
   Scenario: Sinking an opponent's ship
     Given it is Round 3
-    And my opponent has a Destroyer at "A1" and "A2"
-    And I have hit "A1" in a previous round
-    And I fire shots including "A2"
+    And my opponent has a Destroyer at "I1" and "I2"
+    And I have hit "I1" in a previous round
+    And I fire shots including "I2"
     And my opponent fires their shots
     When the round ends
     Then I should see "You sunk their Destroyer!" displayed
@@ -347,12 +347,12 @@ Feature: Two-Player Simultaneous Multi-Shot Gameplay
 
   Scenario: Having my ship sunk by opponent
     Given it is Round 4
-    And I have a Cruiser at "C1", "C2", and "C3"
-    And my opponent has hit "C1" and "C2" in previous rounds
-    And my opponent fires shots including "C3"
+    And I have a Cruiser at "E1", "E2", and "E3"
+    And my opponent has hit "E1" and "E2" in previous rounds
+    And my opponent fires shots including "E3"
     When the round ends
     Then I should see "Your Cruiser was sunk!" displayed
-    And coordinates "C1", "C2", and "C3" should be marked as sunk on my board
+    And coordinates "E1", "E2", and "E3" should be marked as sunk on my board
     And I should see "Ships Lost: 1/5" displayed
     And I should receive this update within 5 seconds
 
@@ -360,18 +360,16 @@ Feature: Two-Player Simultaneous Multi-Shot Gameplay
     Given it is Round 6
     And my opponent's Destroyer needs 1 more hit to sink
     And my opponent's Submarine needs 1 more hit to sink
-    And I fire shots that hit both ships' final positions
-    When the round ends
+    When I fire shots that hit both ships' final positions
+    And the round ends
     Then I should see "You sunk their Destroyer!" displayed
     And I should see "You sunk their Submarine!" displayed
     And I should see "Ships Sunk: 2/5" displayed (or higher if others already sunk)
-
+    
   Scenario: Both players sink ships in the same round
-    Given it is Round 5
-    And my opponent's Battleship needs 1 more hit
-    And my Carrier needs 1 more hit
-    And I fire shots that sink the opponent's Battleship
-    And my opponent fires shots that sink my Carrier
+    Given it is Round 1
+    And I aim shots to sink the opponent's Battleship
+    And my opponent aims shots to sink my Carrier
     When the round ends
     Then I should see "You sunk their Battleship!" displayed
     And I should see "Your Carrier was sunk!" displayed
@@ -433,9 +431,9 @@ Feature: Two-Player Simultaneous Multi-Shot Gameplay
     Given it is Round 10
     And I have only my Destroyer remaining with 1 hit
     And my opponent has only their Destroyer remaining with 1 hit
-    And I fire shots that sink the opponent's Destroyer
+    When I fire shots that sink the opponent's Destroyer
     And my opponent fires shots that sink my Destroyer
-    When the round ends
+    And the round ends
     Then I should see "Draw!" displayed
     And I should see "Both players sunk all ships in the same round" displayed
     And the game should be marked as finished

@@ -1,9 +1,10 @@
 """Service for managing gameplay actions: aiming, firing, and resolving rounds."""
 
+import asyncio
 from enum import Enum
 from typing import NamedTuple
-from game.model import Coord, GameBoard
-from game.round import Round
+from game.model import Coord, GameBoard, ShipType
+from game.round import Round, RoundResult, Shot, HitResult
 
 
 class CellState(Enum):
@@ -43,6 +44,29 @@ class GameplayService:
         self.fired_shots: dict[
             str, dict[str, dict[Coord, int]]
         ] = {}  # game_id -> player_id -> coord -> round_number
+        self.round_versions: dict[str, int] = {}  # game_id -> version
+        self.round_events: dict[str, asyncio.Event] = {}  # game_id -> Event
+
+    def get_round_version(self, game_id: str) -> int:
+        """Get the current version of the round for a game."""
+        return self.round_versions.get(game_id, 0)
+
+    async def wait_for_round_change(self, game_id: str, since_version: int) -> None:
+        """Wait for the round version to change."""
+        if self.get_round_version(game_id) != since_version:
+            return
+
+        if game_id not in self.round_events:
+            self.round_events[game_id] = asyncio.Event()
+
+        await self.round_events[game_id].wait()
+
+    def _notify_round_change(self, game_id: str) -> None:
+        """Increment version and notify waiters."""
+        self.round_versions[game_id] = self.get_round_version(game_id) + 1
+        if game_id in self.round_events:
+            self.round_events[game_id].set()
+            self.round_events[game_id] = asyncio.Event()  # Reset for next change
 
     def create_round(self, game_id: str, round_number: int) -> Round:
         """Create a new round for a game.
@@ -90,6 +114,13 @@ class GameplayService:
                 success=False,
                 error_message="No active round for this game",
                 aimed_count=0,
+            )
+
+        # If current round is resolved, create next round
+        if round_obj is not None and round_obj.is_resolved:
+            next_round_number: int = round_obj.round_number + 1
+            round_obj = self.create_round(
+                game_id=game_id, round_number=next_round_number
             )
 
         # Check if player has already submitted shots for this round
@@ -152,12 +183,33 @@ class GameplayService:
         Returns:
             Number of shots available based on unsunk ships
         """
-        if game_id not in self.player_boards:
-            return 0
+        # Try to get board from game.board (source of truth for integration tests)
+        # Fall back to player_boards (for unit tests)
+        board = None
 
-        board = self.player_boards[game_id].get(player_id)
+        try:
+            # Import here to avoid circular dependency
+            from game.game_service import game_service
+
+            # Get board from game.board to ensure we're using the latest board state
+            game = game_service.games.get(game_id)
+            if game:
+                # Find the player in the game
+                if game.player_1.id == player_id:
+                    board = game.board[game.player_1]
+                elif game.player_2 and game.player_2.id == player_id:
+                    board = game.board[game.player_2]
+        except ImportError:
+            # game_service not available (unit tests), use player_boards
+            pass
+
+        # Fall back to player_boards if game.board not available
         if board is None:
-            return 0
+            if game_id not in self.player_boards:
+                return 0
+            board = self.player_boards[game_id].get(player_id)
+            if board is None:
+                return 0
 
         return board.calculate_shots_available()
 
@@ -172,7 +224,7 @@ class GameplayService:
             List of Coord objects that have been aimed
         """
         round_obj = self.active_rounds.get(game_id)
-        if round_obj is None:
+        if round_obj is None or round_obj.is_resolved:
             return []
 
         return round_obj.aimed_shots.get(player_id, [])
@@ -253,6 +305,12 @@ class GameplayService:
         if round_obj is None:
             return FireShotsResult(success=False, message="No active round")
 
+        # Check if player has already submitted shots for this round
+        if player_id in round_obj.submitted_players:
+            return FireShotsResult(
+                success=False, message="Shots already submitted for this round"
+            )
+
         if (
             player_id not in round_obj.aimed_shots
             or not round_obj.aimed_shots[player_id]
@@ -271,8 +329,228 @@ class GameplayService:
         for coord in round_obj.aimed_shots[player_id]:
             self.fired_shots[game_id][player_id][coord] = round_obj.round_number
 
+        # Check if both players have submitted - if so, resolve the round
+        # Assuming 2-player game for now
+        if len(round_obj.submitted_players) == 2:
+            self.resolve_round(game_id)
+            return FireShotsResult(
+                success=True,
+                message="Round resolved!",
+                waiting_for_opponent=False,
+            )
+
         return FireShotsResult(
             success=True,
-            message="Shots fired!",
+            message="Waiting for opponent to fire...",
             waiting_for_opponent=True,
         )
+
+    def resolve_round(self, game_id: str) -> None:
+        """Resolve the current round after both players have fired.
+
+        Args:
+            game_id: The ID of the game
+        """
+        round_obj = self.active_rounds.get(game_id)
+        if round_obj is None or round_obj.is_resolved:
+            return
+
+        # Create Shot objects for each player
+        player_shots: dict[str, list[Shot]] = {}
+        for player_id, coords in round_obj.aimed_shots.items():
+            player_shots[player_id] = [
+                Shot(
+                    coord=coord,
+                    round_number=round_obj.round_number,
+                    player_id=player_id,
+                )
+                for coord in coords
+            ]
+
+        # Detect hits for each player
+        player_ids = list(round_obj.submitted_players)
+        hits_made: dict[str, list[HitResult]] = {}
+        ships_sunk: dict[str, list[ShipType]] = {}
+
+        # For 2-player game, detect hits for each player against their opponent
+        if len(player_ids) == 2:
+            for i in range(2):
+                attacker_id = player_ids[i]
+                defender_id = player_ids[1 - i]
+
+                hits_made[attacker_id] = []
+                ships_sunk[attacker_id] = []
+
+                # Try to get defender board from game.board (source of truth)
+                # Fall back to player_boards (for unit tests)
+                defender_board = None
+
+                try:
+                    # Import here to avoid circular dependency
+                    from game.game_service import game_service
+
+                    game = game_service.games.get(game_id)
+                    if game:
+                        # Get defender board from game.board
+                        defender_player = (
+                            game.player_1
+                            if game.player_1.id == defender_id
+                            else game.player_2
+                        )
+                        if defender_player:
+                            defender_board = game.board.get(defender_player)
+                except ImportError:
+                    # game_service not available (unit tests), use player_boards
+                    pass
+
+                # Fall back to player_boards if game.board not available
+                if defender_board is None:
+                    defender_board = self.player_boards.get(game_id, {}).get(
+                        defender_id
+                    )
+
+                if defender_board:
+                    for coord in round_obj.aimed_shots.get(attacker_id, []):
+                        # Record shot received on defender board (hit or miss)
+                        defender_board.record_shot_received(
+                            coord, round_obj.round_number
+                        )
+
+                        ship_type = defender_board.ship_type_at(coord)
+                        if ship_type:
+                            is_sunk = defender_board.record_hit(
+                                ship_type, coord, round_obj.round_number
+                            )
+                            hits_made[attacker_id].append(
+                                HitResult(
+                                    ship_type=ship_type,
+                                    coord=coord,
+                                    is_sinking_hit=is_sunk,
+                                )
+                            )
+                            if is_sunk:
+                                ships_sunk[attacker_id].append(ship_type)
+
+        # Check for game over
+        game_over, winner_id, is_draw = self.check_game_over(game_id)
+
+        # Create RoundResult
+        result = RoundResult(
+            round_number=round_obj.round_number,
+            player_shots=player_shots,
+            hits_made=hits_made,
+            ships_sunk=ships_sunk,
+            game_over=game_over,
+            winner_id=winner_id,
+            is_draw=is_draw,
+        )
+
+        # Mark round as resolved
+        round_obj.is_resolved = True
+        round_obj.result = result
+        self._notify_round_change(game_id)
+
+    def check_game_over(self, game_id: str) -> tuple[bool, str | None, bool]:
+        """Check if the game is over.
+
+        Returns:
+            tuple of (game_over, winner_id, is_draw)
+        """
+        # Try to get player IDs from game.board (source of truth)
+        # Fall back to player_boards (for unit tests)
+        p1_id = None
+        p2_id = None
+
+        try:
+            # Import here to avoid circular dependency
+            from game.game_service import game_service
+
+            game = game_service.games.get(game_id)
+            if game and game.player_2:
+                p1_id = game.player_1.id
+                p2_id = game.player_2.id
+        except ImportError:
+            # game_service not available (unit tests), use player_boards
+            pass
+
+        # Fall back to player_boards if game not available
+        if p1_id is None or p2_id is None:
+            if game_id not in self.player_boards:
+                return False, None, False
+
+            boards = self.player_boards[game_id]
+            if len(boards) < 2:
+                return False, None, False
+
+            player_ids = list(boards.keys())
+            p1_id = player_ids[0]
+            p2_id = player_ids[1]
+
+        p1_all_sunk = self._all_ships_sunk(game_id, p1_id)
+        p2_all_sunk = self._all_ships_sunk(game_id, p2_id)
+
+        if p1_all_sunk and p2_all_sunk:
+            return True, None, True
+        if p1_all_sunk:
+            return True, p2_id, False
+        if p2_all_sunk:
+            return True, p1_id, False
+
+        return False, None, False
+
+    def _all_ships_sunk(self, game_id: str, player_id: str) -> bool:
+        """Check if all ships of a player are sunk."""
+        # Try to get board from game.board (source of truth)
+        # Fall back to player_boards (for unit tests)
+        board = None
+
+        try:
+            # Import here to avoid circular dependency
+            from game.game_service import game_service
+
+            # Get board from game.board
+            game = game_service.games.get(game_id)
+            if game:
+                # Find the player in the game
+                if game.player_1.id == player_id:
+                    board = game.board[game.player_1]
+                elif game.player_2 and game.player_2.id == player_id:
+                    board = game.board[game.player_2]
+        except ImportError:
+            # game_service not available (unit tests), use player_boards
+            pass
+
+        # Fall back to player_boards if game.board not available
+        if board is None:
+            board = self.player_boards.get(game_id, {}).get(player_id)
+            if not board:
+                return False
+
+        if not board.ships:
+            return False
+
+        for ship in board.ships:
+            if not board.is_ship_sunk(ship.ship_type):
+                return False
+        return True
+
+    def calculate_hit_feedback(self, hits: list[HitResult]) -> dict[str, int]:
+        """Calculate ship-based hit feedback from hit results.
+
+        Converts coordinate-based hits into ship-based feedback showing
+        which ships were hit and how many times (without exposing coordinates).
+
+        Args:
+            hits: List of HitResult objects
+
+        Returns:
+            Dictionary mapping ship names to hit counts
+            Example: {"Carrier": 2, "Destroyer": 1}
+        """
+        feedback: dict[str, int] = {}
+
+        for hit in hits:
+            ship_name: str = hit.ship_type.ship_name
+            feedback[ship_name] = feedback.get(ship_name, 0) + 1
+
+        return feedback

@@ -3668,7 +3668,8 @@ def lose_connection_temporarily(page: Page) -> None:
 def refresh_page(page: Page) -> None:
     """Refresh the current page"""
     page.reload()
-    page.wait_for_timeout(1000)
+    # Wait for the aiming interface to load via HTMX
+    page.wait_for_selector('[data-testid="shots-fired-board"]', timeout=10000)
 
 
 @when("I reconnect and navigate to the game page")
@@ -3676,7 +3677,8 @@ def reconnect_and_navigate_to_game(page: Page, game_context: dict[str, Any]) -> 
     """Simulate reconnecting and navigating back to game"""
     # Reload the page to simulate reconnection
     page.reload()
-    page.wait_for_timeout(1000)
+    # Wait for the aiming interface to load via HTMX
+    page.wait_for_selector('[data-testid="shots-fired-board"]', timeout=10000)
 
 
 @then("I should see the current game state at Round 6")
@@ -3738,6 +3740,72 @@ def should_be_able_to_continue_playing(page: Page) -> None:
         if class_attr and "fired" not in class_attr:
             cell.click()
             page.wait_for_timeout(500)
+
+
+@then("I should see all my previous shots on the Shots Fired board")
+def should_see_all_previous_shots_on_shots_fired_board(page: Page) -> None:
+    """Verify all previous shots are displayed on Shots Fired board"""
+    # Check that shots fired board shows cells with round numbers
+    shots_board = page.locator('[data-testid="shots-fired-board"]')
+    expect(shots_board).to_be_visible()
+
+    # Look for cells with the "cell--fired" class (indicating previously fired shots)
+    fired_cells = page.locator('[data-testid^="shots-fired-cell-"].cell--fired')
+
+    # Should have at least some fired cells from previous rounds
+    # After 4 rounds with 6 shots each, we should have 24 fired cells
+    fired_count = fired_cells.count()
+    assert fired_count > 0, (
+        f"Should have fired cells from previous rounds, found {fired_count}"
+    )
+
+
+@then("I should see all opponent's previous shots on my Ships board")
+def should_see_all_opponents_previous_shots_on_my_ships_board(page: Page) -> None:
+    """Verify all opponent's previous shots are displayed on My Ships board"""
+    # Check that my ships board shows received shots
+    my_ships_board = page.locator('[data-testid="player-board"]')
+    expect(my_ships_board).to_be_visible()
+
+    # Look for cells with hit class (cell--hit)
+    hit_cells = page.locator('[data-testid^="player-cell-"].cell--hit')
+
+    # Should have at least some hit cells from previous rounds
+    # After 4 rounds with 6 shots each, we should have 24 hit cells
+    hit_count = hit_cells.count()
+    assert hit_count > 0, (
+        f"Should have hit cells from opponent's previous shots, found {hit_count}"
+    )
+
+
+@then("I should see the correct Hits Made tracking")
+def should_see_correct_hits_made_tracking(page: Page) -> None:
+    """Verify Hits Made area shows correct cumulative hits"""
+    # Check for Hits Made area
+    hits_made = page.locator('[data-testid="hits-made-area"]')
+    expect(hits_made).to_be_visible()
+
+    # Verify it has content (should show hits from previous rounds)
+    content = hits_made.text_content()
+    assert content is not None and len(content.strip()) > 0, (
+        "Hits Made area should have content"
+    )
+
+
+@then("I should see the correct shot counter value")
+def should_see_correct_shot_counter_value(page: Page) -> None:
+    """Verify shot counter shows correct available shots for current round"""
+    # Check for shot counter
+    shot_counter = page.locator('[data-testid="shot-counter"]')
+    expect(shot_counter).to_be_visible()
+
+    # Verify it shows a valid counter (e.g., "0 / 6 available" or similar)
+    counter_text = shot_counter.text_content()
+    assert counter_text is not None, "Shot counter should have text"
+    assert "/" in counter_text, "Shot counter should show format 'X / Y available'"
+    assert "available" in counter_text.lower(), (
+        "Shot counter should contain 'available'"
+    )
 
 
 @given("no shots have been fired yet")

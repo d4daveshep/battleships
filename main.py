@@ -926,10 +926,11 @@ async def game_page(request: Request, game_id: str) -> HTMLResponse:
     }
 
     # Get incoming shots (shots received from opponent)
-    shots_received: dict[str, int] = {}
-    for ship_type, hits in player_board.hits_by_ship.items():
-        for coord, round_num in hits:
-            shots_received[coord.name] = round_num
+    # Convert Coord keys to strings for template
+    shots_received: dict[str, int] = {
+        coord.name: round_num
+        for coord, round_num in player_board.shots_received.items()
+    }
 
     player_board_data = {
         "ships": player_board.get_placed_ships_for_display(),

@@ -9,11 +9,13 @@ from fastapi.templating import Jinja2Templates
 from game.game_service import Game, GameService, GameStatus
 from game.player import Player
 
-router: APIRouter = APIRouter(prefix="", tags=["gameplay"])
+from routes.helpers import (
+    _get_game_service,
+    _get_player_from_session,
+    _get_templates,
+)
 
-# Module-level service references (set during app initialization)
-_templates: Jinja2Templates | None = None
-_game_service: GameService | None = None
+router: APIRouter = APIRouter(prefix="", tags=["gameplay"])
 
 
 def set_up_gameplay_router(
@@ -21,48 +23,7 @@ def set_up_gameplay_router(
     game_service: GameService,
 ) -> APIRouter:
     """Configure the gameplay router with required dependencies."""
-    global _templates, _game_service
-    _templates = templates
-    _game_service = game_service
     return router
-
-
-def _get_templates() -> Jinja2Templates:
-    """Get templates, raising if not initialized."""
-    if _templates is None:
-        raise RuntimeError("Router not initialized - call set_up_gameplay_router first")
-    return _templates
-
-
-def _get_game_service() -> GameService:
-    """Get game_service, raising if not initialized."""
-    if _game_service is None:
-        raise RuntimeError("Router not initialized - call set_up_gameplay_router first")
-    return _game_service
-
-
-def _get_player_id(request: Request) -> str:
-    """Get player ID from session."""
-    player_id: str | None = request.session.get("player-id")
-    if not player_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="No session found - please login",
-        )
-    return player_id
-
-
-def _get_player_from_session(request: Request) -> Player:
-    """Get Player object from session."""
-    player_id: str = _get_player_id(request)
-    game_service = _get_game_service()
-    player: Player | None = game_service.get_player(player_id)
-    if not player:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Player not found",
-        )
-    return player
 
 
 @router.get("/game/{game_id}", response_class=HTMLResponse)

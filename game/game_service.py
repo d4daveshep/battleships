@@ -2,9 +2,13 @@ import asyncio
 import random
 import secrets
 from enum import StrEnum
+from typing import TYPE_CHECKING
 
 from game.model import Coord, GameBoard, Orientation, Ship, ShipType
 from game.player import Player, PlayerStatus
+
+if TYPE_CHECKING:
+    from services.lobby_service import LobbyService
 
 
 class GameMode(StrEnum):
@@ -166,6 +170,27 @@ class GameService:
         self._notify_placement_change()
 
         return new_game.id
+
+    def transfer_ship_placement_board_to_game(
+        self, game_id: str, player_id: str, player: Player
+    ) -> None:
+        """Transfer a player's ship placement board to a game.
+
+        Args:
+            game_id: The game ID
+            player_id: The player ID
+            player: The Player object
+
+        Raises:
+            UnknownGameException: If game doesn't exist
+        """
+        if game_id not in self.games:
+            raise UnknownGameException(f"Game with id:{game_id} does not exist")
+
+        game = self.games[game_id]
+        if player_id in self.ship_placement_boards:
+            game.board[player] = self.ship_placement_boards[player_id]
+            del self.ship_placement_boards[player_id]
 
     # TODO: Review this function and the commonality with get_or_create_ship_placement_board to see if we need both
     def get_game_board(self, player_id: str) -> GameBoard:
@@ -383,6 +408,31 @@ class GameService:
         if not opponent_id:
             return False
         return self.is_player_ready(opponent_id)
+
+    def is_multiplayer(
+        self,
+        player_id: str,
+        lobby_service: "LobbyService | None" = None,
+    ) -> bool:
+        """Check if a player is in a multiplayer game or lobby pairing.
+
+        Args:
+            player_id: The player ID to check
+            lobby_service: Optional LobbyService to check for lobby pairings
+
+        Returns:
+            True if player is in multiplayer mode (has opponent), False otherwise
+        """
+        # Check if player is already in an active game with an opponent
+        if self.get_opponent_id(player_id):
+            return True
+
+        # Check if player is paired in lobby (for two-player ship placement)
+        if lobby_service is not None:
+            if lobby_service.get_opponent(player_id):
+                return True
+
+        return False
 
     def are_both_players_ready(self, game_id: str) -> bool:
         """Check if both players in a game are ready.

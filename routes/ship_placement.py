@@ -21,12 +21,17 @@ from game.model import (
 from game.player import Player, PlayerStatus
 from services.lobby_service import LobbyService
 
-router: APIRouter = APIRouter(prefix="", tags=["ship_placement"])
+from routes.helpers import (
+    _get_game_service,
+    _get_lobby_service,
+    _get_player_from_session,
+    _get_player_id,
+    _get_templates,
+    _get_validated_player_name,
+    _is_multiplayer,
+)
 
-# Module-level service references (set during app initialization)
-_templates: Jinja2Templates | None = None
-_game_service: GameService | None = None
-_lobby_service: LobbyService | None = None
+router: APIRouter = APIRouter(prefix="", tags=["ship_placement"])
 
 
 def set_up_ship_placement_router(
@@ -35,73 +40,7 @@ def set_up_ship_placement_router(
     lobby_service: LobbyService,
 ) -> APIRouter:
     """Configure the ship placement router with required dependencies."""
-    global _templates, _game_service, _lobby_service
-    _templates = templates
-    _game_service = game_service
-    _lobby_service = lobby_service
     return router
-
-
-def _get_templates() -> Jinja2Templates:
-    """Get templates, raising if not initialized."""
-    if _templates is None:
-        raise RuntimeError(
-            "Router not initialized - call set_up_ship_placement_router first"
-        )
-    return _templates
-
-
-def _get_game_service() -> GameService:
-    """Get game_service, raising if not initialized."""
-    if _game_service is None:
-        raise RuntimeError(
-            "Router not initialized - call set_up_ship_placement_router first"
-        )
-    return _game_service
-
-
-def _get_lobby_service() -> LobbyService:
-    """Get lobby_service, raising if not initialized."""
-    if _lobby_service is None:
-        raise RuntimeError(
-            "Router not initialized - call set_up_ship_placement_router first"
-        )
-    return _lobby_service
-
-
-def _get_player_id(request: Request) -> str:
-    """Get player ID from session."""
-    player_id: str | None = request.session.get("player-id")
-    if not player_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="No session found - please login",
-        )
-    return player_id
-
-
-def _get_player_from_session(request: Request) -> Player:
-    """Get Player object from session."""
-    player_id: str = _get_player_id(request)
-    game_service = _get_game_service()
-    player: Player | None = game_service.get_player(player_id)
-    if not player:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Player not found",
-        )
-    return player
-
-
-def _get_validated_player_name(request: Request, claimed_name: str) -> str:
-    """Verify the session owns this player name."""
-    player: Player = _get_player_from_session(request)
-    if player.name != claimed_name:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Session does not own this player",
-        )
-    return claimed_name
 
 
 @router.get("/place-ships", response_class=HTMLResponse)
@@ -109,7 +48,6 @@ async def ship_placement_page(request: Request) -> HTMLResponse:
     """Display the ship placement page"""
     templates = _get_templates()
     game_service = _get_game_service()
-    lobby_service = _get_lobby_service()
 
     # Get player from session
     player: Player = _get_player_from_session(request)
@@ -123,10 +61,7 @@ async def ship_placement_page(request: Request) -> HTMLResponse:
     is_ready: bool = game_service.is_player_ready(player_id)
 
     # Check if multiplayer
-    opponent_id: str | None = game_service.get_opponent_id(player_id)
-    if not opponent_id:
-        opponent_id = lobby_service.get_opponent(player_id)
-    is_multiplayer: bool = opponent_id is not None
+    is_multiplayer: bool = _is_multiplayer(player_id)
 
     # Determine status message
     ships_count: int = len(placed_ships)
@@ -162,7 +97,6 @@ async def place_ship(
     """Handle ship placement on the board"""
     templates = _get_templates()
     game_service = _get_game_service()
-    lobby_service = _get_lobby_service()
 
     try:
         # Create the ship based on type name
@@ -214,9 +148,7 @@ async def place_ship(
                 "placed_ships": placed_ships,
                 "placement_error": user_friendly_error,
                 "is_ready": is_ready,
-                "is_multiplayer": game_service.get_opponent_id(_get_player_id(request))
-                is not None
-                or lobby_service.get_opponent(_get_player_id(request)) is not None,
+                "is_multiplayer": _is_multiplayer(_get_player_id(request)),
             },
             status_code=status.HTTP_200_OK,
         )
@@ -248,9 +180,7 @@ async def place_ship(
                 "placed_ships": placed_ships,
                 "placement_error": user_friendly_error,
                 "is_ready": is_ready,
-                "is_multiplayer": game_service.get_opponent_id(_get_player_id(request))
-                is not None
-                or lobby_service.get_opponent(_get_player_id(request)) is not None,
+                "is_multiplayer": _is_multiplayer(_get_player_id(request)),
             },
             status_code=status.HTTP_200_OK,
         )
@@ -268,9 +198,7 @@ async def place_ship(
             "player_name": player_name,
             "placed_ships": placed_ships,
             "is_ready": is_ready,
-            "is_multiplayer": game_service.get_opponent_id(_get_player_id(request))
-            is not None
-            or lobby_service.get_opponent(_get_player_id(request)) is not None,
+            "is_multiplayer": _is_multiplayer(_get_player_id(request)),
         },
     )
 
@@ -284,7 +212,6 @@ async def remove_ship(
     """Remove a placed ship from the board"""
     templates = _get_templates()
     game_service = _get_game_service()
-    lobby_service = _get_lobby_service()
 
     # Validate player owns this session
     _get_validated_player_name(request, player_name)
@@ -318,8 +245,7 @@ async def remove_ship(
             "status_message": "Waiting for opponent to place their ships..."
             if is_ready
             else "",
-            "is_multiplayer": game_service.get_opponent_id(player_id) is not None
-            or lobby_service.get_opponent(player_id) is not None,
+            "is_multiplayer": _is_multiplayer(player_id),
         },
     )
 
@@ -332,7 +258,6 @@ async def random_ship_placement(
     """Place all ships randomly on the board"""
     templates = _get_templates()
     game_service = _get_game_service()
-    lobby_service = _get_lobby_service()
 
     # Validate player owns this session
     _get_validated_player_name(request, player_name)
@@ -361,8 +286,7 @@ async def random_ship_placement(
             "status_message": "Waiting for opponent to place their ships..."
             if is_ready
             else "",
-            "is_multiplayer": game_service.get_opponent_id(player_id) is not None
-            or lobby_service.get_opponent(player_id) is not None,
+            "is_multiplayer": _is_multiplayer(player_id),
         },
     )
 
@@ -375,7 +299,6 @@ async def reset_all_ships(
     """Reset all placed ships (clear the board)"""
     templates = _get_templates()
     game_service = _get_game_service()
-    lobby_service = _get_lobby_service()
 
     # Validate player owns this session
     _get_validated_player_name(request, player_name)
@@ -404,8 +327,7 @@ async def reset_all_ships(
             "status_message": "Waiting for opponent to place their ships..."
             if is_ready
             else "",
-            "is_multiplayer": game_service.get_opponent_id(player_id) is not None
-            or lobby_service.get_opponent(player_id) is not None,
+            "is_multiplayer": _is_multiplayer(player_id),
         },
     )
 
@@ -415,7 +337,7 @@ async def ready_for_game(
     request: Request,
     player_name: str = Form(),
 ) -> HTMLResponse | Response | RedirectResponse:
-    """Handle player ready state"""
+    """Handle player ready state."""
     templates = _get_templates()
     game_service = _get_game_service()
     lobby_service = _get_lobby_service()
@@ -434,41 +356,11 @@ async def ready_for_game(
         # Check if opponent is ready
         if game_service.is_player_ready(opponent_id):
             # Both ready! Create game.
-            try:
-                # Reset status to allow game creation (transition from Lobby to Game)
-                player = game_service.get_player(player_id)
-                opponent = game_service.get_player(opponent_id)
+            game_id = _create_game_for_ready_players(
+                player_id, opponent_id, game_service, lobby_service
+            )
 
-                if not player or not opponent:
-                    raise HTTPException(
-                        status_code=500, detail="Player or opponent not found"
-                    )
-
-                player.status = PlayerStatus.AVAILABLE
-                opponent.status = PlayerStatus.AVAILABLE
-
-                game_id = game_service.create_two_player_game(player_id, opponent_id)
-
-                # Transfer ship placement boards to game
-                game = game_service.games[game_id]
-                if player_id in game_service.ship_placement_boards:
-                    game.board[player] = game_service.ship_placement_boards[player_id]
-                    del game_service.ship_placement_boards[player_id]
-                if opponent_id in game_service.ship_placement_boards:
-                    game.board[opponent] = game_service.ship_placement_boards[
-                        opponent_id
-                    ]
-                    del game_service.ship_placement_boards[opponent_id]
-
-            except PlayerAlreadyInGameException:
-                # Game might have been created by opponent concurrently
-                try:
-                    game = game_service.games_by_player[player_id]
-                    game_id = game.id
-                except KeyError:
-                    # Should not happen if logic is correct
-                    raise HTTPException(status_code=500, detail="Game creation failed")
-
+            # Return redirect to game
             redirect_url = f"/game/{game_id}"
             if request.headers.get("HX-Request"):
                 return Response(
@@ -479,7 +371,78 @@ async def ready_for_game(
                 url=redirect_url, status_code=status.HTTP_303_SEE_OTHER
             )
 
-    # Get board state
+    # Single player or waiting for opponent - show placement page with ready state
+    return _render_placement_page_waiting(
+        request, player_name, player_id, templates, game_service
+    )
+
+
+def _create_game_for_ready_players(
+    player_id: str,
+    opponent_id: str,
+    game_service: GameService,
+    lobby_service: LobbyService,
+) -> str:
+    """Create a game when both players are ready.
+
+    Args:
+        player_id: The first player's ID
+        opponent_id: The second player's ID
+        game_service: The GameService instance
+        lobby_service: The LobbyService instance
+
+    Returns:
+        The created game ID
+
+    Raises:
+        HTTPException: If player/opponent not found
+    """
+    # Get players
+    player = game_service.get_player(player_id)
+    opponent = game_service.get_player(opponent_id)
+
+    if not player or not opponent:
+        raise HTTPException(status_code=500, detail="Player or opponent not found")
+
+    # Reset status to allow game creation (transition from Lobby to Game)
+    player.status = PlayerStatus.AVAILABLE
+    opponent.status = PlayerStatus.AVAILABLE
+
+    try:
+        game_id = game_service.create_two_player_game(player_id, opponent_id)
+    except PlayerAlreadyInGameException:
+        # Game might have been created by opponent concurrently
+        if player_id in game_service.games_by_player:
+            game = game_service.games_by_player[player_id]
+            game_id = game.id
+        else:
+            raise HTTPException(status_code=500, detail="Game creation failed")
+    else:
+        # Transfer ship placement boards to game (only for the player who just became ready)
+        game_service.transfer_ship_placement_board_to_game(game_id, player_id, player)
+
+    return game_id
+
+
+def _render_placement_page_waiting(
+    request: Request,
+    player_name: str,
+    player_id: str,
+    templates: Jinja2Templates,
+    game_service: GameService,
+) -> HTMLResponse:
+    """Render ship placement page in waiting state.
+
+    Args:
+        request: The FastAPI request object
+        player_name: The player's name
+        player_id: The player's ID
+        templates: The Jinja2 templates
+        game_service: The GameService instance
+
+    Returns:
+        HTMLResponse with the rendered template
+    """
     board = game_service.get_or_create_ship_placement_board(player_id)
     placed_ships = board.get_placed_ships_for_display()
 
@@ -516,53 +479,84 @@ def _get_opponent_id_or_404(player_id: str) -> str:
     return opponent_id
 
 
-def _render_opponent_status(
-    request: Request, opponent_id: str
-) -> HTMLResponse | Response:
-    """Render opponent status component."""
-    templates = _get_templates()
+def _check_game_redirect_url(request: Request, player_id: str) -> str | None:
+    """Check if player's game has started, return redirect URL or None.
+
+    Args:
+        request: The FastAPI request object
+        player_id: The player ID to check
+
+    Returns:
+        Redirect URL if game has started, None otherwise
+    """
+    game_service = _get_game_service()
+    player = _get_player_from_session(request)
+
+    if player.id in game_service.games_by_player:
+        game = game_service.games_by_player[player.id]
+        return f"/game/{game.id}"
+    return None
+
+
+def _fetch_opponent_status(opponent_id: str) -> dict[str, bool]:
+    """Fetch opponent status for ship placement.
+
+    Args:
+        opponent_id: The opponent's player ID
+
+    Returns:
+        dict with 'left' (opponent left lobby) and 'ready' (opponent ready)
+    """
     game_service = _get_game_service()
     lobby_service = _get_lobby_service()
 
-    # Check if game started for current player
-    player = _get_player_from_session(request)
+    # Check if opponent has left the lobby
+    opponent_left = True
     try:
-        # Check if player is in a game in GameService
-        if player.id in game_service.games_by_player:
-            game = game_service.games_by_player[player.id]
-            redirect_url = f"/game/{game.id}"
-
-            if request.headers.get("HX-Request"):
-                return Response(
-                    status_code=status.HTTP_204_NO_CONTENT,
-                    headers={"HX-Redirect": redirect_url},
-                )
-    except Exception:
-        pass
-
-    # Check if opponent is still in lobby
-    opponent_left = False
-    try:
-        status_val = lobby_service.get_player_status(opponent_id)
-        # If opponent is not IN_GAME, they have left the placement/game
-        if status_val != PlayerStatus.IN_GAME:
-            opponent_left = True
+        player_status = lobby_service.get_player_status(opponent_id)
+        opponent_left = player_status != PlayerStatus.IN_GAME
     except ValueError:
-        opponent_left = True
+        pass  # Opponent not found, so they left
 
-    opponent_ready: bool = False
-    if not opponent_left:
-        opponent_ready = game_service.is_player_ready(opponent_id)
+    # Check if opponent is ready (only if they haven't left)
+    opponent_ready = not opponent_left and game_service.is_player_ready(opponent_id)
 
-    version: int = game_service.get_placement_version()
+    return {"left": opponent_left, "ready": opponent_ready}
+
+
+def _render_opponent_status(
+    request: Request, opponent_id: str
+) -> HTMLResponse | Response:
+    """Render opponent status component.
+
+    Args:
+        request: The FastAPI request object
+        opponent_id: The opponent's player ID
+
+    Returns:
+        HTMLResponse with opponent status or redirect Response
+    """
+    templates = _get_templates()
+    game_service = _get_game_service()
+
+    # Check if game started for current player (redirect if so)
+    redirect_url = _check_game_redirect_url(request, opponent_id)
+    if redirect_url and request.headers.get("HX-Request"):
+        return Response(
+            status_code=status.HTTP_204_NO_CONTENT,
+            headers={"HX-Redirect": redirect_url},
+        )
+
+    # Fetch opponent status
+    opponent_status = _fetch_opponent_status(opponent_id)
 
     return templates.TemplateResponse(
         request=request,
         name="components/opponent_status.html",
         context={
-            "opponent_ready": opponent_ready,
-            "version": version,
-            "opponent_left": opponent_left,
+            "opponent_ready": opponent_status["ready"],
+            "version": game_service.get_placement_version(),
+            "opponent_left": opponent_status["left"],
         },
     )
 
@@ -629,3 +623,7 @@ async def ship_placement_opponent_status_long_poll(
         pass  # Timeout is fine, just return current state
 
     return _render_opponent_status(request, opponent_id)
+
+
+# Forward references for type hints (resolved at runtime)
+from routes.helpers import LobbyService  # noqa: E402

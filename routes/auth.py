@@ -1,43 +1,34 @@
 """Authentication and login routes."""
 
-from fastapi import APIRouter, Form, HTTPException, Request, status
+from fastapi import APIRouter, Form, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 
-from game.game_service import GameService
 from game.player import Player, PlayerStatus
 from services.auth_service import AuthService
-from services.lobby_service import LobbyService
+
+from routes.helpers import (
+    _get_game_service,
+    _get_lobby_service,
+    _get_templates,
+)
 
 router: APIRouter = APIRouter(prefix="", tags=["auth"])
 
 # Module-level service references (set during app initialization)
-_templates: Jinja2Templates | None = None
 _auth_service: AuthService | None = None
-_game_service: GameService | None = None
-_lobby_service: LobbyService | None = None
 
 
 def set_up_auth_router(
     templates: Jinja2Templates,
     auth_service: AuthService,
-    game_service: GameService,
-    lobby_service: LobbyService,
+    game_service: "GameService",
+    lobby_service: "LobbyService",
 ) -> APIRouter:
     """Configure the auth router with required dependencies."""
-    global _templates, _auth_service, _game_service, _lobby_service
-    _templates = templates
+    global _auth_service
     _auth_service = auth_service
-    _game_service = game_service
-    _lobby_service = lobby_service
     return router
-
-
-def _get_templates() -> Jinja2Templates:
-    """Get templates, raising if not initialized."""
-    if _templates is None:
-        raise RuntimeError("Router not initialized - call set_up_auth_router first")
-    return _templates
 
 
 def _get_auth_service() -> AuthService:
@@ -45,20 +36,6 @@ def _get_auth_service() -> AuthService:
     if _auth_service is None:
         raise RuntimeError("Router not initialized - call set_up_auth_router first")
     return _auth_service
-
-
-def _get_game_service() -> GameService:
-    """Get game_service, raising if not initialized."""
-    if _game_service is None:
-        raise RuntimeError("Router not initialized - call set_up_auth_router first")
-    return _game_service
-
-
-def _get_lobby_service() -> LobbyService:
-    """Get lobby_service, raising if not initialized."""
-    if _lobby_service is None:
-        raise RuntimeError("Router not initialized - call set_up_auth_router first")
-    return _lobby_service
 
 
 def _create_login_error_response(
@@ -87,72 +64,6 @@ def _create_login_error_response(
         context=template_context,
         status_code=status_code,
     )
-
-
-def _get_player_id(request: Request) -> str:
-    """Get player ID from session.
-
-    Args:
-        request: The FastAPI request object containing session data
-
-    Returns:
-        The player ID from session
-
-    Raises:
-        HTTPException: 401 if no session or no player-id
-    """
-    player_id: str | None = request.session.get("player-id")
-    if not player_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="No session found - please login",
-        )
-    return player_id
-
-
-def _get_player_from_session(request: Request) -> Player:
-    """Get Player object from session.
-
-    Args:
-        request: The FastAPI request object containing session data
-
-    Returns:
-        The Player object for the session
-
-    Raises:
-        HTTPException: 401 if no session, 404 if player not found
-    """
-    player_id: str = _get_player_id(request)
-    game_service = _get_game_service()
-    player: Player | None = game_service.get_player(player_id)
-    if not player:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Player not found",
-        )
-    return player
-
-
-def _get_validated_player_name(request: Request, claimed_name: str) -> str:
-    """Verify the session owns this player name.
-
-    Args:
-        request: The FastAPI request object containing session data
-        claimed_name: The player name being claimed in the request
-
-    Returns:
-        The validated player name
-
-    Raises:
-        HTTPException: 401 if no session, 403 if session doesn't own player
-    """
-    player: Player = _get_player_from_session(request)
-    if player.name != claimed_name:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Session does not own this player",
-        )
-    return claimed_name
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -260,3 +171,7 @@ async def validate_player_name(
 async def goodbye_page(request: Request) -> HTMLResponse:
     """Goodbye page when user exits the game"""
     return HTMLResponse(content="<html><body><h1>Goodbye</h1></body></html>")
+
+
+# Forward references for type hints (resolved at runtime)
+from routes.helpers import GameService, LobbyService  # noqa: E402

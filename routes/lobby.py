@@ -3,78 +3,28 @@
 import asyncio
 from typing import Any
 
-from fastapi import APIRouter, Form, HTTPException, Request, status
+from fastapi import APIRouter, Form, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 
-from game.game_service import GameService
 from game.player import GameRequest, Player, PlayerStatus
-from services.lobby_service import LobbyService
+
+from routes.helpers import (
+    _get_lobby_service,
+    _get_player_from_session,
+    _get_templates,
+)
 
 router: APIRouter = APIRouter(prefix="", tags=["lobby"])
-
-# Module-level service references (set during app initialization)
-_templates: Jinja2Templates | None = None
-_game_service: GameService | None = None
-_lobby_service: LobbyService | None = None
 
 
 def set_up_lobby_router(
     templates: Jinja2Templates,
-    game_service: GameService,
-    lobby_service: LobbyService,
+    game_service: "GameService",
+    lobby_service: "LobbyService",
 ) -> APIRouter:
     """Configure the lobby router with required dependencies."""
-    global _templates, _game_service, _lobby_service
-    _templates = templates
-    _game_service = game_service
-    _lobby_service = lobby_service
     return router
-
-
-def _get_templates() -> Jinja2Templates:
-    """Get templates, raising if not initialized."""
-    if _templates is None:
-        raise RuntimeError("Router not initialized - call set_up_lobby_router first")
-    return _templates
-
-
-def _get_game_service() -> GameService:
-    """Get game_service, raising if not initialized."""
-    if _game_service is None:
-        raise RuntimeError("Router not initialized - call set_up_lobby_router first")
-    return _game_service
-
-
-def _get_lobby_service() -> LobbyService:
-    """Get lobby_service, raising if not initialized."""
-    if _lobby_service is None:
-        raise RuntimeError("Router not initialized - call set_up_lobby_router first")
-    return _lobby_service
-
-
-def _get_player_id(request: Request) -> str:
-    """Get player ID from session."""
-    player_id: str | None = request.session.get("player-id")
-    if not player_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="No session found - please login",
-        )
-    return player_id
-
-
-def _get_player_from_session(request: Request) -> Player:
-    """Get Player object from session."""
-    player_id: str = _get_player_id(request)
-    game_service = _get_game_service()
-    player: Player | None = game_service.get_player(player_id)
-    if not player:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Player not found",
-        )
-    return player
 
 
 def _create_login_error_response(
@@ -233,7 +183,46 @@ async def _render_lobby_status(
     # Get current lobby version for long polling
     lobby_version = lobby_service.get_lobby_version()
 
-    template_context: dict[str, Any] = {
+    # Build template context with all lobby state
+    context = _build_lobby_context(
+        player_id=player_id,
+        player_name=player_name,
+        lobby_version=lobby_version,
+        lobby_service=lobby_service,
+    )
+
+    # Check if we need to redirect (player is IN_GAME)
+    redirect_url = context.pop("_redirect_url", None)
+    if redirect_url:
+        return Response(
+            status_code=status.HTTP_204_NO_CONTENT,
+            headers={"HX-Redirect": redirect_url},
+        )
+
+    return templates.TemplateResponse(
+        request, "components/lobby_dynamic_content.html", context
+    )
+
+
+def _build_lobby_context(
+    player_id: str,
+    player_name: str,
+    lobby_version: int,
+    lobby_service: "LobbyService",
+) -> dict[str, Any]:
+    """Build template context for lobby status.
+
+    Args:
+        player_id: The player ID
+        player_name: The player name
+        lobby_version: Current lobby version for long polling
+        lobby_service: The LobbyService instance
+
+    Returns:
+        dict with all template context for lobby display.
+        May contain '_redirect_url' key if player should be redirected.
+    """
+    context: dict[str, Any] = {
         "player_name": player_name,
         "player_status": "",
         "confirmation_message": "",
@@ -244,78 +233,122 @@ async def _render_lobby_status(
         "lobby_version": lobby_version,
     }
 
+    # Check player status and handle IN_GAME redirect
+    redirect_url = _check_player_game_status(
+        player_id, player_name, lobby_service, context
+    )
+    if redirect_url:
+        context["_redirect_url"] = redirect_url
+        return context
+
+    # Get game notifications (decline confirmations, sent request confirmations)
+    _add_game_notifications(player_id, lobby_service, context)
+
+    # Get pending game request (incoming)
+    _add_pending_request(player_id, lobby_service, context)
+
+    # Get available players
+    _add_available_players(player_id, lobby_service, context)
+
+    return context
+
+
+def _check_player_game_status(
+    player_id: str,
+    player_name: str,
+    lobby_service: "LobbyService",
+    context: dict[str, Any],
+) -> str | None:
+    """Check player status and set up redirect if IN_GAME.
+
+    Args:
+        player_id: The player ID
+        player_name: The player name
+        lobby_service: The LobbyService instance
+        context: Template context dict to update
+
+    Returns:
+        Redirect URL if player is IN_GAME, None otherwise
+    """
     try:
-        # Get current player status
-        try:
-            player_status: PlayerStatus = lobby_service.get_player_status(player_id)
-            template_context["player_status"] = player_status.value
+        player_status: PlayerStatus = lobby_service.get_player_status(player_id)
+        context["player_status"] = player_status.value
 
-            # If player is IN_GAME, redirect them to game page
-            if player_status == PlayerStatus.IN_GAME:
-                # Find their opponent from the lobby
-                opponent_name: str | None = lobby_service.get_opponent_name(player_id)
+        # If player is IN_GAME, redirect them to game page
+        if player_status == PlayerStatus.IN_GAME:
+            opponent_name: str | None = lobby_service.get_opponent_name(player_id)
 
-                if not opponent_name:
-                    # Edge case: player is IN_GAME but no opponent found
-                    template_context["error_message"] = (
-                        "Game pairing error - opponent not found"
-                    )
-                    return templates.TemplateResponse(
-                        request=request,
-                        name="components/lobby_dynamic_content.html",
-                        context=template_context,
-                    )
+            if not opponent_name:
+                # Edge case: player is IN_GAME but no opponent found
+                context["error_message"] = "Game pairing error - opponent not found"
+                return None
 
-                game_url: str = "/start-game"
+            return "/start-game"
 
-                # Return HTMX redirect
-                return Response(
-                    status_code=status.HTTP_204_NO_CONTENT,
-                    headers={"HX-Redirect": game_url},
-                )
+    except ValueError:
+        context["player_status"] = f"Unknown player: {player_name}"
 
-        except ValueError:
-            template_context["player_status"] = f"Unknown player: {player_name}"
+    return None
 
-        # Check for decline notification (this consumes/clears the notification)
-        decliner_name: str | None = lobby_service.get_decline_notification_name(
-            player_id
-        )
-        if decliner_name is not None:
-            template_context["decline_confirmation_message"] = (
-                f"Game request from {decliner_name} declined"
-            )
 
-        # Check for pending game request sent
-        pending_request_sent: GameRequest | None = (
-            lobby_service.get_pending_request_by_sender(player_id)
-        )
-        if pending_request_sent is not None:
-            receiver_name: str | None = lobby_service.get_player_name(
-                pending_request_sent.receiver_id
-            )
-            template_context["confirmation_message"] = (
-                f"Game request sent to {receiver_name}"
-            )
+def _add_game_notifications(
+    player_id: str,
+    lobby_service: "LobbyService",
+    context: dict[str, Any],
+) -> None:
+    """Add game notifications to template context.
 
-        # Check for pending game request
-        pending_request: GameRequest | None = (
-            lobby_service.get_pending_request_for_player(player_id)
+    Handles decline confirmations and sent request confirmations.
+    """
+    # Check for decline notification (this consumes/clears the notification)
+    decliner_name: str | None = lobby_service.get_decline_notification_name(player_id)
+    if decliner_name is not None:
+        context["decline_confirmation_message"] = (
+            f"Game request from {decliner_name} declined"
         )
 
-        if pending_request:
-            sender_name: str | None = lobby_service.get_player_name(
-                pending_request.sender_id
-            )
-            template_context["pending_request"] = {
-                "sender": sender_name or "Unknown",
-                "sender_id": pending_request.sender_id,
-                "receiver_id": pending_request.receiver_id,
-                "timestamp": pending_request.timestamp,
-            }
-        else:
-            template_context["pending_request"] = None
+    # Check for pending game request sent
+    pending_request_sent: GameRequest | None = (
+        lobby_service.get_pending_request_by_sender(player_id)
+    )
+    if pending_request_sent is not None:
+        receiver_name: str | None = lobby_service.get_player_name(
+            pending_request_sent.receiver_id
+        )
+        context["confirmation_message"] = f"Game request sent to {receiver_name}"
 
+
+def _add_pending_request(
+    player_id: str,
+    lobby_service: "LobbyService",
+    context: dict[str, Any],
+) -> None:
+    """Add pending game request to template context."""
+    pending_request: GameRequest | None = lobby_service.get_pending_request_for_player(
+        player_id
+    )
+
+    if pending_request:
+        sender_name: str | None = lobby_service.get_player_name(
+            pending_request.sender_id
+        )
+        context["pending_request"] = {
+            "sender": sender_name or "Unknown",
+            "sender_id": pending_request.sender_id,
+            "receiver_id": pending_request.receiver_id,
+            "timestamp": pending_request.timestamp,
+        }
+    else:
+        context["pending_request"] = None
+
+
+def _add_available_players(
+    player_id: str,
+    lobby_service: "LobbyService",
+    context: dict[str, Any],
+) -> None:
+    """Add available players list to template context."""
+    try:
         all_players: list[Player] = lobby_service.get_lobby_players_for_player(
             player_id
         )
@@ -323,15 +356,9 @@ async def _render_lobby_status(
         lobby_data: list[Player] = [
             player for player in all_players if player.status != PlayerStatus.IN_GAME
         ]
-        template_context["available_players"] = lobby_data
-
-    except ValueError as e:
-        template_context["player_name"] = ""
-        template_context["error_message"] = str(e)
-
-    return templates.TemplateResponse(
-        request, "components/lobby_dynamic_content.html", template_context
-    )
+        context["available_players"] = lobby_data
+    except ValueError:
+        context["available_players"] = []
 
 
 @router.post("/decline-game-request")
@@ -401,3 +428,7 @@ async def accept_game_request(
     except ValueError as e:
         # Handle validation errors (no pending request, etc.)
         return _create_login_error_response(request, str(e))
+
+
+# Forward references for type hints (resolved at runtime)
+from routes.helpers import GameService, LobbyService  # noqa: E402

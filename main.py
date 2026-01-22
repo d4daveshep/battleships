@@ -20,6 +20,7 @@ from services.lobby_service import LobbyService
 from game.game_service import GameService
 
 # Import routers
+from routes.helpers import set_up_helpers
 from routes.auth import set_up_auth_router, router as auth_router
 from routes.lobby import set_up_lobby_router, router as lobby_router
 from routes.ship_placement import (
@@ -43,6 +44,9 @@ auth_service: AuthService = AuthService()
 lobby_service: LobbyService = LobbyService(_game_lobby)
 game_service: GameService = GameService()
 
+
+# Set up helpers module first (shared by all routers)
+set_up_helpers(templates, game_service, lobby_service)
 
 # Set up all routers with their dependencies
 set_up_auth_router(templates, auth_service, game_service, lobby_service)

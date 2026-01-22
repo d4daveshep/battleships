@@ -41,7 +41,9 @@ jobs:
         run: uv run pytest tests/bdd/*fastapi.py
 
       - name: Install Playwright browsers
-        run: python -m playwright install --with-deps
+        run: |
+          uv add pytest-playwright
+          python -m playwright install --with-deps
 
       - name: Run BDD browser tests with pytest
         run: uv run pytest tests/bdd/*browser.py

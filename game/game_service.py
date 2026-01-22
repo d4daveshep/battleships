@@ -171,6 +171,8 @@ class GameService:
 
         return new_game.id
 
+    # TODO: Review where this function gets called from to see if we actually need it,
+    # Why can't we just put the board directly in the game?
     def transfer_ship_placement_board_to_game(
         self, game_id: str, player_id: str, player: Player
     ) -> None:
@@ -409,6 +411,8 @@ class GameService:
             return False
         return self.is_player_ready(opponent_id)
 
+    # TODO: Verify if we need this functionality
+    # Why can't we just return the GameMode enum value?
     def is_multiplayer(
         self,
         player_id: str,

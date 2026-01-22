@@ -42,8 +42,7 @@ jobs:
 
       - name: Install Playwright browsers
         run: |
-          uv add pytest-playwright
-          python -m playwright install --with-deps
+          uv run python -m playwright install --with-deps
 
       - name: Run BDD browser tests with pytest
         run: uv run pytest tests/bdd/*browser.py

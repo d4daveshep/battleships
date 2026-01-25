@@ -138,18 +138,13 @@ class GameService:
             key = e.args[0]
             raise UnknownPlayerException(f"Player with id:{key} does not exist")
 
-        if (
-            player_1_id in self.games_by_player
-            or player_1.status == PlayerStatus.IN_GAME
-        ):
+        # Check if either player is already in a game
+        if player_1_id in self.games_by_player:
             raise PlayerAlreadyInGameException(
                 f"Player {player_1.name} with id: {player_1_id} is already in a game"
             )
 
-        if (
-            player_2_id in self.games_by_player
-            or player_2.status == PlayerStatus.IN_GAME
-        ):
+        if player_2_id in self.games_by_player:
             raise PlayerAlreadyInGameException(
                 f"Player {player_2.name} with id: {player_2_id} is already in a game"
             )
@@ -411,32 +406,23 @@ class GameService:
             return False
         return self.is_player_ready(opponent_id)
 
-    # TODO: Verify if we need this functionality
-    # Why can't we just return the GameMode enum value?
-    def is_multiplayer(
-        self,
-        player_id: str,
-        lobby_service: "LobbyService | None" = None,
-    ) -> bool:
-        """Check if a player is in a multiplayer game or lobby pairing.
+    def is_multiplayer(self, player_id: str) -> bool:
+        """Check if a player is in a multiplayer (two-player) game.
 
         Args:
             player_id: The player ID to check
-            lobby_service: Optional LobbyService to check for lobby pairings
 
         Returns:
-            True if player is in multiplayer mode (has opponent), False otherwise
+            True if player is in a two-player game, False otherwise
         """
-        # Check if player is already in an active game with an opponent
-        if self.get_opponent_id(player_id):
-            return True
+        # Get opponent ID - returns None if no opponent
+        opponent_id = self.get_opponent_id(player_id)
+        if not opponent_id:
+            return False
 
-        # Check if player is paired in lobby (for two-player ship placement)
-        if lobby_service is not None:
-            if lobby_service.get_opponent(player_id):
-                return True
-
-        return False
+        # Player has an opponent - check game mode
+        game = self.games_by_player[player_id]
+        return game.game_mode == GameMode.TWO_PLAYER
 
     def are_both_players_ready(self, game_id: str) -> bool:
         """Check if both players in a game are ready.

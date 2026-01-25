@@ -383,7 +383,7 @@ def _create_game_for_ready_players(
     game_service: GameService,
     lobby_service: LobbyService,
 ) -> str:
-    """Create a game when both players are ready.
+    """Handle player ready state - game already exists from accept.
 
     Args:
         player_id: The first player's ID
@@ -392,10 +392,10 @@ def _create_game_for_ready_players(
         lobby_service: The LobbyService instance
 
     Returns:
-        The created game ID
+        The existing game ID
 
     Raises:
-        HTTPException: If player/opponent not found
+        HTTPException: If player/opponent not found or game doesn't exist
     """
     # Get players
     player = game_service.get_player(player_id)
@@ -404,22 +404,24 @@ def _create_game_for_ready_players(
     if not player or not opponent:
         raise HTTPException(status_code=500, detail="Player or opponent not found")
 
-    # Reset status to allow game creation (transition from Lobby to Game)
-    player.status = PlayerStatus.AVAILABLE
-    opponent.status = PlayerStatus.AVAILABLE
-
+    # Game should already exist from accept-game-request
+    # Just transfer the ship placement board to the game
     try:
-        game_id = game_service.create_two_player_game(player_id, opponent_id)
-    except PlayerAlreadyInGameException:
-        # Game might have been created by opponent concurrently
-        if player_id in game_service.games_by_player:
-            game = game_service.games_by_player[player_id]
-            game_id = game.id
-        else:
-            raise HTTPException(status_code=500, detail="Game creation failed")
-    else:
-        # Transfer ship placement boards to game (only for the player who just became ready)
-        game_service.transfer_ship_placement_board_to_game(game_id, player_id, player)
+        game = game_service.games_by_player[player_id]
+        game_id = game.id
+    except KeyError:
+        raise HTTPException(
+            status_code=500,
+            detail="Game not found - should have been created when request was accepted",
+        )
+
+    # Transfer ship placement board to game (only for the player who just became ready)
+    game_service.transfer_ship_placement_board_to_game(game_id, player_id, player)
+
+    # Update game status to PLAYING (game is now starting)
+    from game.game_service import GameStatus
+
+    game.status = GameStatus.PLAYING
 
     return game_id
 
@@ -482,6 +484,13 @@ def _get_opponent_id_or_404(player_id: str) -> str:
 def _check_game_redirect_url(request: Request, player_id: str) -> str | None:
     """Check if player's game has started, return redirect URL or None.
 
+    Only redirects if:
+    1. Player is in a game
+    2. Game status is PLAYING (game has actually started)
+
+    During ship placement phase (game status is SETUP or CREATED),
+    players should stay on /place-ships.
+
     Args:
         request: The FastAPI request object
         player_id: The player ID to check
@@ -489,12 +498,16 @@ def _check_game_redirect_url(request: Request, player_id: str) -> str | None:
     Returns:
         Redirect URL if game has started, None otherwise
     """
+    from game.game_service import GameStatus
+
     game_service = _get_game_service()
     player = _get_player_from_session(request)
 
     if player.id in game_service.games_by_player:
         game = game_service.games_by_player[player.id]
-        return f"/game/{game.id}"
+        # Only redirect if game has actually started
+        if game.status == GameStatus.PLAYING:
+            return f"/game/{game.id}"
     return None
 
 

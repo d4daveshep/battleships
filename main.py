@@ -17,7 +17,7 @@ from starlette.responses import Response
 from game.lobby import Lobby
 from services.auth_service import AuthService
 from services.lobby_service import LobbyService
-from game.game_service import GameService
+from game.game_service import GameService, GameStatus
 
 # Import routers
 from routes.helpers import set_up_helpers
@@ -69,13 +69,23 @@ app.include_router(start_game_router)
 
 @app.post("/test/reset-lobby")
 async def reset_lobby_for_testing() -> dict[str, str]:
-    """Reset lobby state - for testing only"""
+    """Reset lobby and game state - for testing only"""
     _game_lobby.players.clear()
     _game_lobby.game_requests.clear()
+    _game_lobby.active_games.clear()
     _game_lobby.version = 0
     _game_lobby.change_event = asyncio.Event()
 
-    return {"status": "lobby cleared"}
+    # Also reset game service state
+    game_service.games.clear()
+    game_service.games_by_player.clear()
+    game_service.ship_placement_boards.clear()
+    game_service.ready_players.clear()
+    if hasattr(game_service, "_placement_version"):
+        game_service._placement_version = 0
+        game_service._placement_change_event = asyncio.Event()
+
+    return {"status": "lobby and games cleared"}
 
 
 @app.post("/test/add-player-to-lobby")
@@ -140,6 +150,19 @@ async def accept_game_request_for_testing(player_name: str = Form()) -> dict[str
         if not player_id:
             raise ValueError(f"Player '{player_name}' not found in lobby")
         sender_id, receiver_id = lobby_service.accept_game_request(player_id)
+
+        # Create the game (new flow - game created at accept time)
+        if (
+            sender_id not in game_service.games_by_player
+            and receiver_id not in game_service.games_by_player
+        ):
+            game_service.create_two_player_game(sender_id, receiver_id)
+            # Update game status to SETUP (ship placement phase)
+            game = game_service.games_by_player[sender_id]
+            from game.game_service import GameStatus
+
+            game.status = GameStatus.SETUP
+
         sender_name: str | None = lobby_service.get_player_name(sender_id)
         receiver_name: str | None = lobby_service.get_player_name(receiver_id)
         return {

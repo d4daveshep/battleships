@@ -294,7 +294,9 @@ class TestMultiplayerShipPlacement:
         return GameService()
 
     @pytest.fixture
-    def two_players_in_game(self, game_service: GameService) -> tuple[Player, Player, str]:
+    def two_players_in_game(
+        self, game_service: GameService
+    ) -> tuple[Player, Player, str]:
         """Setup two players in a multiplayer game"""
         alice = Player(name="Alice", status=PlayerStatus.AVAILABLE)
         bob = Player(name="Bob", status=PlayerStatus.AVAILABLE)
@@ -359,13 +361,13 @@ class TestMultiplayerShipPlacement:
         bob = Player(name="Bob", status=PlayerStatus.AVAILABLE)
         game_service.add_player(alice)
         game_service.add_player(bob)
-        
+
         # Get initial version
         initial_version = game_service.get_placement_version()
-        
+
         # Create a two-player game (simulating both players ready scenario)
         game_id = game_service.create_two_player_game(alice.id, bob.id)
-        
+
         # Version should have incremented to notify waiting players
         # This is critical for Player 1 who is waiting via long-polling
         current_version = game_service.get_placement_version()
@@ -373,6 +375,7 @@ class TestMultiplayerShipPlacement:
             "Placement version should increment when game is created "
             "to wake up waiting long-poll requests"
         )
+
 
 class TestPlaceShipsRandomly:
     """Comprehensive unit tests for GameService.place_ships_randomly()"""
@@ -454,7 +457,9 @@ class TestPlaceShipsRandomly:
         # For each ship, verify it doesn't touch other ships
         for i, ship in enumerate(board.ships):
             # Get adjacent coords for this ship
-            adjacent_coords = CoordHelper.coords_adjacent_to_a_coords_list(ship.positions)
+            adjacent_coords = CoordHelper.coords_adjacent_to_a_coords_list(
+                ship.positions
+            )
 
             # Check that no other ship occupies adjacent coords
             for j, other_ship in enumerate(board.ships):
@@ -613,3 +618,86 @@ class TestPlaceShipsRandomly:
         # Verify board was created and has ships
         board = game_service.get_or_create_ship_placement_board(player_id)
         assert len(board.ships) == 5
+
+
+class TestIsMultiplayer:
+    """Tests for GameService.is_multiplayer() method"""
+
+    @pytest.fixture
+    def game_service(self) -> GameService:
+        return GameService()
+
+    def test_is_multiplayer_returns_false_for_player_not_in_game(
+        self, game_service: GameService
+    ) -> None:
+        """Player not in any game should return False"""
+        player = Player(name="SoloPlayer", status=PlayerStatus.AVAILABLE)
+        game_service.add_player(player)
+
+        # Player exists but is not in a game
+        result = game_service.is_multiplayer(player.id)
+        assert result is False
+
+    def test_is_multiplayer_returns_false_for_single_player_game(
+        self, game_service: GameService
+    ) -> None:
+        """Player in single-player game should return False"""
+        player = Player(name="SoloPlayer", status=PlayerStatus.AVAILABLE)
+        game_service.add_player(player)
+        game_service.create_single_player_game(player.id)
+
+        # Should be False - single player mode
+        result = game_service.is_multiplayer(player.id)
+        assert result is False
+
+    def test_is_multiplayer_returns_true_for_two_player_game(
+        self, game_service: GameService
+    ) -> None:
+        """Player in two-player game should return True"""
+        alice = Player(name="Alice", status=PlayerStatus.AVAILABLE)
+        bob = Player(name="Bob", status=PlayerStatus.AVAILABLE)
+        game_service.add_player(alice)
+        game_service.add_player(bob)
+        game_service.create_two_player_game(alice.id, bob.id)
+
+        # Should be True for both players
+        assert game_service.is_multiplayer(alice.id) is True
+        assert game_service.is_multiplayer(bob.id) is True
+
+    def test_is_multiplayer_only_checks_game_mode(
+        self, game_service: GameService
+    ) -> None:
+        """is_multiplayer should only check game.game_mode, not lobby pairings"""
+        alice = Player(name="Alice", status=PlayerStatus.AVAILABLE)
+        bob = Player(name="Bob", status=PlayerStatus.AVAILABLE)
+        game_service.add_player(alice)
+        game_service.add_player(bob)
+
+        # Create a two-player game
+        game_service.create_two_player_game(alice.id, bob.id)
+
+        # Verify the game mode is what we expect
+        game = game_service.games_by_player[alice.id]
+        assert game.game_mode == GameMode.TWO_PLAYER
+
+        # is_multiplayer should return True based on game mode
+        assert game_service.is_multiplayer(alice.id) is True
+
+    def test_is_multiplayer_does_not_require_lobby_service(
+        self, game_service: GameService
+    ) -> None:
+        """is_multiplayer should work without passing lobby_service parameter"""
+        alice = Player(name="Alice", status=PlayerStatus.AVAILABLE)
+        bob = Player(name="Bob", status=PlayerStatus.AVAILABLE)
+        game_service.add_player(alice)
+        game_service.add_player(bob)
+        game_service.create_two_player_game(alice.id, bob.id)
+
+        # This should work WITHOUT passing lobby_service
+        # The old implementation required lobby_service to check lobby.active_games
+        # The new implementation should only check game.game_mode
+        result = game_service.is_multiplayer(alice.id)
+        assert result is True
+
+        result = game_service.is_multiplayer(bob.id)
+        assert result is True

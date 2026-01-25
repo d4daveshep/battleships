@@ -119,16 +119,13 @@ def _get_validated_player_name(request: Request, claimed_name: str) -> str:
 
 
 def _is_multiplayer(player_id: str) -> bool:
-    """Check if a player is in multiplayer mode (has an opponent).
-
-    Checks both active games and lobby pairings.
+    """Check if a player is in a multiplayer (two-player) game.
 
     Args:
         player_id: The player ID to check
 
     Returns:
-        True if player is in multiplayer mode, False otherwise
+        True if player is in a two-player game, False otherwise
     """
     game_service = _get_game_service()
-    lobby_service = _get_lobby_service()
-    return game_service.is_multiplayer(player_id, lobby_service)
+    return game_service.is_multiplayer(player_id)

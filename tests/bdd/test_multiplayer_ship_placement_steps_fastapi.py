@@ -336,27 +336,41 @@ def see_message(context: MultiplayerShipContext, message: str) -> None:
     """Verify message visibility"""
     assert context.player_soup is not None
 
-    # Normalize message for matching (implementation might differ slightly)
-    if "finish placing ships" in message:
-        message = "place their ships"
-
     # Check various message containers
     found = False
     for testid in ["status-message", "placement-error", "game-status"]:
         elem = context.player_soup.find(attrs={"data-testid": testid})
-        if elem and message in elem.get_text():
-            found = True
-            break
+        if elem:
+            text = elem.get_text()
+            # Handle partial matching for waiting messages
+            if "Waiting for opponent" in message:
+                if "Waiting for opponent" in text and "finish" in text:
+                    found = True
+                    break
+            elif message in text:
+                found = True
+                break
 
     if not found:
         # Check raw text
         text = context.player_soup.get_text()
-        if message not in text:
+        if "Waiting for opponent" in message:
+            if "Waiting for opponent" in text and "finish" in text:
+                found = True
+        elif message in text:
+            found = True
+
+        if not found:
             # Try fetching dynamic status
             resp = context.player_client.get("/place-ships/opponent-status")
             text += resp.text
+            if "Waiting for opponent" in message:
+                if "Waiting for opponent" in text and "finish" in text:
+                    found = True
+            elif message in text:
+                found = True
 
-        assert message in text
+    assert found, f"Expected message '{message}' not found in page text"
 
 
 @when("I place the 5th ship")

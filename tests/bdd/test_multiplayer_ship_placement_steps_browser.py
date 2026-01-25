@@ -103,15 +103,8 @@ def match_players(context: MultiplayerBrowserContext) -> None:
     context.p2.wait_for_selector('[data-testid="accept-game-request"]')
     context.p2.click('[data-testid="accept-game-request"]')
 
-    # Both players should be redirected to start-game (confirmation page)
-    context.p1.wait_for_url("**/start-game*")
-    context.p2.wait_for_url("**/start-game*")
-
-    # Click "Start Game" to proceed to ship placement
-    context.p1.click('[data-testid="start-game-button"]')
-    context.p2.click('[data-testid="start-game-button"]')
-
-    # Wait for ship placement page
+    # With new flow, both players should be redirected directly to ship placement
+    # (game is created at accept time, no need to go through start-game page)
     context.p1.wait_for_url("**/place-ships*")
     context.p2.wait_for_url("**/place-ships*")
 

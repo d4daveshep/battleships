@@ -10,10 +10,13 @@ from fastapi.templating import Jinja2Templates
 from game.player import GameRequest, Player, PlayerStatus
 
 from routes.helpers import (
+    _get_game_service,
     _get_lobby_service,
     _get_player_from_session,
     _get_templates,
 )
+
+from game.game_service import GameStatus  # noqa: E402
 
 router: APIRouter = APIRouter(prefix="", tags=["lobby"])
 
@@ -274,7 +277,7 @@ def _check_player_game_status(
         player_status: PlayerStatus = lobby_service.get_player_status(player_id)
         context["player_status"] = player_status.value
 
-        # If player is IN_GAME, redirect them to game page
+        # If player is IN_GAME, redirect them to ship placement
         if player_status == PlayerStatus.IN_GAME:
             opponent_name: str | None = lobby_service.get_opponent_name(player_id)
 
@@ -283,7 +286,8 @@ def _check_player_game_status(
                 context["error_message"] = "Game pairing error - opponent not found"
                 return None
 
-            return "/start-game"
+            # With new flow, game is created at accept time, go directly to ship placement
+            return "/place-ships"
 
     except ValueError:
         context["player_status"] = f"Unknown player: {player_name}"
@@ -402,18 +406,32 @@ async def accept_game_request(
     request: Request,
     show_confirmation: str = Form(default=""),
 ) -> Response | RedirectResponse:
-    """Accept a game request and redirect to game page"""
+    """Accept a game request, create the game, and redirect to ship placement"""
     player: Player = _get_player_from_session(request)
     lobby_service = _get_lobby_service()
+    game_service = _get_game_service()
 
     try:
-        # Accept the game request
+        # Accept the game request - this pairs players in lobby.active_games
         sender_id: str
         receiver_id: str
         sender_id, receiver_id = lobby_service.accept_game_request(player.id)
 
-        # Opponent is now stored in lobby state, no need to pass via URL
-        redirect_url: str = "/start-game"
+        # Create the game immediately when request is accepted
+        # This ensures is_multiplayer() works during ship placement
+        # Check if game already exists for either player (handles concurrent accepts)
+        if (
+            sender_id not in game_service.games_by_player
+            and receiver_id not in game_service.games_by_player
+        ):
+            game_service.create_two_player_game(sender_id, receiver_id)
+
+            # Update game status to SETUP (ship placement phase)
+            game = game_service.games_by_player[sender_id]
+            game.status = GameStatus.SETUP
+
+        # Redirect to ship placement page (game already exists)
+        redirect_url: str = "/place-ships"
 
         if request.headers.get("HX-Request"):
             response: Response = Response(
@@ -422,7 +440,7 @@ async def accept_game_request(
             )
             return response
         else:
-            # Normal flow: Redirect to game page
+            # Normal flow: Redirect to ship placement
             return RedirectResponse(url=redirect_url, status_code=status.HTTP_302_FOUND)
 
     except ValueError as e:

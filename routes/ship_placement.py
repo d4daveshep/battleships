@@ -28,10 +28,75 @@ from routes.helpers import (
     _get_player_id,
     _get_templates,
     _get_validated_player_name,
+    _htmx_redirect,
     _is_multiplayer,
+    _redirect_or_htmx,
 )
 
 router: APIRouter = APIRouter(prefix="", tags=["ship_placement"])
+
+
+def _render_ship_placement_page(
+    request: Request,
+    player_name: str,
+    player_id: str,
+    placement_error: str | None = None,
+    status_message: str | None = None,
+    http_status_code: int = 200,
+) -> HTMLResponse:
+    """Render the ship placement page with current board state.
+
+    Args:
+        request: The FastAPI request object
+        player_name: The player's display name
+        player_id: The player's ID
+        placement_error: Optional error message to display
+        status_message: Optional status message (auto-generated if None)
+        http_status_code: HTTP status code for the response
+
+    Returns:
+        HTMLResponse with the rendered ship placement page
+    """
+    templates = _get_templates()
+    game_service = _get_game_service()
+
+    # Get board state
+    try:
+        board: GameBoard = game_service.get_or_create_ship_placement_board(player_id)
+    except Exception:
+        # Fallback to empty board for error display
+        board = GameBoard()
+
+    placed_ships = board.get_placed_ships_for_display()
+    is_ready = game_service.is_player_ready(player_id)
+    is_multiplayer_game = _is_multiplayer(player_id)
+
+    # Auto-generate status message if not provided
+    if status_message is None:
+        if is_ready:
+            status_message = "Waiting for opponent to finish placing ships..."
+        elif len(placed_ships) < 5:
+            status_message = "Place all ships to continue"
+        else:
+            status_message = "All ships placed - click Ready when done"
+
+    context: dict[str, Any] = {
+        "player_name": player_name,
+        "placed_ships": placed_ships,
+        "is_ready": is_ready,
+        "is_multiplayer": is_multiplayer_game,
+        "status_message": status_message,
+    }
+
+    if placement_error:
+        context["placement_error"] = placement_error
+
+    return templates.TemplateResponse(
+        request,
+        "ship_placement.html",
+        context,
+        status_code=http_status_code,
+    )
 
 
 def set_up_ship_placement_router(
@@ -46,44 +111,8 @@ def set_up_ship_placement_router(
 @router.get("/place-ships", response_class=HTMLResponse)
 async def ship_placement_page(request: Request) -> HTMLResponse:
     """Display the ship placement page"""
-    templates = _get_templates()
-    game_service = _get_game_service()
-
-    # Get player from session
     player: Player = _get_player_from_session(request)
-    player_id: str = player.id
-
-    # Get board state
-    board: GameBoard = game_service.get_or_create_ship_placement_board(player_id)
-    placed_ships: dict[str, dict[str, Any]] = board.get_placed_ships_for_display()
-
-    # Check if player is ready
-    is_ready: bool = game_service.is_player_ready(player_id)
-
-    # Check if multiplayer
-    is_multiplayer: bool = _is_multiplayer(player_id)
-
-    # Determine status message
-    ships_count: int = len(placed_ships)
-    status_message: str = ""
-    if is_ready:
-        status_message = "Waiting for opponent to finish placing ships..."
-    elif ships_count < 5:
-        status_message = "Place all ships to continue"
-    else:
-        status_message = "All ships placed - click Ready when done"
-
-    return templates.TemplateResponse(
-        request,
-        "ship_placement.html",
-        {
-            "player_name": player.name,
-            "placed_ships": placed_ships,
-            "is_ready": is_ready,
-            "status_message": status_message,
-            "is_multiplayer": is_multiplayer,
-        },
-    )
+    return _render_ship_placement_page(request, player.name, player.id)
 
 
 @router.post("/place-ship", response_class=HTMLResponse)
@@ -95,8 +124,11 @@ async def place_ship(
     orientation: str = Form(),
 ) -> HTMLResponse:
     """Handle ship placement on the board"""
-    templates = _get_templates()
     game_service = _get_game_service()
+
+    # Validate player owns this session
+    _get_validated_player_name(request, player_name)
+    player_id: str = _get_player_id(request)
 
     try:
         # Create the ship based on type name
@@ -108,11 +140,8 @@ async def place_ship(
         # Replace hyphens with underscores for enum member lookup
         orient: Orientation = Orientation[orientation.upper().replace("-", "_")]
 
-        # Get or create board for ship placement
-        _get_validated_player_name(request, player_name)
-        board: GameBoard = game_service.get_or_create_ship_placement_board(
-            player_id=_get_player_id(request)
-        )
+        # Get or create board for ship placement and place ship
+        board: GameBoard = game_service.get_or_create_ship_placement_board(player_id)
         board.place_ship(ship, start, orient)
 
     except (
@@ -120,87 +149,19 @@ async def place_ship(
         ShipPlacementOutOfBoundsError,
         ShipPlacementTooCloseError,
     ) as e:
-        # Get current board state to show what's already placed
-        _get_validated_player_name(request, player_name)
-        try:
-            board: GameBoard = game_service.get_or_create_ship_placement_board(
-                player_id=_get_player_id(request)
-            )
-        except Exception:
-            # If no board exists yet, create empty one for error display
-            board = GameBoard()
-        placed_ships: dict[str, dict[str, list[str]]] = (
-            board.get_placed_ships_for_display()
-        )
-
-        # Use the user-friendly message from the exception
-        user_friendly_error: str = e.user_message
-
-        # Check if player is ready
-        is_ready: bool = game_service.is_player_ready(_get_player_id(request))
-
-        # Return ship_placement.html with error and current state
-        return templates.TemplateResponse(
-            request,
-            "ship_placement.html",
-            {
-                "player_name": player_name,
-                "placed_ships": placed_ships,
-                "placement_error": user_friendly_error,
-                "is_ready": is_ready,
-                "is_multiplayer": _is_multiplayer(_get_player_id(request)),
-            },
-            status_code=status.HTTP_200_OK,
+        # Return page with user-friendly error message
+        return _render_ship_placement_page(
+            request, player_name, player_id, placement_error=e.user_message
         )
 
     except (ValueError, KeyError):
         # Handle invalid direction/orientation
-        _get_validated_player_name(request, player_name)
-        try:
-            board: GameBoard = game_service.get_or_create_ship_placement_board(
-                player_id=_get_player_id(request)
-            )
-        except Exception:
-            board = GameBoard()
-        placed_ships: dict[str, dict[str, list[str]]] = (
-            board.get_placed_ships_for_display()
+        return _render_ship_placement_page(
+            request, player_name, player_id, placement_error="Invalid direction"
         )
 
-        user_friendly_error: str = "Invalid direction"
-
-        # Check if player is ready
-        is_ready: bool = game_service.is_player_ready(_get_player_id(request))
-
-        # Return ship_placement.html with error and current state
-        return templates.TemplateResponse(
-            request,
-            "ship_placement.html",
-            {
-                "player_name": player_name,
-                "placed_ships": placed_ships,
-                "placement_error": user_friendly_error,
-                "is_ready": is_ready,
-                "is_multiplayer": _is_multiplayer(_get_player_id(request)),
-            },
-            status_code=status.HTTP_200_OK,
-        )
-
-    # Get all placed ships from the board to display
-    placed_ships: dict[str, dict[str, list[str]]] = board.get_placed_ships_for_display()
-
-    # Check if player is ready
-    is_ready: bool = game_service.is_player_ready(_get_player_id(request))
-
-    return templates.TemplateResponse(
-        request,
-        "ship_placement.html",
-        {
-            "player_name": player_name,
-            "placed_ships": placed_ships,
-            "is_ready": is_ready,
-            "is_multiplayer": _is_multiplayer(_get_player_id(request)),
-        },
-    )
+    # Success - return page with updated board
+    return _render_ship_placement_page(request, player_name, player_id)
 
 
 @router.post("/remove-ship", response_class=HTMLResponse)
@@ -210,21 +171,15 @@ async def remove_ship(
     ship_name: str = Form(),
 ) -> HTMLResponse:
     """Remove a placed ship from the board"""
-    templates = _get_templates()
     game_service = _get_game_service()
 
     # Validate player owns this session
     _get_validated_player_name(request, player_name)
     player_id: str = _get_player_id(request)
 
-    # Check if player is ready - if so, don't allow modifications
-    is_ready: bool = game_service.is_player_ready(player_id)
-
-    # Get the board
-    board: GameBoard = game_service.get_or_create_ship_placement_board(player_id)
-
     # Only remove ship if player is not ready
-    if not is_ready:
+    if not game_service.is_player_ready(player_id):
+        board: GameBoard = game_service.get_or_create_ship_placement_board(player_id)
         try:
             ship_type: ShipType = ShipType.from_ship_name(ship_name)
             board.remove_ship(ship_type)
@@ -232,22 +187,7 @@ async def remove_ship(
             # Invalid ship name - just ignore and return current state
             pass
 
-    # Get updated placed ships
-    placed_ships: dict[str, dict[str, Any]] = board.get_placed_ships_for_display()
-
-    return templates.TemplateResponse(
-        request,
-        "ship_placement.html",
-        {
-            "player_name": player_name,
-            "placed_ships": placed_ships,
-            "is_ready": is_ready,
-            "status_message": "Waiting for opponent to place their ships..."
-            if is_ready
-            else "",
-            "is_multiplayer": _is_multiplayer(player_id),
-        },
-    )
+    return _render_ship_placement_page(request, player_name, player_id)
 
 
 @router.post("/random-ship-placement", response_class=HTMLResponse)
@@ -256,39 +196,17 @@ async def random_ship_placement(
     player_name: str = Form(),
 ) -> HTMLResponse:
     """Place all ships randomly on the board"""
-    templates = _get_templates()
     game_service = _get_game_service()
 
     # Validate player owns this session
     _get_validated_player_name(request, player_name)
     player_id: str = _get_player_id(request)
 
-    # Check if player is ready - if so, don't allow modifications
-    is_ready: bool = game_service.is_player_ready(player_id)
-
     # Only place ships randomly if player is not ready
-    if not is_ready:
+    if not game_service.is_player_ready(player_id):
         game_service.place_ships_randomly(player_id)
 
-    # Get the board with placed ships
-    board: GameBoard = game_service.get_or_create_ship_placement_board(player_id)
-
-    # Get placed ships for template
-    placed_ships: dict[str, dict[str, Any]] = board.get_placed_ships_for_display()
-
-    return templates.TemplateResponse(
-        request,
-        "ship_placement.html",
-        {
-            "player_name": player_name,
-            "placed_ships": placed_ships,
-            "is_ready": is_ready,
-            "status_message": "Waiting for opponent to place their ships..."
-            if is_ready
-            else "",
-            "is_multiplayer": _is_multiplayer(player_id),
-        },
-    )
+    return _render_ship_placement_page(request, player_name, player_id)
 
 
 @router.post("/reset-all-ships", response_class=HTMLResponse)
@@ -297,39 +215,18 @@ async def reset_all_ships(
     player_name: str = Form(),
 ) -> HTMLResponse:
     """Reset all placed ships (clear the board)"""
-    templates = _get_templates()
     game_service = _get_game_service()
 
     # Validate player owns this session
     _get_validated_player_name(request, player_name)
     player_id: str = _get_player_id(request)
 
-    # Check if player is ready - if so, don't allow modifications
-    is_ready: bool = game_service.is_player_ready(player_id)
-
-    # Get the board
-    board: GameBoard = game_service.get_or_create_ship_placement_board(player_id)
-
     # Only clear ships if player is not ready
-    if not is_ready:
+    if not game_service.is_player_ready(player_id):
+        board: GameBoard = game_service.get_or_create_ship_placement_board(player_id)
         board.clear_all_ships()
 
-    # Get placed ships for template
-    placed_ships: dict[str, dict[str, Any]] = board.get_placed_ships_for_display()
-
-    return templates.TemplateResponse(
-        request,
-        "ship_placement.html",
-        {
-            "player_name": player_name,
-            "placed_ships": placed_ships,
-            "is_ready": is_ready,
-            "status_message": "Waiting for opponent to place their ships..."
-            if is_ready
-            else "",
-            "is_multiplayer": _is_multiplayer(player_id),
-        },
-    )
+    return _render_ship_placement_page(request, player_name, player_id)
 
 
 @router.post("/ready-for-game", response_model=None)
@@ -361,15 +258,7 @@ async def ready_for_game(
             )
 
             # Return redirect to game
-            redirect_url = f"/game/{game_id}"
-            if request.headers.get("HX-Request"):
-                return Response(
-                    status_code=status.HTTP_204_NO_CONTENT,
-                    headers={"HX-Redirect": redirect_url},
-                )
-            return RedirectResponse(
-                url=redirect_url, status_code=status.HTTP_303_SEE_OTHER
-            )
+            return _redirect_or_htmx(request, f"/game/{game_id}")
 
     # Single player or waiting for opponent - show placement page with ready state
     return _render_placement_page_waiting(
@@ -439,25 +328,17 @@ def _render_placement_page_waiting(
         request: The FastAPI request object
         player_name: The player's name
         player_id: The player's ID
-        templates: The Jinja2 templates
-        game_service: The GameService instance
+        templates: The Jinja2 templates (unused, kept for API compatibility)
+        game_service: The GameService instance (unused, kept for API compatibility)
 
     Returns:
         HTMLResponse with the rendered template
     """
-    board = game_service.get_or_create_ship_placement_board(player_id)
-    placed_ships = board.get_placed_ships_for_display()
-
-    return templates.TemplateResponse(
+    return _render_ship_placement_page(
         request,
-        "ship_placement.html",
-        {
-            "player_name": player_name,
-            "placed_ships": placed_ships,
-            "is_ready": True,
-            "is_multiplayer": True,
-            "status_message": "Waiting for opponent to finish placing ships...",
-        },
+        player_name,
+        player_id,
+        status_message="Waiting for opponent to finish placing ships...",
     )
 
 
@@ -555,10 +436,7 @@ def _render_opponent_status(
     # Check if game started for current player (redirect if so)
     redirect_url = _check_game_redirect_url(request, opponent_id)
     if redirect_url and request.headers.get("HX-Request"):
-        return Response(
-            status_code=status.HTTP_204_NO_CONTENT,
-            headers={"HX-Redirect": redirect_url},
-        )
+        return _htmx_redirect(redirect_url)
 
     # Fetch opponent status
     opponent_status = _fetch_opponent_status(opponent_id)

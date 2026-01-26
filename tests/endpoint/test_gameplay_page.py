@@ -79,7 +79,7 @@ class TestGameplayPageEndpoint:
         self, client: TestClient, alice_client: TestClient, bob_client: TestClient
     ):
         """Test that player not in game gets 403 Forbidden"""
-        from test_helpers import create_player
+        from helpers import create_player
 
         # Create a game for Alice
         create_response = alice_client.post(
@@ -122,7 +122,7 @@ class TestGameplayPageMultiPlayer:
         self, alice_client: TestClient, bob_client: TestClient
     ):
         """Test that multiplayer game shows the correct opponent name"""
-        from test_helpers import accept_game_request, send_game_request
+        from helpers import accept_game_request, send_game_request
 
         # Create game for Alice (single player first, then pair for two-player)
         # Note: The current implementation creates games via ship placement flow

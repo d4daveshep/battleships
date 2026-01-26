@@ -10,10 +10,13 @@ from fastapi.templating import Jinja2Templates
 from game.player import GameRequest, Player, PlayerStatus
 
 from routes.helpers import (
+    _create_login_error_response,
     _get_game_service,
     _get_lobby_service,
     _get_player_from_session,
     _get_templates,
+    _htmx_redirect,
+    _redirect_or_htmx,
 )
 
 from game.game_service import GameStatus  # noqa: E402
@@ -28,30 +31,6 @@ def set_up_lobby_router(
 ) -> APIRouter:
     """Configure the lobby router with required dependencies."""
     return router
-
-
-def _create_login_error_response(
-    request: Request,
-    error_message: str,
-    player_name: str = "",
-    css_class: str = "error",
-    status_code: int = status.HTTP_400_BAD_REQUEST,
-) -> HTMLResponse:
-    """Display the login page with an error message."""
-    templates = _get_templates()
-
-    template_context: dict[str, str] = {
-        "error_message": error_message,
-        "player_name": player_name,
-        "css_class": css_class,
-    }
-
-    return templates.TemplateResponse(
-        request=request,
-        name="login.html",
-        context=template_context,
-        status_code=status_code,
-    )
 
 
 @router.get("/lobby", response_class=HTMLResponse)
@@ -104,19 +83,18 @@ async def leave_lobby(request: Request) -> RedirectResponse | HTMLResponse | Res
     try:
         lobby_service.leave_lobby(player.id)
 
+        # Note: Using HX-Push-Url requires custom headers, so use manual response for HTMX
         if request.headers.get("HX-Request"):
-            response: Response = Response(
+            return Response(
                 status_code=status.HTTP_204_NO_CONTENT,
                 headers={
                     "HX-Redirect": "/login",
                     "HX-Push-Url": "/login",
                 },
             )
-            return response
 
-        else:
-            # Fallback using standard redirect to home/login page on success
-            return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
+        # Fallback using standard redirect to home/login page on success
+        return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
 
     except ValueError as e:
         # Handle validation errors (empty name, nonexistent player)
@@ -197,10 +175,7 @@ async def _render_lobby_status(
     # Check if we need to redirect (player is IN_GAME)
     redirect_url = context.pop("_redirect_url", None)
     if redirect_url:
-        return Response(
-            status_code=status.HTTP_204_NO_CONTENT,
-            headers={"HX-Redirect": redirect_url},
-        )
+        return _htmx_redirect(redirect_url)
 
     return templates.TemplateResponse(
         request, "components/lobby_dynamic_content.html", context
@@ -431,17 +406,7 @@ async def accept_game_request(
             game.status = GameStatus.SETUP
 
         # Redirect to ship placement page (game already exists)
-        redirect_url: str = "/place-ships"
-
-        if request.headers.get("HX-Request"):
-            response: Response = Response(
-                status_code=status.HTTP_204_NO_CONTENT,
-                headers={"HX-Redirect": redirect_url},
-            )
-            return response
-        else:
-            # Normal flow: Redirect to ship placement
-            return RedirectResponse(url=redirect_url, status_code=status.HTTP_302_FOUND)
+        return _redirect_or_htmx(request, "/place-ships", status.HTTP_302_FOUND)
 
     except ValueError as e:
         # Handle validation errors (no pending request, etc.)

@@ -2,7 +2,7 @@ from bs4 import BeautifulSoup
 from fastapi import status
 from fastapi.testclient import TestClient
 from httpx import Response
-from test_helpers import decode_session
+from helpers import decode_session
 
 
 class TestLoginEndpoints:

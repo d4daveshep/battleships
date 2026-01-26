@@ -8,9 +8,12 @@ from game.player import Player, PlayerStatus
 from services.auth_service import AuthService
 
 from routes.helpers import (
+    _create_login_error_response,
     _get_game_service,
     _get_lobby_service,
     _get_templates,
+    _redirect_or_htmx,
+    SESSION_PLAYER_ID_KEY,
 )
 
 router: APIRouter = APIRouter(prefix="", tags=["auth"])
@@ -36,34 +39,6 @@ def _get_auth_service() -> AuthService:
     if _auth_service is None:
         raise RuntimeError("Router not initialized - call set_up_auth_router first")
     return _auth_service
-
-
-def _create_login_error_response(
-    request: Request,
-    error_message: str,
-    player_name: str = "",
-    css_class: str = "error",
-    status_code: int = status.HTTP_400_BAD_REQUEST,
-) -> HTMLResponse:
-    """Display the login page with an error message.
-
-    Used for login validation errors and lobby operation errors that
-    redirect users back to the login page.
-    """
-    templates = _get_templates()
-
-    template_context: dict[str, str] = {
-        "error_message": error_message,
-        "player_name": player_name,
-        "css_class": css_class,
-    }
-
-    return templates.TemplateResponse(
-        request=request,
-        name="login.html",
-        context=template_context,
-        status_code=status_code,
-    )
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -112,8 +87,8 @@ async def login_submit(
 
     # Generate and store player ID in session and player object in game service
     player: Player = Player(player_name, PlayerStatus.AVAILABLE)
-    request.session["player-id"] = player.id
     game_service.add_player(player)
+    request.session[SESSION_PLAYER_ID_KEY] = player.id
 
     try:
         redirect_url: str
@@ -126,16 +101,7 @@ async def login_submit(
         else:
             raise ValueError(f"Invalid game mode: {game_mode}")
 
-        if request.headers.get("HX-Request"):
-            response: Response = Response(
-                status_code=status.HTTP_204_NO_CONTENT,
-                headers={"HX-Redirect": redirect_url},
-            )
-            return response
-        else:
-            return RedirectResponse(
-                url=redirect_url, status_code=status.HTTP_303_SEE_OTHER
-            )
+        return _redirect_or_htmx(request, redirect_url)
     except ValueError as e:
         return _create_login_error_response(
             request=request,

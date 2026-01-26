@@ -1,6 +1,6 @@
 from fastapi import status
 from fastapi.testclient import TestClient
-from test_helpers import (
+from helpers import (
     accept_game_request,
     decline_game_request,
     decode_session,

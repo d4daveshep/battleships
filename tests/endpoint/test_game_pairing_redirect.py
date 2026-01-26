@@ -8,7 +8,7 @@ Tests should fail initially as the pairing lookup is not yet implemented.
 """
 
 from fastapi.testclient import TestClient
-from test_helpers import accept_game_request, send_game_request
+from helpers import accept_game_request, send_game_request
 
 
 class TestGamePairingRedirect:
@@ -87,7 +87,7 @@ class TestGamePairingRedirect:
         alice_client = TestClient(app)
         bob_client = TestClient(app)
 
-        from test_helpers import create_player
+        from helpers import create_player
 
         # Four players join with their respective clients
         create_player(alice_client, "Alice", "human")
@@ -143,7 +143,7 @@ class TestGamePairingEdgeCases:
         alice_client, bob_client = game_request_pending
 
         # Bob declines the request
-        from test_helpers import decline_game_request
+        from helpers import decline_game_request
 
         decline_game_request(bob_client)
 

@@ -1,92 +1,41 @@
 import asyncio
 import random
-import secrets
-from enum import StrEnum
 from typing import TYPE_CHECKING
 
-from game.model import Coord, GameBoard, Orientation, Ship, ShipType
+from game.exceptions import (
+    DuplicatePlayerException,
+    PlayerAlreadyInGameException,
+    PlayerNotInGameException,
+    UnknownGameException,
+    UnknownPlayerException,
+)
+from game.model import (
+    Coord,
+    Game,
+    GameBoard,
+    GameMode,
+    GameStatus,
+    Orientation,
+    Ship,
+    ShipType,
+)
 from game.player import Player, PlayerStatus
 
 if TYPE_CHECKING:
     from services.lobby_service import LobbyService
 
-
-class GameMode(StrEnum):
-    """Game mode enumeration for distinguishing single vs multiplayer games"""
-
-    SINGLE_PLAYER = "single Player"
-    TWO_PLAYER = "two Player"
-
-
-class GameStatus(StrEnum):
-    """Game status enumeration for various stages of the game"""
-
-    CREATED = "created"
-    SETUP = "setup"
-    PLAYING = "playing"
-    FINISHED = "finished"
-    ABANDONED = "abandoned"
-
-
-class Game:
-    """Game state management for tracking game sessions"""
-
-    def __init__(
-        self, player_1: Player, game_mode: GameMode, player_2: Player | None = None
-    ) -> None:
-        self.player_1: Player = player_1
-        self.game_mode: GameMode = game_mode
-        self.player_2: Player | None = player_2
-        self._id: str = Game.generate_id()
-        self.status: GameStatus = GameStatus.CREATED
-
-        # Validate that two player games have an opponent
-        if self.game_mode == GameMode.TWO_PLAYER and not self.player_2:
-            raise ValueError("Two player games must two players")
-
-        # Validate that single player games don't have an opponent
-        if self.game_mode == GameMode.SINGLE_PLAYER and self.player_2:
-            raise ValueError("Single player games cannot have two players")
-
-        # Create game boards
-        self.board: dict[Player, GameBoard] = {}
-        self.board[self.player_1] = GameBoard()
-        if self.player_2:
-            self.board[self.player_2] = GameBoard()
-
-    @property
-    def id(self) -> str:
-        """Read-only player ID that is automatically generated at creation."""
-        return self._id
-
-    @classmethod
-    def generate_id(cls) -> str:
-        """Generate a unique player ID using a cryptographically secure random token.
-
-        Returns:
-            str: A URL-safe random token string (always 22 characters, from 16 random bytes)
-        """
-        return secrets.token_urlsafe(16)
-
-
-class PlayerAlreadyInGameException(Exception):
-    pass
-
-
-class UnknownPlayerException(Exception):
-    pass
-
-
-class PlayerNotInGameException(Exception):
-    pass
-
-
-class DuplicatePlayerException(Exception):
-    pass
-
-
-class UnknownGameException(Exception):
-    pass
+# Re-export for backwards compatibility
+__all__ = [
+    "GameService",
+    "Game",
+    "GameMode",
+    "GameStatus",
+    "PlayerAlreadyInGameException",
+    "UnknownPlayerException",
+    "PlayerNotInGameException",
+    "DuplicatePlayerException",
+    "UnknownGameException",
+]
 
 
 class GameService:

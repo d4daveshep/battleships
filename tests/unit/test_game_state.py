@@ -63,7 +63,7 @@ class TestGameModel:
 
     def test_create_two_player_game_fails_with_one_player(self, alice):
         # Test that two player game requires two players
-        with pytest.raises(ValueError, match="Two player games must two players"):
+        with pytest.raises(ValueError, match="Two player games must have two players"):
             Game(player_1=alice, game_mode=GameMode.TWO_PLAYER)
 
     def test_create_single_player_game_fails_with_two_players(self, alice, bob):

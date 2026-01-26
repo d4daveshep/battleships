@@ -3,7 +3,7 @@ from fastapi.testclient import TestClient
 from main import app
 
 # Import helpers from the same directory
-from test_helpers import accept_game_request, create_player, send_game_request
+from helpers import accept_game_request, create_player, send_game_request
 
 
 @pytest.fixture(autouse=True)

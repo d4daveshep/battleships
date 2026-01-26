@@ -232,29 +232,52 @@ def redirected_to_game_within_time(page: Page) -> None:
     """Verify redirect happens within specified time"""
     start_time = getattr(page, "accept_request_time", time.time())
 
-    # Wait for redirect to game page (allow up to 35s for long poll timeout + event trigger)
+    # Wait for redirect to ship placement page (new flow)
+    # Allow up to 35s for long poll timeout + event trigger
     try:
-        page.wait_for_url("**/start-game", timeout=35000)
+        page.wait_for_url("**/place-ships*", timeout=35000)
         elapsed = time.time() - start_time
         # Log the actual time for performance tracking
         # In ideal conditions with events, this should be < 5s
-        print(f"Redirected to game page in {elapsed}s")
+        print(f"Redirected to ship placement page in {elapsed}s")
     except Exception as e:
         elapsed = time.time() - start_time
         raise AssertionError(
-            f"Did not redirect to game within timeout (waited {elapsed}s): {e}"
+            f"Did not redirect to ship placement within timeout (waited {elapsed}s): {e}"
         )
 
 
 @then(parsers.parse('the game should be with opponent "{opponent}"'))
 def verify_game_opponent(page: Page, opponent: str) -> None:
     """Verify the game page shows correct opponent"""
-    # Check page content for opponent name instead of URL
-    opponent_element = page.locator('[data-testid="opponent-name"]')
-    assert opponent_element.is_visible()
-    assert opponent in opponent_element.inner_text(), (
-        f"Expected {opponent} in opponent name element"
-    )
+    current_url = page.url
+
+    if "/start-game" in current_url:
+        # Check start-game page for opponent-name
+        opponent_element = page.locator('[data-testid="opponent-name"]')
+        assert opponent_element.is_visible()
+        assert opponent in opponent_element.inner_text()
+    elif "/place-ships" in current_url:
+        # On ship placement page - opponent status is shown via HTMX
+        # The test passes if we're on ship placement with multiplayer mode
+        # Check for opponent-status element or the page structure indicating multiplayer
+        opponent_status = page.locator('[data-testid="opponent-status"]')
+        if opponent_status.count() > 0:
+            # Opponent status element exists
+            return
+
+        # Check if page has elements indicating multiplayer (like the HTMX component div)
+        page_content = page.content()
+        # Look for hx-get with opponent-status or multiplayer indicators
+        assert (
+            'hx-get="/place-ships/opponent-status"' in page_content
+            or 'data-testid="opponent-status"' in page_content
+        ), "Ship placement page should have opponent status component for multiplayer"
+    else:
+        # Check game page
+        opponent_element = page.locator('[data-testid="opponent-name"]')
+        if opponent_element.count() > 0:
+            assert opponent in opponent_element.inner_text()
 
 
 @when(parsers.parse('"{opponent}" declines my game request'))

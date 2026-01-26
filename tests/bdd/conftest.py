@@ -1,13 +1,82 @@
 import subprocess
 import time
+from dataclasses import dataclass, field
 
 import httpx
 import pytest
+from bs4 import BeautifulSoup
+from httpx import Response
 from playwright.sync_api import Browser, Page, sync_playwright
+from starlette.testclient import TestClient
 
 
 # Base URL constant
 BASE_URL = "http://localhost:8000/"
+
+
+@dataclass
+class BaseBDDContext:
+    """Base class for BDD test contexts with HTTP response handling.
+
+    This provides common functionality for maintaining state between BDD steps,
+    including response tracking and HTML parsing. Feature-specific contexts
+    should inherit from this class and add their own fields.
+    """
+
+    response: Response | None = None
+    soup: BeautifulSoup | None = None
+    form_data: dict[str, str] = field(default_factory=dict)
+
+    def update_response(self, response: Response) -> None:
+        """Update context with new response and parse HTML.
+
+        Args:
+            response: The HTTP response to store and parse
+        """
+        self.response = response
+        self.soup = BeautifulSoup(response.text, "html.parser")
+
+    def assert_on_page(self, page_title_contains: str) -> None:
+        """Assert that the current page contains expected title text.
+
+        Args:
+            page_title_contains: Text that should appear in the h1 element
+        """
+        assert self.soup is not None, "No page loaded"
+        assert self.response is not None, "No response received"
+        h1_element = self.soup.find("h1")
+        assert h1_element is not None, "No h1 element found"
+        assert page_title_contains in h1_element.get_text(), (
+            f"Expected '{page_title_contains}' in page title, "
+            f"got '{h1_element.get_text()}'"
+        )
+
+
+@dataclass
+class MultiPlayerBDDContext(BaseBDDContext):
+    """Extended BDD context for multi-player scenarios.
+
+    Adds support for managing multiple player clients and tracking
+    game state across players.
+    """
+
+    current_player_name: str | None = None
+    player_clients: dict[str, TestClient] = field(default_factory=dict)
+
+    def get_client_for_player(self, player_name: str) -> TestClient:
+        """Get or create a TestClient for a specific player.
+
+        Args:
+            player_name: The name of the player
+
+        Returns:
+            TestClient instance for the player
+        """
+        if player_name not in self.player_clients:
+            from main import app
+
+            self.player_clients[player_name] = TestClient(app, follow_redirects=False)
+        return self.player_clients[player_name]
 
 
 @pytest.fixture(autouse=True)

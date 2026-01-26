@@ -1,34 +1,34 @@
+import secrets
 from dataclasses import dataclass, field
 from enum import Enum, StrEnum
-from typing import Any, NamedTuple
+from typing import TYPE_CHECKING, Any, NamedTuple
 
+from game.exceptions import (
+    ShipAlreadyPlacedError,
+    ShipPlacementOutOfBoundsError,
+    ShipPlacementTooCloseError,
+)
 
-class ShipAlreadyPlacedError(Exception):
-    """Raised when attempting to place a ship type that has already been placed on the board."""
+if TYPE_CHECKING:
+    from game.player import Player
 
-    def __init__(self, message: str):
-        super().__init__(message)
-        self.user_message: str = "Ships must have empty space around them"
-
-
-class ShipPlacementOutOfBoundsError(Exception):
-    """Raised when attempting to place a ship that would extend beyond the board boundaries."""
-
-    def __init__(self, message: str):
-        super().__init__(message)
-        self.user_message: str = "Ship placement goes outside the board"
-
-
-class ShipPlacementTooCloseError(Exception):
-    """Raised when attempting to place a ship too close to (touching or overlapping) another ship."""
-
-    def __init__(self, message: str, is_overlap: bool = False):
-        super().__init__(message)
-        self.user_message: str = (
-            "Ships cannot overlap"
-            if is_overlap
-            else "Ships must have empty space around them"
-        )
+# Re-export exceptions for backwards compatibility
+__all__ = [
+    "ShipAlreadyPlacedError",
+    "ShipPlacementOutOfBoundsError",
+    "ShipPlacementTooCloseError",
+    "Orientation",
+    "ShipType",
+    "CoordDetails",
+    "Coord",
+    "CoordHelper",
+    "Ship",
+    "GameBoard",
+    "GameBoardHelper",
+    "GameMode",
+    "GameStatus",
+    "Game",
+]
 
 
 class Orientation(StrEnum):
@@ -326,3 +326,65 @@ class GameBoardHelper:
 
             output.append(row_output)
         return output
+
+
+class GameMode(StrEnum):
+    """Game mode enumeration for distinguishing single vs multiplayer games."""
+
+    SINGLE_PLAYER = "single Player"
+    TWO_PLAYER = "two Player"
+
+
+class GameStatus(StrEnum):
+    """Game status enumeration for tracking game lifecycle stages."""
+
+    CREATED = "created"
+    SETUP = "setup"
+    PLAYING = "playing"
+    FINISHED = "finished"
+    ABANDONED = "abandoned"
+
+
+class Game:
+    """Game state management for tracking game sessions.
+
+    Manages the lifecycle of a battleships game, including player assignments,
+    game mode, status tracking, and individual player boards.
+    """
+
+    def __init__(
+        self, player_1: "Player", game_mode: GameMode, player_2: "Player | None" = None
+    ) -> None:
+        self.player_1: "Player" = player_1
+        self.game_mode: GameMode = game_mode
+        self.player_2: "Player | None" = player_2
+        self._id: str = self._generate_id()
+        self.status: GameStatus = GameStatus.CREATED
+
+        # Validate that two player games have an opponent
+        if self.game_mode == GameMode.TWO_PLAYER and not self.player_2:
+            raise ValueError("Two player games must have two players")
+
+        # Validate that single player games don't have an opponent
+        if self.game_mode == GameMode.SINGLE_PLAYER and self.player_2:
+            raise ValueError("Single player games cannot have two players")
+
+        # Create game boards
+        self.board: dict["Player", GameBoard] = {}
+        self.board[self.player_1] = GameBoard()
+        if self.player_2:
+            self.board[self.player_2] = GameBoard()
+
+    @property
+    def id(self) -> str:
+        """Read-only game ID that is automatically generated at creation."""
+        return self._id
+
+    @staticmethod
+    def _generate_id() -> str:
+        """Generate a unique game ID using a cryptographically secure random token.
+
+        Returns:
+            A URL-safe random token string (always 22 characters, from 16 random bytes)
+        """
+        return secrets.token_urlsafe(16)

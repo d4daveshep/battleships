@@ -8,7 +8,7 @@ Tests should fail initially as the pairing lookup is not yet implemented.
 """
 
 from fastapi.testclient import TestClient
-from test_helpers import accept_game_request, send_game_request
+from helpers import accept_game_request, send_game_request
 
 
 class TestGamePairingRedirect:
@@ -24,7 +24,8 @@ class TestGamePairingRedirect:
         response = accept_game_request(bob_client, follow_redirects=False)
         assert response.status_code == 302
         # Player and opponent info from session/lobby state
-        assert response.headers["location"] == "/start-game"
+        # With new flow, game is created at accept time, redirect to ship placement
+        assert response.headers["location"] == "/place-ships"
 
         # Alice polls for status - should get redirect with correct opponent
         response = alice_client.get("/lobby/status")
@@ -34,12 +35,12 @@ class TestGamePairingRedirect:
         assert "HX-Redirect" in response.headers, "Should have HX-Redirect header"
 
         redirect_url = response.headers["HX-Redirect"]
-        assert "/start-game" in redirect_url, (
-            f"Redirect URL should contain /start-game, got: {redirect_url}"
+        assert "/place-ships" in redirect_url, (
+            f"Redirect URL should contain /place-ships, got: {redirect_url}"
         )
         # Both player and opponent now come from session/lobby state
-        assert redirect_url == "/start-game", (
-            f"Redirect should be clean /start-game URL, got: {redirect_url}"
+        assert redirect_url == "/place-ships", (
+            f"Redirect should be clean /place-ships URL, got: {redirect_url}"
         )
 
     def test_receiver_redirected_with_correct_opponent_immediately(
@@ -53,9 +54,9 @@ class TestGamePairingRedirect:
 
         assert response.status_code == 302
         redirect_url = response.headers["location"]
-        # Both player and opponent now come from session/lobby state
-        assert redirect_url == "/start-game", (
-            f"Redirect should be clean /start-game URL, got: {redirect_url}"
+        # With new flow, game is created at accept time, redirect to ship placement
+        assert redirect_url == "/place-ships", (
+            f"Redirect should be clean /place-ships URL, got: {redirect_url}"
         )
 
     def test_both_players_can_discover_each_other_as_opponents(
@@ -68,13 +69,13 @@ class TestGamePairingRedirect:
         alice_response = alice_client.get("/lobby/status")
         assert alice_response.status_code == 204
         alice_redirect = alice_response.headers["HX-Redirect"]
-        assert alice_redirect == "/start-game"
+        assert alice_redirect == "/place-ships"
 
         # Check Bob's status (in case they poll again)
         bob_response = bob_client.get("/lobby/status")
         assert bob_response.status_code == 204
         bob_redirect = bob_response.headers["HX-Redirect"]
-        assert bob_redirect == "/start-game"
+        assert bob_redirect == "/place-ships"
 
     def test_multiple_concurrent_games_have_correct_pairings(
         self, charlie_client: TestClient, diana_client: TestClient
@@ -86,7 +87,7 @@ class TestGamePairingRedirect:
         alice_client = TestClient(app)
         bob_client = TestClient(app)
 
-        from test_helpers import create_player
+        from helpers import create_player
 
         # Four players join with their respective clients
         create_player(alice_client, "Alice", "human")
@@ -101,18 +102,18 @@ class TestGamePairingRedirect:
         accept_game_request(bob_client)
         accept_game_request(diana_client)
 
-        # Verify each player is paired correctly (all redirected to /start-game)
+        # Verify each player is paired correctly (all redirected to /place-ships)
         alice_response = alice_client.get("/lobby/status")
-        assert alice_response.headers["HX-Redirect"] == "/start-game"
+        assert alice_response.headers["HX-Redirect"] == "/place-ships"
 
         bob_response = bob_client.get("/lobby/status")
-        assert bob_response.headers["HX-Redirect"] == "/start-game"
+        assert bob_response.headers["HX-Redirect"] == "/place-ships"
 
         charlie_response = charlie_client.get("/lobby/status")
-        assert charlie_response.headers["HX-Redirect"] == "/start-game"
+        assert charlie_response.headers["HX-Redirect"] == "/place-ships"
 
         diana_response = diana_client.get("/lobby/status")
-        assert diana_response.headers["HX-Redirect"] == "/start-game"
+        assert diana_response.headers["HX-Redirect"] == "/place-ships"
 
     def test_long_poll_endpoint_also_uses_correct_opponent(
         self, game_paired: tuple[TestClient, TestClient]
@@ -126,9 +127,9 @@ class TestGamePairingRedirect:
         assert response.status_code == 204
         assert "HX-Redirect" in response.headers
         redirect_url = response.headers["HX-Redirect"]
-        # Player and opponent info from session/lobby state
-        assert redirect_url == "/start-game", (
-            f"Long poll should redirect to clean /start-game URL, got: {redirect_url}"
+        # With new flow, game is created at accept time, redirect to ship placement
+        assert redirect_url == "/place-ships", (
+            f"Long poll should redirect to clean /place-ships URL, got: {redirect_url}"
         )
 
 
@@ -142,7 +143,7 @@ class TestGamePairingEdgeCases:
         alice_client, bob_client = game_request_pending
 
         # Bob declines the request
-        from test_helpers import decline_game_request
+        from helpers import decline_game_request
 
         decline_game_request(bob_client)
 
@@ -165,5 +166,5 @@ class TestGamePairingEdgeCases:
         for _ in range(3):
             response = alice_client.get("/lobby/status")
             assert response.status_code == 204
-            # Player and opponent info from session/lobby state
-            assert response.headers["HX-Redirect"] == "/start-game"
+            # With new flow, game is created at accept time, redirect to ship placement
+            assert response.headers["HX-Redirect"] == "/place-ships"

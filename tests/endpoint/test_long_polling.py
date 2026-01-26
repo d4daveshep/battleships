@@ -9,7 +9,7 @@ import time
 
 from fastapi import status
 from fastapi.testclient import TestClient
-from test_helpers import leave_lobby, send_game_request
+from helpers import leave_lobby, send_game_request
 
 
 class TestLongPollingEndpoint:

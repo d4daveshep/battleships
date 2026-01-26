@@ -388,24 +388,12 @@ async def accept_game_request(
 
     try:
         # Accept the game request - this pairs players in lobby.active_games
-        sender_id: str
-        receiver_id: str
         sender_id, receiver_id = lobby_service.accept_game_request(player.id)
 
-        # Create the game immediately when request is accepted
-        # This ensures is_multiplayer() works during ship placement
-        # Check if game already exists for either player (handles concurrent accepts)
-        if (
-            sender_id not in game_service.games_by_player
-            and receiver_id not in game_service.games_by_player
-        ):
-            game_service.create_two_player_game(sender_id, receiver_id)
+        # Create the game (idempotent - handles concurrent accepts)
+        game_service.create_game_from_accepted_request(sender_id, receiver_id)
 
-            # Update game status to SETUP (ship placement phase)
-            game = game_service.games_by_player[sender_id]
-            game.status = GameStatus.SETUP
-
-        # Redirect to ship placement page (game already exists)
+        # Redirect to ship placement page
         return _redirect_or_htmx(request, "/place-ships", status.HTTP_302_FOUND)
 
     except ValueError as e:

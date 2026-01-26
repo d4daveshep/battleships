@@ -47,6 +47,9 @@ class GameService:
             str, GameBoard
         ] = {}  # player_id->GameBoard for ship placement phase
         self.ready_players: set[str] = set()
+        # Initialize placement version tracking
+        self._placement_version: int = 0
+        self._placement_change_event: "asyncio.Event" = asyncio.Event()
 
     def add_player(self, player: Player) -> None:
         self.players[player.id] = player
@@ -62,11 +65,93 @@ class GameService:
         """
         return self.players.get(player_id)
 
-    def create_single_player_game(self, player_id: str) -> str:
+    def _get_player_or_raise(self, player_id: str) -> Player:
+        """Get player by ID or raise UnknownPlayerException.
+
+        Args:
+            player_id: The player ID to look up
+
+        Returns:
+            Player object
+
+        Raises:
+            UnknownPlayerException: If player doesn't exist
+        """
         try:
-            player = self.players[player_id]
+            return self.players[player_id]
         except KeyError:
             raise UnknownPlayerException(f"Player with id:{player_id} does not exist")
+
+    def _get_game_or_raise(self, game_id: str) -> Game:
+        """Get game by ID or raise UnknownGameException.
+
+        Args:
+            game_id: The game ID to look up
+
+        Returns:
+            Game object
+
+        Raises:
+            UnknownGameException: If game doesn't exist
+        """
+        try:
+            return self.games[game_id]
+        except KeyError:
+            raise UnknownGameException(f"Game with id:{game_id} does not exist")
+
+    def set_game_status(self, game_id: str, new_status: GameStatus) -> None:
+        """Update the status of a game.
+
+        Args:
+            game_id: The game ID
+            new_status: The new status to set
+
+        Raises:
+            UnknownGameException: If game doesn't exist
+        """
+        game = self._get_game_or_raise(game_id)
+        game.status = new_status
+
+    def start_game(self, game_id: str) -> None:
+        """Transition game from SETUP to PLAYING.
+
+        Args:
+            game_id: The game ID
+
+        Raises:
+            UnknownGameException: If game doesn't exist
+        """
+        self.set_game_status(game_id, GameStatus.PLAYING)
+
+    def create_game_from_accepted_request(
+        self, sender_id: str, receiver_id: str
+    ) -> str:
+        """Create a two-player game when a game request is accepted.
+
+        This method is idempotent - if a game already exists for either player,
+        it returns the existing game ID without creating a new one.
+
+        Args:
+            sender_id: The ID of the player who sent the game request
+            receiver_id: The ID of the player who accepted the request
+
+        Returns:
+            The game ID (new or existing)
+        """
+        # Check if game already exists (handles concurrent accepts)
+        if sender_id in self.games_by_player:
+            return self.games_by_player[sender_id].id
+        if receiver_id in self.games_by_player:
+            return self.games_by_player[receiver_id].id
+
+        # Create new game
+        game_id = self.create_two_player_game(sender_id, receiver_id)
+        game = self.games[game_id]
+        game.status = GameStatus.SETUP
+        return game_id
+
+    def create_single_player_game(self, player_id: str) -> str:
+        player = self._get_player_or_raise(player_id)
 
         if player_id in self.games_by_player or player.status == PlayerStatus.IN_GAME:
             raise PlayerAlreadyInGameException(
@@ -80,12 +165,8 @@ class GameService:
         return new_game.id
 
     def create_two_player_game(self, player_1_id: str, player_2_id: str) -> str:
-        try:
-            player_1: Player = self.players[player_1_id]
-            player_2: Player = self.players[player_2_id]
-        except KeyError as e:
-            key = e.args[0]
-            raise UnknownPlayerException(f"Player with id:{key} does not exist")
+        player_1: Player = self._get_player_or_raise(player_1_id)
+        player_2: Player = self._get_player_or_raise(player_2_id)
 
         # Check if either player is already in a game
         if player_1_id in self.games_by_player:
@@ -130,22 +211,14 @@ class GameService:
         Raises:
             UnknownGameException: If game doesn't exist
         """
-        if game_id not in self.games:
-            raise UnknownGameException(f"Game with id:{game_id} does not exist")
-
-        game = self.games[game_id]
+        game = self._get_game_or_raise(game_id)
         if player_id in self.ship_placement_boards:
             game.board[player] = self.ship_placement_boards[player_id]
             del self.ship_placement_boards[player_id]
 
     # TODO: Review this function and the commonality with get_or_create_ship_placement_board to see if we need both
     def get_game_board(self, player_id: str) -> GameBoard:
-        player: Player
-        game: Game
-        try:
-            player = self.players[player_id]
-        except KeyError:
-            raise UnknownPlayerException(f"Player with id:{player_id} does not exist")
+        player: Player = self._get_player_or_raise(player_id)
         try:
             game = self.games_by_player[player_id]
         except KeyError:
@@ -170,10 +243,7 @@ class GameService:
         Raises:
             UnknownPlayerException: If player doesn't exist
         """
-        try:
-            player: Player = self.players[player_id]
-        except KeyError:
-            raise UnknownPlayerException(f"Player with id:{player_id} does not exist")
+        player: Player = self._get_player_or_raise(player_id)
 
         # If player already has a ship placement board, return it
         if player_id in self.ship_placement_boards:
@@ -295,10 +365,7 @@ class GameService:
         return game_id
 
     def get_game_status_by_player_id(self, player_id: str) -> GameStatus:
-        try:
-            player = self.players[player_id]
-        except KeyError:
-            raise UnknownPlayerException(f"Player with id:{player_id} does not exist")
+        player = self._get_player_or_raise(player_id)
         try:
             game = self.games_by_player[player_id]
         except KeyError:
@@ -308,10 +375,7 @@ class GameService:
         return game.status
 
     def get_game_status_by_game_id(self, game_id: str) -> GameStatus:
-        try:
-            game = self.games[game_id]
-        except KeyError:
-            raise UnknownGameException(f"Game with id:{game_id} does not exist")
+        game = self._get_game_or_raise(game_id)
         return game.status
 
     def get_game_id_by_player_id(self, player_id: str) -> str:
@@ -400,16 +464,10 @@ class GameService:
         Returns:
             Current version number for change detection
         """
-        if not hasattr(self, "_placement_version"):
-            self._placement_version = 0
-            self._placement_change_event = asyncio.Event()
         return self._placement_version
 
     def _notify_placement_change(self) -> None:
         """Increment version and notify waiters of placement state change."""
-        if not hasattr(self, "_placement_version"):
-            self._placement_version = 0
-            self._placement_change_event = asyncio.Event()
         self._placement_version += 1
         self._placement_change_event.set()
 
@@ -422,19 +480,15 @@ class GameService:
         Returns immediately if the current version is different from since_version.
         Otherwise, waits for the change_event to be set.
         """
-        if not hasattr(self, "_placement_version"):
-            self._placement_version = 0
-            self._placement_change_event = asyncio.Event()
-
         # If version already changed, return immediately
-        if self.get_placement_version() != since_version:
+        if self._placement_version != since_version:
             return
 
         # Clear the event for this wait cycle
         self._placement_change_event.clear()
 
         # Check version again after clearing (in case it changed)
-        if self.get_placement_version() != since_version:
+        if self._placement_version != since_version:
             return
 
         # Wait for the event to be set

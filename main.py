@@ -4,20 +4,17 @@ This is the main entry point for the application. Routes are organized
 into separate router modules in the `routes` package.
 """
 
-import asyncio
-from typing import Any
+import os
 
-from fastapi import FastAPI, Form, HTTPException, Request, status
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
-from starlette.responses import Response
 
 from game.lobby import Lobby
 from services.auth_service import AuthService
 from services.lobby_service import LobbyService
-from game.game_service import GameService, GameStatus
+from game.game_service import GameService
 
 # Import routers
 from routes.helpers import set_up_helpers
@@ -64,138 +61,20 @@ app.include_router(start_game_router)
 
 
 # === Testing Endpoints ===
-# These endpoints are kept in main.py as they are specific to the main app
+# Include testing router only when TESTING environment variable is set
+# or when running in development mode (always include for now during development)
+_include_testing = os.environ.get("TESTING", "true").lower() == "true"
 
+if _include_testing:
+    from routes.testing import set_up_testing_router, router as testing_router
 
-@app.post("/test/reset-lobby")
-async def reset_lobby_for_testing() -> dict[str, str]:
-    """Reset lobby and game state - for testing only"""
-    _game_lobby.players.clear()
-    _game_lobby.game_requests.clear()
-    _game_lobby.active_games.clear()
-    _game_lobby.version = 0
-    _game_lobby.change_event = asyncio.Event()
-
-    # Also reset game service state
-    game_service.games.clear()
-    game_service.games_by_player.clear()
-    game_service.ship_placement_boards.clear()
-    game_service.ready_players.clear()
-    if hasattr(game_service, "_placement_version"):
-        game_service._placement_version = 0
-        game_service._placement_change_event = asyncio.Event()
-
-    return {"status": "lobby and games cleared"}
-
-
-@app.post("/test/add-player-to-lobby")
-async def add_player_to_lobby_for_testing(player_name: str = Form()) -> dict[str, str]:
-    """Add a player to the lobby bypassing authentication - for testing only"""
-    try:
-        # Create a player object for testing
-        from game.player import Player, PlayerStatus
-
-        test_player: Player = Player(player_name, PlayerStatus.AVAILABLE)
-        lobby_service.join_lobby(test_player)
-        return {"status": "player added", "player": player_name}
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-@app.post("/test/remove-player-from-lobby")
-async def remove_player_from_lobby_for_testing(
-    player_name: str = Form(),
-) -> dict[str, str]:
-    """Remove a player from the lobby bypassing authentication - for testing only"""
-    try:
-        # Look up player ID by name
-        player_id: str | None = lobby_service.get_player_id_by_name(player_name)
-        if not player_id:
-            raise ValueError(f"Player '{player_name}' not found in lobby")
-        lobby_service.leave_lobby(player_id)
-        return {"status": "player removed", "player": player_name}
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-@app.post("/test/send-game-request")
-async def send_game_request_for_testing(
-    sender_name: str = Form(), target_name: str = Form()
-) -> dict[str, str]:
-    """Send a game request bypassing session validation - for testing only"""
-    try:
-        # Look up player IDs by names
-        sender_id: str | None = lobby_service.get_player_id_by_name(sender_name)
-        target_id: str | None = lobby_service.get_player_id_by_name(target_name)
-        if not sender_id:
-            raise ValueError(f"Sender '{sender_name}' not found in lobby")
-        if not target_id:
-            raise ValueError(f"Target '{target_name}' not found in lobby")
-        lobby_service.send_game_request(sender_id, target_id)
-        return {
-            "status": "game request sent",
-            "sender": sender_name,
-            "target": target_name,
-        }
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-@app.post("/test/accept-game-request")
-async def accept_game_request_for_testing(player_name: str = Form()) -> dict[str, str]:
-    """Accept a game request bypassing session validation - for testing only"""
-    try:
-        # Look up player ID by name
-        player_id: str | None = lobby_service.get_player_id_by_name(player_name)
-        if not player_id:
-            raise ValueError(f"Player '{player_name}' not found in lobby")
-        sender_id, receiver_id = lobby_service.accept_game_request(player_id)
-
-        # Create the game (new flow - game created at accept time)
-        if (
-            sender_id not in game_service.games_by_player
-            and receiver_id not in game_service.games_by_player
-        ):
-            game_service.create_two_player_game(sender_id, receiver_id)
-            # Update game status to SETUP (ship placement phase)
-            game = game_service.games_by_player[sender_id]
-            from game.game_service import GameStatus
-
-            game.status = GameStatus.SETUP
-
-        sender_name: str | None = lobby_service.get_player_name(sender_id)
-        receiver_name: str | None = lobby_service.get_player_name(receiver_id)
-        return {
-            "status": "game request accepted",
-            "player": receiver_name or receiver_id,
-            "sender": sender_name or sender_id,
-        }
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-@app.post("/test/decline-game-request")
-async def decline_game_request_for_testing(player_name: str = Form()) -> dict[str, str]:
-    """Decline a game request bypassing session validation - for testing only"""
-    try:
-        # Look up player ID by name
-        player_id: str | None = lobby_service.get_player_id_by_name(player_name)
-        if not player_id:
-            raise ValueError(f"Player '{player_name}' not found in lobby")
-        sender_id: str = lobby_service.decline_game_request(player_id)
-        sender_name: str | None = lobby_service.get_player_name(sender_id)
-        return {
-            "status": "game request declined",
-            "player": player_name,
-            "sender": sender_name or sender_id,
-        }
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    set_up_testing_router(_game_lobby, game_service, lobby_service)
+    app.include_router(testing_router)
 
 
 @app.get("/health")
 async def health_check() -> dict[str, str]:
-    """Health check endpoint for test infrastructure"""
+    """Health check endpoint for infrastructure monitoring."""
     return {"status": "healthy"}
 
 

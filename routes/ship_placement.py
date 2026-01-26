@@ -295,22 +295,20 @@ def _create_game_for_ready_players(
 
     # Game should already exist from accept-game-request
     # Just transfer the ship placement board to the game
-    try:
-        game = game_service.games_by_player[player_id]
-        game_id = game.id
-    except KeyError:
+    if player_id not in game_service.games_by_player:
         raise HTTPException(
             status_code=500,
             detail="Game not found - should have been created when request was accepted",
         )
 
+    game = game_service.games_by_player[player_id]
+    game_id = game.id
+
     # Transfer ship placement board to game (only for the player who just became ready)
     game_service.transfer_ship_placement_board_to_game(game_id, player_id, player)
 
-    # Update game status to PLAYING (game is now starting)
-    from game.game_service import GameStatus
-
-    game.status = GameStatus.PLAYING
+    # Transition game to PLAYING status
+    game_service.start_game(game_id)
 
     return game_id
 
@@ -379,7 +377,7 @@ def _check_game_redirect_url(request: Request, player_id: str) -> str | None:
     Returns:
         Redirect URL if game has started, None otherwise
     """
-    from game.game_service import GameStatus
+    from game.model import GameStatus
 
     game_service = _get_game_service()
     player = _get_player_from_session(request)

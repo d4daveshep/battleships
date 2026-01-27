@@ -114,6 +114,32 @@ class TestGameplayPageEndpoint:
         # The exact testid depends on the template structure
         assert "text/html" in response.headers["content-type"]
 
+    def test_game_page_context_variables(self, authenticated_client: TestClient):
+        """Test that game page context contains round and shots available"""
+        # Create a game
+        create_response = authenticated_client.post(
+            "/start-game",
+            data={"action": "launch_game", "player_name": "Alice"},
+            follow_redirects=False,
+        )
+        game_url = create_response.headers["location"]
+
+        # Place ships randomly so shots_available will be 6
+        authenticated_client.post(
+            "/random-ship-placement",
+            data={"player_name": "Alice"},
+        )
+
+        # Get game page
+        response = authenticated_client.get(game_url)
+        assert response.status_code == status.HTTP_200_OK
+
+        # Check for context variables in the rendered HTML
+        # Since we can't easily check context directly with TestClient,
+        # we check for the rendered values in the HTML
+        assert "Round 1" in response.text
+        assert "Shots Available: 6" in response.text
+
 
 class TestGameplayPageMultiPlayer:
     """Tests for multiplayer game page"""

@@ -2,6 +2,7 @@ import pytest
 
 from game.game_service import Game, GameMode, GameStatus
 from game.player import Player, PlayerStatus
+from game.model import Ship, ShipType, Orientation, Coord
 
 
 class TestGameModeEnum:
@@ -72,3 +73,25 @@ class TestGameModel:
             ValueError, match="Single player games cannot have two players"
         ):
             Game(player_1=alice, player_2=bob, game_mode=GameMode.SINGLE_PLAYER)
+
+    def test_game_initializes_round_one(self, alice):
+        game = Game(player_1=alice, game_mode=GameMode.SINGLE_PLAYER)
+        assert game.round == 1
+
+    def test_game_get_shots_available_all_ships(self, alice):
+        game = Game(player_1=alice, game_mode=GameMode.SINGLE_PLAYER)
+        board = game.board[alice]
+
+        # Place all ships with spacing (skipping rows)
+        # Carrier (5) - 2 shots
+        board.place_ship(Ship(ShipType.CARRIER), Coord.A1, Orientation.HORIZONTAL)
+        # Battleship (4) - 1 shot
+        board.place_ship(Ship(ShipType.BATTLESHIP), Coord.C1, Orientation.HORIZONTAL)
+        # Cruiser (3) - 1 shot
+        board.place_ship(Ship(ShipType.CRUISER), Coord.E1, Orientation.HORIZONTAL)
+        # Submarine (3) - 1 shot
+        board.place_ship(Ship(ShipType.SUBMARINE), Coord.G1, Orientation.HORIZONTAL)
+        # Destroyer (2) - 1 shot
+        board.place_ship(Ship(ShipType.DESTROYER), Coord.I1, Orientation.HORIZONTAL)
+
+        assert game.get_shots_available(alice.id) == 6

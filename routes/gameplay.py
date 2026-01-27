@@ -123,6 +123,8 @@ def _create_gameplay_context(
     """
     opponent_name: str = opponent.name if opponent else "Computer"
     status_message: str | None = _get_game_status_message(game)
+    round_number: int = game.round
+    shots_available: int = game.get_shots_available(current_player.id)
 
     return {
         "player_name": current_player.name,
@@ -130,7 +132,8 @@ def _create_gameplay_context(
         "game_id": game_id,
         "player_board": _format_board_for_template(player_board),
         "opponent_board": _format_board_for_template(opponent_board),
-        "round_number": 1,  # Placeholder - will be dynamic later
+        "round_number": round_number,
+        "shots_available": shots_available,
         "status_message": status_message,
     }
 

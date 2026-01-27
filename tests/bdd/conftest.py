@@ -62,6 +62,7 @@ class MultiPlayerBDDContext(BaseBDDContext):
 
     current_player_name: str | None = None
     player_clients: dict[str, TestClient] = field(default_factory=dict)
+    game_url: str | None = None
 
     def get_client_for_player(self, player_name: str) -> TestClient:
         """Get or create a TestClient for a specific player.

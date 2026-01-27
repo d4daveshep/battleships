@@ -360,6 +360,7 @@ class Game:
         self.player_2: "Player | None" = player_2
         self._id: str = self._generate_id()
         self.status: GameStatus = GameStatus.CREATED
+        self.round: int = 1
 
         # Validate that two player games have an opponent
         if self.game_mode == GameMode.TWO_PLAYER and not self.player_2:
@@ -388,3 +389,15 @@ class Game:
             A URL-safe random token string (always 22 characters, from 16 random bytes)
         """
         return secrets.token_urlsafe(16)
+
+    def get_shots_available(self, player_id: str) -> int:
+        player = None
+        if self.player_1.id == player_id:
+            player = self.player_1
+        elif self.player_2 and self.player_2.id == player_id:
+            player = self.player_2
+        
+        if not player:
+            raise ValueError(f"Player with ID {player_id} not found in this game")
+            
+        return sum(ship.shots_available for ship in self.board[player].ships)

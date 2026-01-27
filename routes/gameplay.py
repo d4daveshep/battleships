@@ -2,12 +2,12 @@
 
 from typing import Any, NamedTuple
 
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
-from game.game_service import Game, GameService, GameStatus
-from game.model import GameBoard
+from game.game_service import AimResult, Game, GameService, GameStatus
+from game.model import Coord, GameBoard
 from game.player import Player
 
 from routes.helpers import (
@@ -125,6 +125,9 @@ def _create_gameplay_context(
     status_message: str | None = _get_game_status_message(game)
     round_number: int = game.round
     shots_available: int = game.get_shots_available(current_player.id)
+    aimed_coords: set[Coord] = game.get_aimed_shots(current_player.id)
+    aimed_count: int = len(aimed_coords)
+    aimed_coordinates: list[str] = [c.name for c in aimed_coords]
 
     return {
         "player_name": current_player.name,
@@ -134,6 +137,8 @@ def _create_gameplay_context(
         "opponent_board": _format_board_for_template(opponent_board),
         "round_number": round_number,
         "shots_available": shots_available,
+        "aimed_count": aimed_count,
+        "aimed_coordinates": aimed_coordinates,
         "status_message": status_message,
     }
 
@@ -144,6 +149,58 @@ def set_up_gameplay_router(
 ) -> APIRouter:
     """Configure the gameplay router with required dependencies."""
     return router
+
+
+@router.post("/aim-shot", response_class=HTMLResponse)
+async def aim_shot(
+    request: Request,
+    game_id: str = Form(...),
+    coordinate: str = Form(...),
+) -> HTMLResponse:
+    """Toggle aiming at a coordinate for the current player.
+
+    This is an HTMX endpoint that returns an updated partial HTML fragment.
+
+    Args:
+        request: The FastAPI request object containing session data
+        game_id: The unique identifier for the game
+        coordinate: The coordinate to toggle (e.g., "A1", "J10")
+
+    Returns:
+        HTMLResponse with updated aiming status partial
+
+    Raises:
+        HTTPException: 404 if game not found, 403 if player not in this game
+    """
+    templates = _get_templates()
+    game_service = _get_game_service()
+
+    # Get current player from session
+    player: Player = _get_player_from_session(request)
+
+    # Fetch game and validate player is in it
+    game: Game = _get_game_or_404(game_id)
+    role: PlayerGameRole = _get_player_role(game, player)
+
+    # Toggle aim and get result
+    result: AimResult = game_service.toggle_aim(game_id, player.id, coordinate)
+
+    # Get the current aimed coordinates for the template
+    aimed_coords: set[Coord] = game.get_aimed_shots(player.id)
+
+    # Return updated partial HTML
+    return templates.TemplateResponse(
+        request=request,
+        name="components/aiming_status.html",
+        context={
+            "game_id": game_id,
+            "coordinate": coordinate,
+            "is_aimed": result.is_aimed,
+            "aimed_count": result.aimed_count,
+            "shots_available": result.shots_available,
+            "aimed_coordinates": [c.name for c in aimed_coords],
+        },
+    )
 
 
 @router.get("/game/{game_id}", response_class=HTMLResponse)

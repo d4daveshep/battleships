@@ -217,3 +217,84 @@ class TestGameplayPageHelperFunctions:
 
         # Board should be visible in the response
         assert "text/html" in response.headers["content-type"]
+
+
+class TestAimShotEndpoint:
+    """Tests for POST /aim-shot endpoint"""
+
+    def test_aim_shot_returns_200_for_valid_request(
+        self, authenticated_client: TestClient
+    ):
+        """Test that aim-shot endpoint works for valid request"""
+        # Create a game
+        create_response = authenticated_client.post(
+            "/start-game",
+            data={"action": "launch_game", "player_name": "Alice"},
+            follow_redirects=False,
+        )
+        game_url = create_response.headers["location"]
+        game_id = game_url.split("/")[-1]
+
+        # Place ships so we have shots available
+        authenticated_client.post(
+            "/random-ship-placement",
+            data={"player_name": "Alice"},
+        )
+
+        # Send HTMX request to aim at a coordinate
+        response = authenticated_client.post(
+            "/aim-shot",
+            data={"game_id": game_id, "coordinate": "J1"},
+            headers={"HX-Request": "true"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert "text/html" in response.headers["content-type"]
+
+    def test_aim_shot_toggles_coordinate(self, authenticated_client: TestClient):
+        """Test that aim-shot toggles coordinate on and off"""
+        # Create a game
+        create_response = authenticated_client.post(
+            "/start-game",
+            data={"action": "launch_game", "player_name": "Alice"},
+            follow_redirects=False,
+        )
+        game_url = create_response.headers["location"]
+        game_id = game_url.split("/")[-1]
+
+        # Place ships
+        authenticated_client.post(
+            "/random-ship-placement",
+            data={"player_name": "Alice"},
+        )
+
+        # First aim - should add
+        response1 = authenticated_client.post(
+            "/aim-shot",
+            data={"game_id": game_id, "coordinate": "J1"},
+            headers={"HX-Request": "true"},
+        )
+        assert response1.status_code == status.HTTP_200_OK
+        # Response should indicate coordinate is now aimed
+        assert "1/6" in response1.text or "aimed" in response1.text.lower()
+
+        # Second aim at same coordinate - should remove
+        response2 = authenticated_client.post(
+            "/aim-shot",
+            data={"game_id": game_id, "coordinate": "J1"},
+            headers={"HX-Request": "true"},
+        )
+        assert response2.status_code == status.HTTP_200_OK
+        # Response should indicate coordinate is no longer aimed
+        assert "0/6" in response2.text or "0" in response2.text
+
+    def test_aim_shot_returns_404_for_invalid_game(
+        self, authenticated_client: TestClient
+    ):
+        """Test that aim-shot returns 404 for non-existent game"""
+        response = authenticated_client.post(
+            "/aim-shot",
+            data={"game_id": "nonexistent-game-id", "coordinate": "J1"},
+            headers={"HX-Request": "true"},
+        )
+        assert response.status_code == status.HTTP_404_NOT_FOUND

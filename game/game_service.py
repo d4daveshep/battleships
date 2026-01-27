@@ -9,6 +9,8 @@ from game.exceptions import (
     UnknownGameException,
     UnknownPlayerException,
 )
+from typing import NamedTuple
+
 from game.model import (
     Coord,
     Game,
@@ -19,6 +21,16 @@ from game.model import (
     Ship,
     ShipType,
 )
+
+
+class AimResult(NamedTuple):
+    """Result of a toggle_aim operation."""
+
+    is_aimed: bool
+    aimed_count: int
+    shots_available: int
+
+
 from game.player import Player, PlayerStatus
 
 if TYPE_CHECKING:
@@ -493,3 +505,35 @@ class GameService:
 
         # Wait for the event to be set
         await self._placement_change_event.wait()
+
+    def toggle_aim(self, game_id: str, player_id: str, coord_str: str) -> AimResult:
+        """Toggle aiming at a coordinate for a player.
+
+        If the coordinate is not aimed, add it. If already aimed, remove it.
+
+        Args:
+            game_id: The game ID
+            player_id: The player ID
+            coord_str: The coordinate string (e.g., "A1", "J10")
+
+        Returns:
+            AimResult with is_aimed, aimed_count, and shots_available
+
+        Raises:
+            UnknownGameException: If game doesn't exist
+        """
+        game = self._get_game_or_raise(game_id)
+        coord: Coord = Coord[coord_str]
+
+        if coord in game.get_aimed_shots(player_id):
+            game.unaim_at(player_id, coord)
+            is_aimed = False
+        else:
+            game.aim_at(player_id, coord)
+            is_aimed = True
+
+        return AimResult(
+            is_aimed=is_aimed,
+            aimed_count=game.get_aimed_shots_count(player_id),
+            shots_available=game.get_shots_available(player_id),
+        )

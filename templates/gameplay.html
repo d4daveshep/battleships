@@ -12,14 +12,14 @@
         cursor: pointer;
         position: relative;
     }
-    .interactive-cell input[type="radio"] {
+    .interactive-cell input[type="checkbox"] {
         position: absolute;
         opacity: 0;
         cursor: pointer;
         height: 0;
         width: 0;
     }
-    .interactive-cell input[type="radio"]:checked ~ .cell-marker {
+    .interactive-cell input[type="checkbox"]:checked ~ .cell-marker {
         background-color: rgba(255, 0, 0, 0.3);
         position: absolute;
         top: 0;
@@ -37,6 +37,16 @@
     .interactive-cell:hover {
         background-color: var(--color-grid-hover);
     }
+    .aimed-cell .cell-marker {
+        background-color: rgba(255, 0, 0, 0.3);
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        border: 2px solid var(--color-hit);
+        box-shadow: inset 0 0 10px var(--color-hit);
+    }
 </style>
 
 <div id="gameplay-container">
@@ -51,6 +61,9 @@
             <p class="game-info-item"><strong>Opponent:</strong> {{ opponent_name }}</p>
             <p class="game-info-item"><strong>Game ID:</strong> {{ game_id }}</p>
             <p class="game-info-item" data-testid="shots-available">Shots Available: {{ shots_available }}</p>
+            <div id="aiming-status" data-testid="aiming-status">
+                <p class="game-info-item" data-testid="shots-aimed-display">Shots Aimed: {{ aimed_count }}/{{ shots_available }}</p>
+            </div>
         </div>
     </div>
 
@@ -109,44 +122,57 @@
 
         <!-- Shots Fired Board (Interactive) -->
         <div class="ship-board-container">
-            <form method="POST" action="/fire-shot" hx-post="/fire-shot" hx-target="#gameplay-container" hx-select="#gameplay-container" hx-swap="outerHTML">
+            <h3>Shots Fired</h3>
+            <p>Select targets and fire!</p>
+            
+            <table data-testid="shots-fired-board" class="ship-grid">
+                <thead>
+                    <tr>
+                        <th></th>
+                        {% for col in range(1, 11) %}
+                        <th>{{ col }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% set rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'] %}
+                    {% for row in rows %}
+                    <tr>
+                        <th>{{ row }}</th>
+                        {% for col in range(1, 11) %}
+                            {% set coord = row ~ col %}
+                            {% set is_aimed = coord in aimed_coordinates %}
+                            <td data-testid="opponent-cell-{{ coord }}" 
+                                class="ship-grid-cell interactive-cell{% if is_aimed %} aimed-cell{% endif %}"
+                                {% if is_aimed %}data-aimed="true"{% endif %}>
+                                <label>
+                                    <input type="checkbox" 
+                                           name="coordinate" 
+                                           value="{{ coord }}"
+                                           {% if is_aimed %}checked{% endif %}
+                                           hx-post="/aim-shot"
+                                           hx-vals='{"game_id": "{{ game_id }}", "coordinate": "{{ coord }}"}'
+                                           hx-target="#aiming-status"
+                                           hx-swap="outerHTML">
+                                    <span class="cell-marker"></span>
+                                </label>
+                            </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            
+            <form method="POST" action="/fire-shots" hx-post="/fire-shots" hx-target="#gameplay-container" hx-select="#gameplay-container" hx-swap="outerHTML">
                 <input type="hidden" name="game_id" value="{{ game_id }}">
                 <input type="hidden" name="player_name" value="{{ player_name }}">
-                
-                <h3>Shots Fired</h3>
-                <p>Select a target and fire!</p>
-                
-                <table data-testid="shots-fired-board" class="ship-grid">
-                    <thead>
-                        <tr>
-                            <th></th>
-                            {% for col in range(1, 11) %}
-                            <th>{{ col }}</th>
-                            {% endfor %}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% set rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'] %}
-                        {% for row in rows %}
-                        <tr>
-                            <th>{{ row }}</th>
-                            {% for col in range(1, 11) %}
-                                {% set coord = row ~ col %}
-                                <td data-testid="opponent-cell-{{ coord }}" class="ship-grid-cell interactive-cell">
-                                    <label>
-                                        <input type="radio" name="target" value="{{ coord }}">
-                                        <span class="cell-marker"></span>
-                                    </label>
-                                </td>
-                            {% endfor %}
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-                
                 <div style="margin-top: 20px; text-align: center;">
-                    <button type="submit" class="btn-primary btn-large" data-testid="fire-shots-button">
-                        🔥 Fire Shot
+                    <button id="fire-shots-btn"
+                            type="submit" 
+                            class="btn-primary btn-large" 
+                            data-testid="fire-shots-button"
+                            {% if aimed_count == 0 %}disabled{% endif %}>
+                        Fire Shots
                     </button>
                 </div>
             </form>

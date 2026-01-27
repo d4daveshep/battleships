@@ -361,6 +361,7 @@ class Game:
         self._id: str = self._generate_id()
         self.status: GameStatus = GameStatus.CREATED
         self.round: int = 1
+        self.aimed_shots: dict[str, set[Coord]] = {}
 
         # Validate that two player games have an opponent
         if self.game_mode == GameMode.TWO_PLAYER and not self.player_2:
@@ -396,8 +397,38 @@ class Game:
             player = self.player_1
         elif self.player_2 and self.player_2.id == player_id:
             player = self.player_2
-        
+
         if not player:
             raise ValueError(f"Player with ID {player_id} not found in this game")
-            
+
         return sum(ship.shots_available for ship in self.board[player].ships)
+
+    def aim_at(self, player_id: str, coord: Coord) -> None:
+        """Add a coordinate to the player's aimed shots for this round."""
+        if player_id not in self.aimed_shots:
+            self.aimed_shots[player_id] = set()
+
+        # Check if already aimed at this coordinate (no validation needed)
+        if coord in self.aimed_shots[player_id]:
+            return
+
+        # Validate we haven't exceeded available shots
+        shots_available: int = self.get_shots_available(player_id)
+        current_aimed: int = self.get_aimed_shots_count(player_id)
+        if current_aimed >= shots_available:
+            raise ValueError("Cannot aim more shots than available")
+
+        self.aimed_shots[player_id].add(coord)
+
+    def get_aimed_shots(self, player_id: str) -> set[Coord]:
+        """Get the set of coordinates the player has aimed at this round."""
+        return self.aimed_shots.get(player_id, set())
+
+    def unaim_at(self, player_id: str, coord: Coord) -> None:
+        """Remove a coordinate from the player's aimed shots."""
+        if player_id in self.aimed_shots:
+            self.aimed_shots[player_id].discard(coord)
+
+    def get_aimed_shots_count(self, player_id: str) -> int:
+        """Get the number of coordinates the player has aimed at this round."""
+        return len(self.get_aimed_shots(player_id))

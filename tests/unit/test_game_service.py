@@ -701,3 +701,85 @@ class TestIsMultiplayer:
 
         result = game_service.is_multiplayer(bob.id)
         assert result is True
+
+
+class TestToggleAim:
+    """Tests for GameService.toggle_aim() method"""
+
+    @pytest.fixture
+    def game_service(self) -> GameService:
+        return GameService()
+
+    @pytest.fixture
+    def player_with_ships(self, game_service: GameService) -> tuple[Player, str]:
+        """Create a player in a game with all ships placed"""
+        from game.model import Ship, Orientation
+
+        alice = Player(name="Alice", status=PlayerStatus.AVAILABLE)
+        game_service.add_player(alice)
+        game_id = game_service.create_single_player_game(alice.id)
+
+        # Place all ships to get 6 shots available
+        board = game_service.get_game_board(alice.id)
+        board.place_ship(Ship(ShipType.CARRIER), Coord.A1, Orientation.HORIZONTAL)
+        board.place_ship(Ship(ShipType.BATTLESHIP), Coord.C1, Orientation.HORIZONTAL)
+        board.place_ship(Ship(ShipType.CRUISER), Coord.E1, Orientation.HORIZONTAL)
+        board.place_ship(Ship(ShipType.SUBMARINE), Coord.G1, Orientation.HORIZONTAL)
+        board.place_ship(Ship(ShipType.DESTROYER), Coord.I1, Orientation.HORIZONTAL)
+
+        return alice, game_id
+
+    def test_toggle_aim_adds_coordinate(
+        self, game_service: GameService, player_with_ships: tuple[Player, str]
+    ) -> None:
+        """Test that toggle_aim adds a coordinate when not already aimed"""
+        alice, game_id = player_with_ships
+
+        result = game_service.toggle_aim(game_id, alice.id, "J1")
+
+        assert result.is_aimed is True
+        assert result.aimed_count == 1
+        assert result.shots_available == 6
+
+    def test_toggle_aim_removes_coordinate(
+        self, game_service: GameService, player_with_ships: tuple[Player, str]
+    ) -> None:
+        """Test that toggle_aim removes a coordinate when already aimed"""
+        alice, game_id = player_with_ships
+
+        # First toggle - add
+        game_service.toggle_aim(game_id, alice.id, "J1")
+
+        # Second toggle - remove
+        result = game_service.toggle_aim(game_id, alice.id, "J1")
+
+        assert result.is_aimed is False
+        assert result.aimed_count == 0
+        assert result.shots_available == 6
+
+    def test_toggle_aim_multiple_coordinates(
+        self, game_service: GameService, player_with_ships: tuple[Player, str]
+    ) -> None:
+        """Test toggling multiple different coordinates"""
+        alice, game_id = player_with_ships
+
+        result1 = game_service.toggle_aim(game_id, alice.id, "J1")
+        result2 = game_service.toggle_aim(game_id, alice.id, "J2")
+        result3 = game_service.toggle_aim(game_id, alice.id, "J3")
+
+        assert result1.aimed_count == 1
+        assert result2.aimed_count == 2
+        assert result3.aimed_count == 3
+
+    def test_toggle_aim_returns_aim_result(
+        self, game_service: GameService, player_with_ships: tuple[Player, str]
+    ) -> None:
+        """Test that toggle_aim returns an AimResult named tuple"""
+        alice, game_id = player_with_ships
+
+        result = game_service.toggle_aim(game_id, alice.id, "J1")
+
+        # Verify it's a NamedTuple with expected fields
+        assert hasattr(result, "is_aimed")
+        assert hasattr(result, "aimed_count")
+        assert hasattr(result, "shots_available")

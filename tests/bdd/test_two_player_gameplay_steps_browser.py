@@ -139,3 +139,66 @@ def see_hits_made_area(page: Page, count: int):
     ship_names = ["Carrier", "Battleship", "Cruiser", "Submarine", "Destroyer"]
     for ship in ship_names:
         expect(hits_area).to_contain_text(ship)
+
+
+# === Scenario: Selecting multiple shot coordinates for aiming ===
+
+
+@given("it is Round 1")
+def it_is_round_1():
+    """Verify it is Round 1"""
+    # This is implicitly true at game start
+    pass
+
+
+@given("I have 6 shots available")
+def have_6_shots_available():
+    """Verify player has 6 shots available (all ships placed)"""
+    # This is implicitly true when ships are placed
+    pass
+
+
+@when(parsers.parse('I select coordinate "{coord}" to aim at'))
+def select_coordinate_to_aim(page: Page, coord: str):
+    """Select a coordinate to aim at by clicking the checkbox"""
+    # Find and click the checkbox for the coordinate
+    cell = page.locator(f'[data-testid="opponent-cell-{coord}"]')
+    expect(cell).to_be_visible()
+    cell.click()
+    # Wait for HTMX to update
+    page.wait_for_timeout(500)
+
+
+@then(parsers.parse("I should see {count:d} coordinates marked as aimed"))
+def see_coordinates_marked_as_aimed(page: Page, count: int):
+    """Verify number of coordinates marked as aimed"""
+    # Check for checked checkboxes in the shots-fired board
+    checked_cells = page.locator(
+        '[data-testid="shots-fired-board"] input[type="checkbox"]:checked'
+    )
+    expect(checked_cells).to_have_count(count)
+
+
+@then("I should be able to select 3 more coordinates")
+def can_select_3_more_coordinates(page: Page):
+    """Verify 3 more coordinates can be selected (6-3=3)"""
+    # This is implicitly true if we have 3/6 aimed
+    aiming_status = page.locator('[data-testid="aiming-status"]')
+    expect(aiming_status).to_be_visible()
+    # Should not see 6/6
+    expect(aiming_status).not_to_contain_text("6/6")
+
+
+@then(parsers.parse('the "{button_name}" button should be enabled'))
+def button_should_be_enabled(page: Page, button_name: str):
+    """Verify that a button is enabled"""
+    # Map button name to testid
+    testid_map = {
+        "Fire Shots": "fire-shots-button",
+    }
+    testid = testid_map.get(
+        button_name, button_name.lower().replace(" ", "-") + "-button"
+    )
+    button = page.locator(f'[data-testid="{testid}"]')
+    expect(button).to_be_visible()
+    expect(button).to_be_enabled()

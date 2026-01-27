@@ -36,17 +36,17 @@ Feature: Two-Player Simultaneous Multi-Shot Gameplay
     And I should see the opponent's board labeled "Shots Fired"
     And I should see the "Hits Made" area showing all 5 opponent ships
 
-  # Scenario: Selecting multiple shot coordinates for aiming
-  #   Given it is Round 1
-  #   And I have 6 shots available
-  #   When I select coordinate "A1" to aim at
-  #   And I select coordinate "B3" to aim at
-  #   And I select coordinate "E5" to aim at
-  #   Then I should see 3 coordinates marked as aimed
-  #   And I should see "Shots Aimed: 3/6" displayed
-  #   And I should be able to select 3 more coordinates
-  #   And the "Fire Shots" button should be enabled
-  #
+  Scenario: Selecting multiple shot coordinates for aiming
+    Given it is Round 1
+    And I have 6 shots available
+    When I select coordinate "A1" to aim at
+    And I select coordinate "B3" to aim at
+    And I select coordinate "E5" to aim at
+    Then I should see 3 coordinates marked as aimed
+    And I should see "Shots Aimed: 3/6" displayed
+    And I should be able to select 3 more coordinates
+    And the "Fire Shots" button should be enabled
+
   # Scenario: Cannot select the same coordinate twice in aiming phase
   #   Given it is Round 1
   #   And I have selected coordinate "A1" to aim at

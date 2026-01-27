@@ -95,3 +95,99 @@ class TestGameModel:
         board.place_ship(Ship(ShipType.DESTROYER), Coord.I1, Orientation.HORIZONTAL)
 
         assert game.get_shots_available(alice.id) == 6
+
+
+class TestGameAimedShots:
+    """Unit tests for aimed shots functionality"""
+
+    @pytest.fixture
+    def alice(self) -> Player:
+        return Player("Alice", PlayerStatus.AVAILABLE)
+
+    @pytest.fixture
+    def bob(self) -> Player:
+        return Player("Bob", PlayerStatus.AVAILABLE)
+
+    @pytest.fixture
+    def game_with_ships(self, alice) -> Game:
+        """Create a game with all ships placed (6 shots available)"""
+        game = Game(player_1=alice, game_mode=GameMode.SINGLE_PLAYER)
+        board = game.board[alice]
+        # Place all ships with spacing (skipping rows)
+        board.place_ship(Ship(ShipType.CARRIER), Coord.A1, Orientation.HORIZONTAL)
+        board.place_ship(Ship(ShipType.BATTLESHIP), Coord.C1, Orientation.HORIZONTAL)
+        board.place_ship(Ship(ShipType.CRUISER), Coord.E1, Orientation.HORIZONTAL)
+        board.place_ship(Ship(ShipType.SUBMARINE), Coord.G1, Orientation.HORIZONTAL)
+        board.place_ship(Ship(ShipType.DESTROYER), Coord.I1, Orientation.HORIZONTAL)
+        return game
+
+    def test_game_initializes_with_empty_aimed_shots(self, alice):
+        """Test that a new game has no aimed shots for any player"""
+        game = Game(player_1=alice, game_mode=GameMode.SINGLE_PLAYER)
+        assert game.aimed_shots == {}
+
+    def test_aim_at_coordinate(self, alice, game_with_ships):
+        """Test that aiming at a coordinate adds it to aimed_shots"""
+        game_with_ships.aim_at(alice.id, Coord.J10)
+        assert Coord.J10 in game_with_ships.get_aimed_shots(alice.id)
+
+    def test_aim_at_multiple_coordinates(self, alice, game_with_ships):
+        """Test that multiple coordinates can be aimed at"""
+        game_with_ships.aim_at(alice.id, Coord.J1)
+        game_with_ships.aim_at(alice.id, Coord.J3)
+        game_with_ships.aim_at(alice.id, Coord.J5)
+        aimed: set[Coord] = game_with_ships.get_aimed_shots(alice.id)
+        assert Coord.J1 in aimed
+        assert Coord.J3 in aimed
+        assert Coord.J5 in aimed
+        assert len(aimed) == 3
+
+    def test_unaim_at_coordinate(self, alice, game_with_ships):
+        """Test that unaiming removes a coordinate from aimed_shots"""
+        game_with_ships.aim_at(alice.id, Coord.J1)
+        game_with_ships.aim_at(alice.id, Coord.J3)
+        game_with_ships.unaim_at(alice.id, Coord.J1)
+        aimed: set[Coord] = game_with_ships.get_aimed_shots(alice.id)
+        assert Coord.J1 not in aimed
+        assert Coord.J3 in aimed
+        assert len(aimed) == 1
+
+    def test_unaim_at_coordinate_not_aimed(self, alice):
+        """Test that unaiming a coordinate that wasn't aimed doesn't error"""
+        game = Game(player_1=alice, game_mode=GameMode.SINGLE_PLAYER)
+        # Should not raise an error
+        game.unaim_at(alice.id, Coord.A1)
+        assert len(game.get_aimed_shots(alice.id)) == 0
+
+    def test_get_aimed_shots_count(self, alice, game_with_ships):
+        """Test getting count of aimed shots"""
+        assert game_with_ships.get_aimed_shots_count(alice.id) == 0
+
+        game_with_ships.aim_at(alice.id, Coord.J1)
+        assert game_with_ships.get_aimed_shots_count(alice.id) == 1
+
+        game_with_ships.aim_at(alice.id, Coord.J3)
+        game_with_ships.aim_at(alice.id, Coord.J5)
+        assert game_with_ships.get_aimed_shots_count(alice.id) == 3
+
+    def test_cannot_aim_more_than_available_shots(self, alice, game_with_ships):
+        """Test that aiming at more coordinates than available shots raises error"""
+        # Aim at 6 coordinates (the max available)
+        game_with_ships.aim_at(alice.id, Coord.A10)
+        game_with_ships.aim_at(alice.id, Coord.B10)
+        game_with_ships.aim_at(alice.id, Coord.C10)
+        game_with_ships.aim_at(alice.id, Coord.D10)
+        game_with_ships.aim_at(alice.id, Coord.E10)
+        game_with_ships.aim_at(alice.id, Coord.F10)
+
+        # 7th should raise an error
+        with pytest.raises(ValueError, match="Cannot aim more shots than available"):
+            game_with_ships.aim_at(alice.id, Coord.G10)
+
+    def test_aiming_same_coordinate_twice_does_not_count_as_two(
+        self, alice, game_with_ships
+    ):
+        """Test that aiming at same coordinate twice only counts once"""
+        game_with_ships.aim_at(alice.id, Coord.J1)
+        game_with_ships.aim_at(alice.id, Coord.J1)  # Same coordinate
+        assert game_with_ships.get_aimed_shots_count(alice.id) == 1

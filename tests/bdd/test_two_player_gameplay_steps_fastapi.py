@@ -196,3 +196,88 @@ def see_hits_made_area(context: MultiPlayerBDDContext, count: int):
     text = hits_area.get_text()
     for ship in ship_names:
         assert ship in text
+
+
+# === Scenario: Selecting multiple shot coordinates for aiming ===
+
+
+@given("it is Round 1")
+def it_is_round_1(context: MultiPlayerBDDContext):
+    """Verify it is Round 1"""
+    # This is implicitly true at game start
+    pass
+
+
+@given("I have 6 shots available")
+def have_6_shots_available(context: MultiPlayerBDDContext):
+    """Verify player has 6 shots available (all ships placed)"""
+    # This is implicitly true when ships are placed
+    pass
+
+
+@when(parsers.parse('I select coordinate "{coord}" to aim at'))
+def select_coordinate_to_aim(context: MultiPlayerBDDContext, coord: str):
+    """Select a coordinate to aim at via HTMX endpoint"""
+    assert context.game_url is not None, "No game URL stored"
+    assert context.current_player_name is not None, "No current player set"
+
+    # Extract game_id from game_url (format: /game/{game_id})
+    game_id = context.game_url.split("/")[-1]
+
+    client = context.get_client_for_player(context.current_player_name)
+    response = client.post(
+        "/aim-shot",
+        data={"game_id": game_id, "coordinate": coord},
+        headers={"HX-Request": "true"},
+    )
+    context.update_response(response)
+
+    # Refresh the page to get the full state
+    response = client.get(context.game_url)
+    context.update_response(response)
+
+
+@then(parsers.parse("I should see {count:d} coordinates marked as aimed"))
+def see_coordinates_marked_as_aimed(context: MultiPlayerBDDContext, count: int):
+    """Verify number of coordinates marked as aimed"""
+    assert context.soup is not None
+    # Check for checked checkboxes in the shots-fired board
+    shots_board = context.soup.find(attrs={"data-testid": "shots-fired-board"})
+    assert shots_board is not None
+    assert isinstance(shots_board, Tag)
+    checked_boxes = shots_board.find_all("input", {"type": "checkbox", "checked": True})
+    assert len(checked_boxes) == count, (
+        f"Expected {count} aimed cells, found {len(checked_boxes)}"
+    )
+
+
+@then("I should be able to select 3 more coordinates")
+def can_select_3_more_coordinates(context: MultiPlayerBDDContext):
+    """Verify 3 more coordinates can be selected (6-3=3)"""
+    # This is implicitly true if we have 3/6 aimed
+    # The UI should allow selecting more
+    assert context.soup is not None
+    # Check that we're not at max capacity (6/6)
+    aiming_status = context.soup.find(attrs={"data-testid": "aiming-status"})
+    assert aiming_status is not None
+    text = aiming_status.get_text()
+    # Should not see 6/6
+    assert "6/6" not in text, "All shots are aimed, cannot select more"
+
+
+@then(parsers.parse('the "{button_name}" button should be enabled'))
+def button_should_be_enabled(context: MultiPlayerBDDContext, button_name: str):
+    """Verify that a button is enabled"""
+    assert context.soup is not None
+    # Map button name to testid
+    testid_map: dict[str, str] = {
+        "Fire Shots": "fire-shots-button",
+    }
+    testid = testid_map.get(
+        button_name, button_name.lower().replace(" ", "-") + "-button"
+    )
+    button = context.soup.find(attrs={"data-testid": testid})
+    assert button is not None, f"Button with testid '{testid}' not found"
+    assert isinstance(button, Tag), f"Button is not a Tag element"
+    # Check not disabled
+    assert not button.has_attr("disabled"), f"Button '{button_name}' is disabled"

@@ -134,51 +134,77 @@ battleships/
 - `uv run uvicorn main:app --reload` - Start dev server with hot reload
 - `uv run python main.py` - Alternative start
 
-## Specialist Agents
+## Specialist Skills
 
-### @tdd-workflow-guide (Primary workflow for new features)
+Skills are reusable instruction sets that can be loaded on-demand via the `skill` tool. They are stored in `.opencode/skills/<name>/SKILL.md`.
+
+### Loading Skills
+
+Load a skill when you need specialized guidance:
+
+```
+skill({ name: "tdd-workflow-guide" })
+```
+
+### Available Skills
+
+| Skill | Category | When to Use |
+|-------|----------|-------------|
+| `battleships-dev` | orchestration | Primary development orchestration |
+| `tdd-workflow-guide` | workflow | Implementing features or fixing bugs (RED-GREEN-REFACTOR) |
+| `bdd-feature-writer` | testing | Creating or refining Gherkin feature files |
+| `dual-test-implementer` | testing | Implementing both FastAPI and Playwright BDD tests |
+| `fastapi-service-builder` | backend | Creating new endpoints or refactoring routes/services |
+| `htmx-template-builder` | frontend | Building UI components or pages (NO JavaScript) |
+| `css-theme-designer` | frontend | Adding visual design, styling, themes |
+| `endpoint-test-writer` | testing | Writing FastAPI endpoint integration tests |
+| `type-hint-enforcer` | quality | Reviewing code for comprehensive type hints |
+
+### Skill Details
+
+#### tdd-workflow-guide (Primary workflow for new features)
 
 **When to use**: Implementing any new feature or fixing bugs  
 **Purpose**: Ensures strict RED-GREEN-REFACTOR discipline  
 **Key**: This is a LEARNING project - always use TDD workflow for features
 
-### @bdd-feature-writer
+#### bdd-feature-writer
 
 **When to use**: Creating or refining Gherkin feature files  
 **Purpose**: Writes clear, executable BDD scenarios  
 **Output**: Feature files in `features/` directory
 
-### @dual-test-implementer
+#### dual-test-implementer
 
 **When to use**: After creating a feature file, implementing test steps  
 **Purpose**: Creates both FastAPI and Playwright test implementations  
 **Output**: Test files in `tests/bdd/`
 
-### @fastapi-service-builder
+#### fastapi-service-builder
 
 **When to use**: Creating new endpoints or refactoring route/service architecture  
 **Purpose**: Ensures proper layering (Routes → Services → Models)  
 **Output**: Code for `main.py` and `services/`
 
-### @htmx-template-builder
+#### htmx-template-builder
 
 **When to use**: Building UI components or pages  
 **Purpose**: Creates HATEOAS-compliant HTMX templates (NO JavaScript)  
 **Output**: Templates in `templates/` and `templates/components/`
 
-### @css-theme-designer
+#### css-theme-designer
 
 **When to use**: Adding visual design, styling pages, creating themes  
 **Purpose**: CSS-only styling (animations, transitions, all pure CSS)  
 **Output**: CSS files in `static/css/`
 
-### @endpoint-test-writer
+#### endpoint-test-writer
 
 **When to use**: Writing integration tests for FastAPI endpoints  
 **Purpose**: Tests HTML responses, session handling, HTMX interactions  
 **Output**: Test files in `tests/endpoint/`
 
-### @type-hint-enforcer
+#### type-hint-enforcer
 
 **When to use**: Before committing changes, during code review  
 **Purpose**: Ensures comprehensive type hints across all Python code  
@@ -268,27 +294,6 @@ For each user request, ask yourself:
 - ⚡ Answering questions about the codebase
 - ⚡ Running tests and interpreting results
 - ⚡ Simple unit tests for straightforward functions
-
-## Task Management
-
-Use the todo system for complex tasks:
-
-```
-todowrite: Create todo list at start of complex features
-todoread: Check current todos
-todowrite: Update todos as work progresses
-todowrite: Mark todos complete when finished
-```
-
-**When to use todos**:
-- ✅ Features with 3+ distinct steps
-- ✅ User provides multiple tasks
-- ✅ Complex refactoring
-- ✅ After receiving new instructions
-
-**When NOT to use todos**:
-- ❌ Single, straightforward tasks
-- ❌ Trivial changes
 
 ## Architecture
 

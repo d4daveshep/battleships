@@ -1,43 +1,33 @@
-from pytest_bdd import scenarios, given, when, then, parsers
-from fastapi.testclient import TestClient
-from bs4 import BeautifulSoup, NavigableString, Tag
-from httpx import Response
-from dataclasses import dataclass, field
 from typing import Any, Generator
-import pytest
 
+import pytest
+from bs4 import NavigableString, Tag
+from fastapi.testclient import TestClient
+from httpx import Response
+from pytest_bdd import given, parsers, scenarios, then, when
+
+from tests.bdd.conftest import (
+    ORIENTATION_MAP,
+    ShipPlacementBDDContext,
+    verify_on_page_fastapi,
+)
 
 scenarios("../../features/ship_placement.feature")
 
 
-@dataclass
-class ShipPlacementContext:
-    """Maintains state between BDD steps for ship placement testing"""
-
-    response: Response | None = None
-    soup: BeautifulSoup | None = None
-    form_data: dict[str, str] = field(default_factory=dict)
-    player_name: str | None = None
-    selected_ship: str | None = None
-    placed_ships: dict[str, list[str]] = field(default_factory=dict)
-    last_placement_error: str | None = None
-    game_mode: str = "computer"  # Default to single player mode
-
-    def update_response(self, response: Response) -> None:
-        """Update context with new response and parse HTML"""
-        self.response = response
-        self.soup = BeautifulSoup(response.text, "html.parser")
+# Use ShipPlacementBDDContext from conftest
+ShipPlacementContext = ShipPlacementBDDContext
 
 
 @pytest.fixture
-def ship_context() -> ShipPlacementContext:
-    """Provide a test context for maintaining state between BDD steps"""
-    return ShipPlacementContext()
+def ship_context() -> ShipPlacementBDDContext:
+    """Provide a test context for maintaining state between BDD steps."""
+    return ShipPlacementBDDContext()
 
 
 @pytest.fixture
 def client() -> TestClient:
-    """FastAPI TestClient fixture"""
+    """FastAPI TestClient fixture."""
     from main import app
 
     return TestClient(app, follow_redirects=False)
@@ -45,7 +35,7 @@ def client() -> TestClient:
 
 @pytest.fixture(autouse=True)
 def reset_games_state() -> Generator[None, None, None]:
-    """Reset games state for FastAPI TestClient tests"""
+    """Reset games state for FastAPI TestClient tests."""
     from main import game_service
 
     game_service.ship_placement_boards.clear()
@@ -53,19 +43,9 @@ def reset_games_state() -> Generator[None, None, None]:
     game_service.ship_placement_boards.clear()
 
 
-# FIXME: Fix this function so it takes the user to the ship placement page (after the "start game" page)
-def on_ship_placement_page(context: ShipPlacementContext) -> None:
-    # assert False, (
-    #     'Fix this function so it takes the user to the ship placement page (after the "start game" page)'
-    # )
-    """Helper function to verify we're on the ship placement screen"""
-    assert context.soup is not None
-    assert context.response is not None
-    # Look for page title or H1 heading with "Ship Placement"
-    h1_element: Tag | NavigableString | None = context.soup.find("h1")
-    assert h1_element is not None
-    assert "Ship Placement" in h1_element.get_text()
-    assert context.response.status_code == 200
+def on_ship_placement_page(context: ShipPlacementBDDContext) -> None:
+    """Helper function to verify we're on the ship placement screen."""
+    verify_on_page_fastapi(context, "Ship Placement", 200)
 
 
 # === Background Steps ===
@@ -153,18 +133,12 @@ def place_ship_with_direction(
     direction: str,
     is_attempt: bool = False,
 ) -> None:
-    """Helper to place a ship using start coordinate and orientation"""
+    """Helper to place a ship using start coordinate and orientation."""
     assert ship_context.player_name is not None
     assert ship_context.selected_ship is not None
 
-    # Map direction to orientation
-    orientation_map: dict[str, str] = {
-        "horizontally": "horizontal",
-        "vertically": "vertical",
-        "diagonally-down": "diagonal-down",
-        "diagonally-up": "diagonal-up",
-    }
-    orientation: str = orientation_map.get(direction, direction)
+    # Use orientation map from conftest
+    orientation: str = ORIENTATION_MAP.get(direction, direction)
 
     form_data: dict[str, str] = {
         "player_name": ship_context.player_name,

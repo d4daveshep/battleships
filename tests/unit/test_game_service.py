@@ -17,19 +17,7 @@ from game.model import ShipType, Coord, CoordHelper
 
 
 class TestGameService:
-    @pytest.fixture
-    def game_service(self) -> GameService:
-        return GameService()
-
-    @pytest.fixture
-    def test_players(self) -> dict[str, Player]:
-        return {
-            "Alice": Player(name="Alice", status=PlayerStatus.AVAILABLE),
-            "Bob": Player(name="Bob", status=PlayerStatus.AVAILABLE),
-            "Charlie": Player(name="Charlie", status=PlayerStatus.AVAILABLE),
-            "Diana": Player(name="Diana", status=PlayerStatus.AVAILABLE),
-            "Eddie": Player(name="Eddie", status=PlayerStatus.AVAILABLE),
-        }
+    # Uses game_service and test_players fixtures from conftest.py
 
     def test_new_add_player(
         self, game_service: GameService, test_players: dict[str, Player]
@@ -289,9 +277,7 @@ class TestGameService:
 class TestMultiplayerShipPlacement:
     """Tests for multiplayer ship placement functionality"""
 
-    @pytest.fixture
-    def game_service(self) -> GameService:
-        return GameService()
+    # Uses game_service fixture from conftest.py
 
     @pytest.fixture
     def two_players_in_game(
@@ -380,9 +366,7 @@ class TestMultiplayerShipPlacement:
 class TestPlaceShipsRandomly:
     """Comprehensive unit tests for GameService.place_ships_randomly()"""
 
-    @pytest.fixture
-    def game_service(self) -> GameService:
-        return GameService()
+    # Uses game_service fixture from conftest.py
 
     @pytest.fixture
     def player_in_game(self, game_service: GameService) -> Player:
@@ -623,9 +607,7 @@ class TestPlaceShipsRandomly:
 class TestIsMultiplayer:
     """Tests for GameService.is_multiplayer() method"""
 
-    @pytest.fixture
-    def game_service(self) -> GameService:
-        return GameService()
+    # Uses game_service fixture from conftest.py
 
     def test_is_multiplayer_returns_false_for_player_not_in_game(
         self, game_service: GameService
@@ -706,9 +688,7 @@ class TestIsMultiplayer:
 class TestToggleAim:
     """Tests for GameService.toggle_aim() method"""
 
-    @pytest.fixture
-    def game_service(self) -> GameService:
-        return GameService()
+    # Uses game_service fixture from conftest.py
 
     @pytest.fixture
     def player_with_ships(self, game_service: GameService) -> tuple[Player, str]:

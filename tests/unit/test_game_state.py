@@ -35,15 +35,9 @@ class TestGameStatusEnum:
 class TestGameModel:
     """Unit tests for Game"""
 
-    @pytest.fixture
-    def alice(self) -> Player:
-        return Player("Alice", PlayerStatus.AVAILABLE)
+    # Uses alice and bob fixtures from conftest.py
 
-    @pytest.fixture
-    def bob(self) -> Player:
-        return Player("Bob", PlayerStatus.AVAILABLE)
-
-    def test_single_player_game_creation(self, alice):
+    def test_single_player_game_creation(self, alice: Player) -> None:
         # Test creating a valid single player game
         game = Game(player_1=alice, game_mode=GameMode.SINGLE_PLAYER)
 
@@ -100,16 +94,10 @@ class TestGameModel:
 class TestGameAimedShots:
     """Unit tests for aimed shots functionality"""
 
-    @pytest.fixture
-    def alice(self) -> Player:
-        return Player("Alice", PlayerStatus.AVAILABLE)
+    # Uses alice and bob fixtures from conftest.py
 
     @pytest.fixture
-    def bob(self) -> Player:
-        return Player("Bob", PlayerStatus.AVAILABLE)
-
-    @pytest.fixture
-    def game_with_ships(self, alice) -> Game:
+    def game_with_ships(self, alice: Player) -> Game:
         """Create a game with all ships placed (6 shots available)"""
         game = Game(player_1=alice, game_mode=GameMode.SINGLE_PLAYER)
         board = game.board[alice]

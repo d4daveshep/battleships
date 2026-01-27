@@ -1,9 +1,10 @@
+from typing import Callable
+
 import pytest
 from fastapi.testclient import TestClient
-from main import app
 
-# Import helpers from the same directory
 from helpers import accept_game_request, create_player, send_game_request
+from main import app
 
 
 @pytest.fixture(autouse=True)
@@ -14,8 +15,43 @@ def reset_lobby(client: "TestClient") -> None:
 
 @pytest.fixture
 def client() -> TestClient:
-    # FastAPI TestClient for integration testing
+    """FastAPI TestClient for integration testing.
+
+    Returns:
+        TestClient instance for making requests
+    """
     return TestClient(app)
+
+
+@pytest.fixture
+def unauthenticated_client() -> TestClient:
+    """TestClient without any session (not logged in).
+
+    Returns:
+        TestClient instance with no session data
+    """
+    return TestClient(app)
+
+
+@pytest.fixture
+def make_player_client() -> Callable[[str, str], TestClient]:
+    """Factory fixture for creating authenticated player clients.
+
+    Returns:
+        Factory function that creates authenticated TestClient instances
+
+    Example:
+        def test_something(make_player_client):
+            alice = make_player_client("Alice", "human")
+            bob = make_player_client("Bob", "human")
+    """
+
+    def _make_client(name: str, game_mode: str = "human") -> TestClient:
+        new_client = TestClient(app)
+        create_player(new_client, name, game_mode)
+        return new_client
+
+    return _make_client
 
 
 @pytest.fixture
@@ -47,39 +83,42 @@ def alice_client(client: TestClient) -> TestClient:
 
 
 @pytest.fixture
-def bob_client() -> TestClient:
-    """TestClient with Bob logged in (human mode)
+def bob_client(make_player_client: Callable[[str, str], TestClient]) -> TestClient:
+    """TestClient with Bob logged in (human mode).
+
+    Args:
+        make_player_client: Factory fixture for creating player clients
 
     Returns:
         TestClient with Bob authenticated in human mode
     """
-    client = TestClient(app)
-    create_player(client, "Bob", "human")
-    return client
+    return make_player_client("Bob", "human")
 
 
 @pytest.fixture
-def charlie_client() -> TestClient:
-    """TestClient with Charlie logged in (human mode)
+def charlie_client(make_player_client: Callable[[str, str], TestClient]) -> TestClient:
+    """TestClient with Charlie logged in (human mode).
+
+    Args:
+        make_player_client: Factory fixture for creating player clients
 
     Returns:
         TestClient with Charlie authenticated in human mode
     """
-    client = TestClient(app)
-    create_player(client, "Charlie", "human")
-    return client
+    return make_player_client("Charlie", "human")
 
 
 @pytest.fixture
-def diana_client() -> TestClient:
-    """TestClient with Diana logged in (human mode)
+def diana_client(make_player_client: Callable[[str, str], TestClient]) -> TestClient:
+    """TestClient with Diana logged in (human mode).
+
+    Args:
+        make_player_client: Factory fixture for creating player clients
 
     Returns:
         TestClient with Diana authenticated in human mode
     """
-    client = TestClient(app)
-    create_player(client, "Diana", "human")
-    return client
+    return make_player_client("Diana", "human")
 
 
 @pytest.fixture

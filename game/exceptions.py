@@ -69,3 +69,28 @@ class UnknownGameException(Exception):
     """Raised when referencing a game that doesn't exist."""
 
     pass
+
+
+# Gameplay exceptions
+class GameplayError(Exception):
+    """Base exception for gameplay logic errors."""
+
+    pass
+
+
+class ShotLimitExceededError(GameplayError):
+    """Raised when a player aims more shots than allowed."""
+
+    pass
+
+
+class ActionAfterFireError(GameplayError):
+    """Raised when attempting to aim or fire after already firing."""
+
+    pass
+
+
+class NoShotsAimedError(GameplayError):
+    """Raised when attempting to fire with no shots aimed."""
+
+    pass

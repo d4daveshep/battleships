@@ -9,6 +9,11 @@ from fastapi.templating import Jinja2Templates
 from game.game_service import AimResult, Game, GameService, GameStatus
 from game.model import Coord, GameBoard
 from game.player import Player
+from game.exceptions import (
+    ShotLimitExceededError,
+    ActionAfterFireError,
+    NoShotsAimedError,
+)
 
 from routes.helpers import (
     _get_game_service,
@@ -185,40 +190,35 @@ async def aim_shot(
     # Toggle aim and get result
     try:
         result: AimResult = game_service.toggle_aim(game_id, player.id, coordinate)
-    except ValueError as e:
-        # Check if it's the shot limit error
-        if "Cannot aim more shots than available" in str(e):
-            # Get current aimed count for the display
-            aimed_coords: set[Coord] = game.get_aimed_shots(player.id)
-            aimed_count: int = len(aimed_coords)
-            shots_available: int = game.get_shots_available(player.id)
-            # Return error message component with shot count
-            return templates.TemplateResponse(
-                request=request,
-                name="components/error_message.html",
-                context={
-                    "error_message": "All available shots aimed",
-                    "aimed_count": aimed_count,
-                    "shots_available": shots_available,
-                },
-            )
-        elif "Cannot aim shots after firing" in str(e):
-            # Return error message for trying to aim after firing
-            aimed_coords: set[Coord] = game.get_aimed_shots(player.id)
-            aimed_count: int = len(aimed_coords)
-            shots_available: int = game.get_shots_available(player.id)
-            return templates.TemplateResponse(
-                request=request,
-                name="components/error_message.html",
-                context={
-                    "error_message": "Cannot aim shots after firing - you have already fired",
-                    "aimed_count": aimed_count,
-                    "shots_available": shots_available,
-                },
-            )
-        else:
-            # Re-raise other ValueErrors
-            raise
+    except ShotLimitExceededError:
+        # Get current aimed count for the display
+        aimed_coords: set[Coord] = game.get_aimed_shots(player.id)
+        aimed_count: int = len(aimed_coords)
+        shots_available: int = game.get_shots_available(player.id)
+        # Return error message component with shot count
+        return templates.TemplateResponse(
+            request=request,
+            name="components/error_message.html",
+            context={
+                "error_message": "All available shots aimed",
+                "aimed_count": aimed_count,
+                "shots_available": shots_available,
+            },
+        )
+    except ActionAfterFireError:
+        # Return error message for trying to aim after firing
+        aimed_coords: set[Coord] = game.get_aimed_shots(player.id)
+        aimed_count: int = len(aimed_coords)
+        shots_available: int = game.get_shots_available(player.id)
+        return templates.TemplateResponse(
+            request=request,
+            name="components/error_message.html",
+            context={
+                "error_message": "Cannot aim shots after firing - you have already fired",
+                "aimed_count": aimed_count,
+                "shots_available": shots_available,
+            },
+        )
 
     # Get the current aimed coordinates for the template
     aimed_coords: set[Coord] = game.get_aimed_shots(player.id)
@@ -282,27 +282,20 @@ async def fire_shots(
     # Fire the shots
     try:
         game_service.fire_shots(game_id, player.id)
-    except ValueError as e:
-        error_msg = str(e)
-        if "no shots aimed" in error_msg:
-            # Return error message
-            return templates.TemplateResponse(
-                request=request,
-                name="components/error_message.html",
-                context={"error_message": error_msg},
-            )
-        elif "Cannot aim shots after firing" in error_msg:
-            # Player already fired - return waiting status
-            aimed_coords: set[Coord] = game.get_aimed_shots(player.id)
-            aimed_count: int = len(aimed_coords)
-            shots_available: int = game.get_shots_available(player.id)
-            return templates.TemplateResponse(
-                request=request,
-                name="components/error_message.html",
-                context={"error_message": error_msg},
-            )
-        else:
-            raise
+    except NoShotsAimedError as e:
+        # Return error message
+        return templates.TemplateResponse(
+            request=request,
+            name="components/error_message.html",
+            context={"error_message": str(e)},
+        )
+    except ActionAfterFireError as e:
+        # Player already fired - return waiting status
+        return templates.TemplateResponse(
+            request=request,
+            name="components/error_message.html",
+            context={"error_message": str(e)},
+        )
 
     # Get updated game state
     player_board: GameBoard = game.board[role.current_player]

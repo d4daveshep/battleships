@@ -7,6 +7,9 @@ from game.exceptions import (
     ShipAlreadyPlacedError,
     ShipPlacementOutOfBoundsError,
     ShipPlacementTooCloseError,
+    ShotLimitExceededError,
+    ActionAfterFireError,
+    NoShotsAimedError,
 )
 
 if TYPE_CHECKING:
@@ -408,7 +411,7 @@ class Game:
     def aim_at(self, player_id: str, coord: Coord) -> None:
         """Add a coordinate to the player's aimed shots for this round."""
         if not self.can_aim(player_id):
-            raise ValueError("Cannot aim shots after firing")
+            raise ActionAfterFireError("Cannot aim shots after firing")
 
         if player_id not in self.aimed_shots:
             self.aimed_shots[player_id] = set()
@@ -421,7 +424,7 @@ class Game:
         shots_available: int = self.get_shots_available(player_id)
         current_aimed: int = self.get_aimed_shots_count(player_id)
         if current_aimed >= shots_available:
-            raise ValueError("Cannot aim more shots than available")
+            raise ShotLimitExceededError("Cannot aim more shots than available")
 
         self.aimed_shots[player_id].add(coord)
 
@@ -471,16 +474,16 @@ class Game:
             player_id: The ID of the player firing shots
 
         Raises:
-            ValueError: If player has no shots aimed
-            ValueError: If player has already fired and is waiting for opponent
+            NoShotsAimedError: If player has no shots aimed
+            ActionAfterFireError: If player has already fired and is waiting for opponent
         """
         if self._waiting_for_opponent.get(player_id, False):
-            raise ValueError("Cannot aim shots after firing")
+            raise ActionAfterFireError("Cannot aim shots after firing")
 
         aimed = self.get_aimed_shots(player_id)
 
         if len(aimed) == 0:
-            raise ValueError("Cannot fire shots - no shots aimed")
+            raise NoShotsAimedError("Cannot fire shots - no shots aimed")
 
         if player_id not in self.fired_shots:
             self.fired_shots[player_id] = set()

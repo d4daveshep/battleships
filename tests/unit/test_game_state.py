@@ -3,6 +3,7 @@ import pytest
 from game.game_service import Game, GameMode, GameStatus
 from game.player import Player, PlayerStatus
 from game.model import Ship, ShipType, Orientation, Coord
+from game.exceptions import ShotLimitExceededError, ActionAfterFireError
 
 
 class TestGameModeEnum:
@@ -169,7 +170,7 @@ class TestGameAimedShots:
         game_with_ships.aim_at(alice.id, Coord.F10)
 
         # 7th should raise an error
-        with pytest.raises(ValueError, match="Cannot aim more shots than available"):
+        with pytest.raises(ShotLimitExceededError):
             game_with_ships.aim_at(alice.id, Coord.G10)
 
     def test_aiming_same_coordinate_twice_does_not_count_as_two(
@@ -294,7 +295,7 @@ class TestFireShots:
         game.fire_shots(alice.id)
 
         # Attempting to aim should raise an error
-        with pytest.raises(ValueError, match="Cannot aim shots after firing"):
+        with pytest.raises(ActionAfterFireError):
             game.aim_at(alice.id, Coord.E5)
 
     def test_get_fired_shots_returns_empty_initially(

@@ -12,6 +12,7 @@ from game.game_service import (
     DuplicatePlayerException,
     UnknownGameException,
 )
+from game.exceptions import NoShotsAimedError, ActionAfterFireError
 from game.model import GameBoard
 from game.model import ShipType, Coord, CoordHelper, Ship, Orientation
 
@@ -948,7 +949,7 @@ class TestFireShotsService:
         """Test that firing with no aimed shots raises an error."""
         alice, _, game_id = two_player_setup
 
-        with pytest.raises(ValueError, match="Cannot fire shots - no shots aimed"):
+        with pytest.raises(NoShotsAimedError):
             game_service.fire_shots(game_id, alice.id)
 
     def test_cannot_aim_after_firing(
@@ -961,5 +962,5 @@ class TestFireShotsService:
         game_service.fire_shots(game_id, alice.id)
 
         # Attempting to aim should raise an error
-        with pytest.raises(ValueError, match="Cannot aim shots after firing"):
+        with pytest.raises(ActionAfterFireError):
             game_service.toggle_aim(game_id, alice.id, "B2")

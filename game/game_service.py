@@ -8,6 +8,7 @@ from game.exceptions import (
     PlayerNotInGameException,
     UnknownGameException,
     UnknownPlayerException,
+    ShotLimitExceededError,
 )
 from typing import NamedTuple
 
@@ -569,13 +570,10 @@ class GameService:
         try:
             game.aim_at(player_id, coord)
             return SelectShotResult(success=True)
-        except ValueError as e:
-            if str(e) == "Cannot aim more shots than available":
-                return SelectShotResult(
-                    success=False, error="All available shots aimed"
-                )
-            else:
-                return SelectShotResult(success=False, error=str(e))
+        except ShotLimitExceededError:
+            return SelectShotResult(success=False, error="All available shots aimed")
+        except Exception as e:
+            return SelectShotResult(success=False, error=str(e))
 
     def fire_shots(self, game_id: str, player_id: str) -> None:
         """Submit the player's aimed shots and enter waiting state.
@@ -587,7 +585,8 @@ class GameService:
         Raises:
             UnknownGameException: If game doesn't exist
             UnknownPlayerException: If player doesn't exist
-            ValueError: If player has no shots aimed
+            NoShotsAimedError: If player has no shots aimed
+            ActionAfterFireError: If player has already fired
         """
         game = self._get_game_or_raise(game_id)
         player = self._get_player_or_raise(player_id)

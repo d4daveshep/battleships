@@ -468,3 +468,92 @@ def see_shots_aimed_counter(context: MultiPlayerBDDContext):
         if aiming_status:
             text = aiming_status.get_text()
             assert "6/6" in text, f"Expected '6/6' in aiming status, got '{text}'"
+
+
+# === Scenario: Can fire fewer shots than available === #
+
+
+@given(parsers.parse("I have selected {count:d} coordinates to aim at"))
+def have_selected_n_coordinates(context: MultiPlayerBDDContext, count: int):
+    """Select the specified number of coordinates to aim at"""
+    # Select first N coordinates
+    coords = ["A1", "B1", "C1", "D1", "E1", "F1"][:count]
+    context.select_coordinates(coords)
+
+    client = context.get_client_for_player(context.current_player_name)
+    response = client.get(context.game_url)
+    context.update_response(response)
+
+
+@when(parsers.parse('I click the "{button_name}" button'))
+def click_button(context: MultiPlayerBDDContext, button_name: str):
+    """Click a button by name"""
+    assert context.game_url is not None, "No game URL stored"
+    assert context.current_player_name is not None, "No current player set"
+
+    # Extract game_id from game_url
+    game_id: str = context.game_url.split("/")[-1]
+
+    client = context.get_client_for_player(context.current_player_name)
+
+    if button_name == "Fire Shots":
+        response = client.post(
+            "/fire-shots",
+            data={"game_id": game_id, "player_name": context.current_player_name},
+        )
+    else:
+        raise ValueError(f"Unknown button: {button_name}")
+
+    context.update_response(response)
+
+    # Refresh the page to get the full state
+    response = client.get(context.game_url)
+    context.update_response(response)
+
+
+@then(parsers.parse("my {count:d} shots should be submitted"))
+def shots_should_be_submitted(context: MultiPlayerBDDContext, count: int):
+    """Verify that the specified number of shots were submitted"""
+    assert context.soup is not None
+
+    # Check that the shot counter shows 0/6 (no shots aimed after firing)
+    aiming_status = context.soup.find(attrs={"data-testid": "aiming-status"})
+    if aiming_status:
+        text = aiming_status.get_text()
+        # Either shows "0/6" or the waiting message takes precedence
+        assert "0/6" in text or "Waiting" in text, (
+            f"Expected shots to be cleared after firing, got: {text}"
+        )
+
+
+@then('I should see "Waiting for opponent to fire..." displayed')
+def see_waiting_for_opponent_message(context: MultiPlayerBDDContext):
+    """Verify the waiting for opponent message is displayed"""
+    assert context.soup is not None
+
+    # Check for waiting message
+    text = context.soup.get_text()
+    assert "Waiting for opponent" in text, (
+        f"Expected 'Waiting for opponent to fire...' in page text, got: {text}"
+    )
+
+
+@then("I should not be able to aim additional shots")
+def cannot_aim_additional_shots(context: MultiPlayerBDDContext):
+    """Verify that aiming additional shots is blocked"""
+    assert context.game_url is not None, "No game URL stored"
+    assert context.current_player_name is not None, "No current player set"
+
+    game_id: str = context.game_url.split("/")[-1]
+    client = context.get_client_for_player(context.current_player_name)
+
+    # Attempt to aim another shot
+    htmx_response = client.post(
+        "/aim-shot",
+        data={"game_id": game_id, "coordinate": "G1"},
+        headers={"HX-Request": "true"},
+    )
+
+    # Should get an error response
+    assert htmx_response.status_code == 200
+    assert "Cannot aim shots after firing" in htmx_response.text

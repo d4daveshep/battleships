@@ -64,15 +64,15 @@ Feature: Two-Player Simultaneous Multi-Shot Gameplay
     And I should see a message "All available shots aimed"
     And I should see "Shots Aimed: 6/6" displayed
 
-  # Scenario: Can fire fewer shots than available
-  #   Given it is Round 1
-  #   And I have 6 shots available
-  #   And I have selected 4 coordinates to aim at
-  #   When I click the "Fire Shots" button
-  #   Then my 4 shots should be submitted
-  #   And I should see "Waiting for opponent to fire..." displayed
-  #   And I should not be able to aim additional shots
-  #
+  Scenario: Can fire fewer shots than available
+    Given it is Round 1
+    And I have 6 shots available
+    And I have selected 4 coordinates to aim at
+    When I click the "Fire Shots" button
+    Then my 4 shots should be submitted
+    And I should see "Waiting for opponent to fire..." displayed
+    And I should not be able to aim additional shots
+
   # # === Simultaneous Shot Submission ===
   #
   # Scenario: Both players fire shots simultaneously in the same round

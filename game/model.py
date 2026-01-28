@@ -362,6 +362,8 @@ class Game:
         self.status: GameStatus = GameStatus.CREATED
         self.round: int = 1
         self.aimed_shots: dict[str, set[Coord]] = {}
+        self.fired_shots: dict[str, set[Coord]] = {}
+        self._waiting_for_opponent: dict[str, bool] = {}
 
         # Validate that two player games have an opponent
         if self.game_mode == GameMode.TWO_PLAYER and not self.player_2:
@@ -405,6 +407,9 @@ class Game:
 
     def aim_at(self, player_id: str, coord: Coord) -> None:
         """Add a coordinate to the player's aimed shots for this round."""
+        if not self.can_aim(player_id):
+            raise ValueError("Cannot aim shots after firing")
+
         if player_id not in self.aimed_shots:
             self.aimed_shots[player_id] = set()
 
@@ -458,3 +463,61 @@ class Game:
         aimed_count = self.get_aimed_shots_count(player_id)
 
         return aimed_count < shots_available
+
+    def fire_shots(self, player_id: str) -> None:
+        """Submit the player's aimed shots and enter waiting state.
+
+        Args:
+            player_id: The ID of the player firing shots
+
+        Raises:
+            ValueError: If player has no shots aimed
+            ValueError: If player has already fired and is waiting for opponent
+        """
+        if self._waiting_for_opponent.get(player_id, False):
+            raise ValueError("Cannot aim shots after firing")
+
+        aimed = self.get_aimed_shots(player_id)
+
+        if len(aimed) == 0:
+            raise ValueError("Cannot fire shots - no shots aimed")
+
+        if player_id not in self.fired_shots:
+            self.fired_shots[player_id] = set()
+
+        self.fired_shots[player_id].update(aimed)
+        self.aimed_shots[player_id] = set()
+        self._waiting_for_opponent[player_id] = True
+
+    def get_fired_shots(self, player_id: str) -> set[Coord]:
+        """Get the set of coordinates the player has fired this round.
+
+        Args:
+            player_id: The ID of the player
+
+        Returns:
+            Set of fired coordinates
+        """
+        return self.fired_shots.get(player_id, set())
+
+    def is_waiting_for_opponent(self, player_id: str) -> bool:
+        """Check if player is waiting for opponent to fire.
+
+        Args:
+            player_id: The ID of the player
+
+        Returns:
+            True if player has fired and is waiting for opponent
+        """
+        return self._waiting_for_opponent.get(player_id, False)
+
+    def can_aim(self, player_id: str) -> bool:
+        """Check if player can aim at coordinates.
+
+        Args:
+            player_id: The ID of the player
+
+        Returns:
+            False if player has already fired and is waiting for opponent
+        """
+        return not self._waiting_for_opponent.get(player_id, False)

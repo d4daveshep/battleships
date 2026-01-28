@@ -13,7 +13,7 @@ from game.game_service import (
     UnknownGameException,
 )
 from game.model import GameBoard
-from game.model import ShipType, Coord, CoordHelper
+from game.model import ShipType, Coord, CoordHelper, Ship, Orientation
 
 
 class TestGameService:
@@ -842,3 +842,124 @@ class TestSelectShot:
 
         assert game.is_coordinate_selectable(alice.id, Coord.A1) is False
         assert game.is_coordinate_selectable(alice.id, Coord.C3) is True
+
+
+class TestFireShotsService:
+    """Tests for GameService.fire_shots() method."""
+
+    @pytest.fixture
+    def two_player_setup(self, game_service: GameService) -> tuple[Player, Player, str]:
+        """Create a two-player game with all ships placed."""
+        alice = Player(name="Alice", status=PlayerStatus.AVAILABLE)
+        bob = Player(name="Bob", status=PlayerStatus.AVAILABLE)
+        game_service.add_player(alice)
+        game_service.add_player(bob)
+        game_id = game_service.create_two_player_game(alice.id, bob.id)
+        game = game_service.games[game_id]
+
+        # Place all ships for both players
+        for player in [alice, bob]:
+            board = game.board[player]
+            board.place_ship(Ship(ShipType.CARRIER), Coord.A1, Orientation.HORIZONTAL)
+            board.place_ship(
+                Ship(ShipType.BATTLESHIP), Coord.C1, Orientation.HORIZONTAL
+            )
+            board.place_ship(Ship(ShipType.CRUISER), Coord.E1, Orientation.HORIZONTAL)
+            board.place_ship(Ship(ShipType.SUBMARINE), Coord.G1, Orientation.HORIZONTAL)
+            board.place_ship(Ship(ShipType.DESTROYER), Coord.I1, Orientation.HORIZONTAL)
+
+        return alice, bob, game_id
+
+    def test_fire_shots_submits_aimed_shots(
+        self, game_service: GameService, two_player_setup: tuple[Player, Player, str]
+    ) -> None:
+        """Test that fire_shots submits the currently aimed shots."""
+        alice, _, game_id = two_player_setup
+
+        # Aim at some coordinates
+        game_service.toggle_aim(game_id, alice.id, "A1")
+        game_service.toggle_aim(game_id, alice.id, "B2")
+        game_service.toggle_aim(game_id, alice.id, "C3")
+        game_service.toggle_aim(game_id, alice.id, "D4")
+
+        # Fire the shots
+        game_service.fire_shots(game_id, alice.id)
+
+        # Verify shots were fired
+        game = game_service.games[game_id]
+        fired_shots = game.get_fired_shots(alice.id)
+        assert len(fired_shots) == 4
+        assert Coord.A1 in fired_shots
+        assert Coord.B2 in fired_shots
+        assert Coord.C3 in fired_shots
+        assert Coord.D4 in fired_shots
+
+    def test_fire_shots_with_fewer_than_available(
+        self, game_service: GameService, two_player_setup: tuple[Player, Player, str]
+    ) -> None:
+        """Test that firing fewer shots than available is allowed."""
+        alice, _, game_id = two_player_setup
+
+        # Aim at only 4 coordinates (out of 6 available)
+        game_service.toggle_aim(game_id, alice.id, "A1")
+        game_service.toggle_aim(game_id, alice.id, "B2")
+        game_service.toggle_aim(game_id, alice.id, "C3")
+        game_service.toggle_aim(game_id, alice.id, "D4")
+
+        # Fire the shots - should succeed
+        game_service.fire_shots(game_id, alice.id)
+
+        game = game_service.games[game_id]
+        fired_shots = game.get_fired_shots(alice.id)
+        assert len(fired_shots) == 4
+
+    def test_fire_shots_sets_waiting_status(
+        self, game_service: GameService, two_player_setup: tuple[Player, Player, str]
+    ) -> None:
+        """Test that firing shots sets the player to waiting for opponent status."""
+        alice, _, game_id = two_player_setup
+
+        # Aim at one shot first
+        game_service.toggle_aim(game_id, alice.id, "A1")
+
+        # Fire shots
+        game_service.fire_shots(game_id, alice.id)
+
+        game = game_service.games[game_id]
+        assert game.is_waiting_for_opponent(alice.id) is True
+
+    def test_fire_shots_clears_aimed_shots(
+        self, game_service: GameService, two_player_setup: tuple[Player, Player, str]
+    ) -> None:
+        """Test that firing shots clears the aimed shots."""
+        alice, _, game_id = two_player_setup
+
+        game_service.toggle_aim(game_id, alice.id, "A1")
+        game_service.toggle_aim(game_id, alice.id, "B2")
+
+        game_service.fire_shots(game_id, alice.id)
+
+        game = game_service.games[game_id]
+        assert game.get_aimed_shots_count(alice.id) == 0
+
+    def test_fire_shots_with_no_aimed_shots_raises_error(
+        self, game_service: GameService, two_player_setup: tuple[Player, Player, str]
+    ) -> None:
+        """Test that firing with no aimed shots raises an error."""
+        alice, _, game_id = two_player_setup
+
+        with pytest.raises(ValueError, match="Cannot fire shots - no shots aimed"):
+            game_service.fire_shots(game_id, alice.id)
+
+    def test_cannot_aim_after_firing(
+        self, game_service: GameService, two_player_setup: tuple[Player, Player, str]
+    ) -> None:
+        """Test that aiming is blocked after firing shots."""
+        alice, _, game_id = two_player_setup
+
+        game_service.toggle_aim(game_id, alice.id, "A1")
+        game_service.fire_shots(game_id, alice.id)
+
+        # Attempting to aim should raise an error
+        with pytest.raises(ValueError, match="Cannot aim shots after firing"):
+            game_service.toggle_aim(game_id, alice.id, "B2")

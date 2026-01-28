@@ -202,6 +202,20 @@ async def aim_shot(
                     "shots_available": shots_available,
                 },
             )
+        elif "Cannot aim shots after firing" in str(e):
+            # Return error message for trying to aim after firing
+            aimed_coords: set[Coord] = game.get_aimed_shots(player.id)
+            aimed_count: int = len(aimed_coords)
+            shots_available: int = game.get_shots_available(player.id)
+            return templates.TemplateResponse(
+                request=request,
+                name="components/error_message.html",
+                context={
+                    "error_message": "Cannot aim shots after firing - you have already fired",
+                    "aimed_count": aimed_count,
+                    "shots_available": shots_available,
+                },
+            )
         else:
             # Re-raise other ValueErrors
             raise
@@ -220,6 +234,103 @@ async def aim_shot(
             "aimed_count": result.aimed_count,
             "shots_available": result.shots_available,
             "aimed_coordinates": [c.name for c in aimed_coords],
+        },
+    )
+
+
+@router.post("/fire-shots", response_class=HTMLResponse)
+async def fire_shots(
+    request: Request,
+    game_id: str = Form(...),
+    player_name: str = Form(...),
+) -> HTMLResponse:
+    """Submit the player's aimed shots and enter waiting state.
+
+    This endpoint handles the "Fire Shots" button action. It submits all
+    currently aimed shots and changes the player's status to waiting for
+    opponent. The player can then no longer aim additional shots.
+
+    Args:
+        request: The FastAPI request object containing session data
+        game_id: The unique identifier for the game
+        player_name: The name of the player firing shots
+
+    Returns:
+        HTMLResponse with updated gameplay template showing waiting status
+
+    Raises:
+        HTTPException: 404 if game not found, 403 if player not in this game
+        HTTPException: 400 if no shots aimed
+    """
+    templates = _get_templates()
+    game_service = _get_game_service()
+
+    # Get current player from session
+    player: Player = _get_player_from_session(request)
+
+    # Validate player name matches session
+    if player.name != player_name:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Player name doesn't match session",
+        )
+
+    # Fetch game and validate player is in it
+    game: Game = _get_game_or_404(game_id)
+    role: PlayerGameRole = _get_player_role(game, player)
+
+    # Fire the shots
+    try:
+        game_service.fire_shots(game_id, player.id)
+    except ValueError as e:
+        error_msg = str(e)
+        if "no shots aimed" in error_msg:
+            # Return error message
+            return templates.TemplateResponse(
+                request=request,
+                name="components/error_message.html",
+                context={"error_message": error_msg},
+            )
+        elif "Cannot aim shots after firing" in error_msg:
+            # Player already fired - return waiting status
+            aimed_coords: set[Coord] = game.get_aimed_shots(player.id)
+            aimed_count: int = len(aimed_coords)
+            shots_available: int = game.get_shots_available(player.id)
+            return templates.TemplateResponse(
+                request=request,
+                name="components/error_message.html",
+                context={"error_message": error_msg},
+            )
+        else:
+            raise
+
+    # Get updated game state
+    player_board: GameBoard = game.board[role.current_player]
+    opponent_board: GameBoard = (
+        game.board[role.opponent] if role.opponent else GameBoard()
+    )
+
+    # Check if opponent is also waiting (both fired)
+    opponent_waiting = False
+    if role.opponent:
+        opponent_waiting = game.is_waiting_for_opponent(role.opponent.id)
+
+    # Render updated gameplay template with waiting status
+    return templates.TemplateResponse(
+        request=request,
+        name="gameplay.html",
+        context={
+            **_create_gameplay_context(
+                current_player=role.current_player,
+                opponent=role.opponent,
+                player_board=player_board,
+                opponent_board=opponent_board,
+                game_id=game_id,
+                game=game,
+            ),
+            # Add waiting status message
+            "status_message": "Waiting for opponent to fire...",
+            "waiting_for_opponent": game.is_waiting_for_opponent(player.id),
         },
     )
 
@@ -254,15 +365,23 @@ async def game_page(request: Request, game_id: str) -> HTMLResponse:
     )
 
     # Render gameplay template
+    # Check if player is waiting for opponent and add status message
+    context = _create_gameplay_context(
+        current_player=role.current_player,
+        opponent=role.opponent,
+        player_board=player_board,
+        opponent_board=opponent_board,
+        game_id=game_id,
+        game=game,
+    )
+
+    # Add waiting status if player has fired
+    if game.is_waiting_for_opponent(player.id):
+        context["status_message"] = "Waiting for opponent to fire..."
+        context["waiting_for_opponent"] = True
+
     return templates.TemplateResponse(
         request=request,
         name="gameplay.html",
-        context=_create_gameplay_context(
-            current_player=role.current_player,
-            opponent=role.opponent,
-            player_board=player_board,
-            opponent_board=opponent_board,
-            game_id=game_id,
-            game=game,
-        ),
+        context=context,
     )

@@ -293,3 +293,58 @@ def see_shots_aimed_counter(page: Page):
     # Check for shots available display (which shows the total available)
     shots_available = page.locator('[data-testid="shots-available"]')
     expect(shots_available).to_contain_text("Shots Available: 6")
+
+
+# === Scenario: Can fire fewer shots than available ===
+
+
+@given(parsers.parse("I have selected {count:d} coordinates to aim at"))
+def have_selected_n_coordinates(page: Page, count: int):
+    """Select the specified number of coordinates to aim at"""
+    # Select first N coordinates from the list
+    coords = ["A1", "B1", "C1", "D1", "E1", "F1"][:count]
+    select_coordinates(page, coords)
+
+
+@when(parsers.parse('I click the "{button_name}" button'))
+def click_button(page: Page, button_name: str):
+    """Click a button by name"""
+    if button_name == "Fire Shots":
+        button = page.locator('[data-testid="fire-shots-button"]')
+        expect(button).to_be_visible()
+        expect(button).to_be_enabled()
+        button.click()
+        # Wait for HTMX to process the submission
+        page.wait_for_timeout(500)
+    else:
+        raise ValueError(f"Unknown button: {button_name}")
+
+
+@then(parsers.parse("my {count:d} shots should be submitted"))
+def shots_should_be_submitted(page: Page, count: int):
+    """Verify that the specified number of shots were submitted"""
+    # After firing, the aimed shots should be cleared (0/6)
+    aiming_status = page.locator('[data-testid="aiming-status"]')
+    expect(aiming_status).to_be_visible()
+    # Should show 0/6 after firing (shots are no longer "aimed")
+    expect(aiming_status).to_contain_text("0/")
+
+
+@then('I should see "Waiting for opponent to fire..." displayed')
+def see_waiting_for_opponent_message(page: Page):
+    """Verify the waiting for opponent message is displayed"""
+    # Check for status message
+    status_message = page.locator('[data-testid="game-status"]')
+    expect(status_message).to_contain_text("Waiting for opponent")
+
+
+@then("I should not be able to aim additional shots")
+def cannot_aim_additional_shots(page: Page):
+    """Verify that aiming additional shots is blocked"""
+    # Attempt to click on a coordinate that hasn't been fired at
+    cell = page.locator('[data-testid="opponent-cell-G1"]')
+    expect(cell).to_be_visible()
+    cell.click()
+    # Wait for HTMX to respond with error
+    error_message = page.locator('[data-testid="error-message"]')
+    expect(error_message).to_contain_text("Cannot aim shots after firing", timeout=5000)

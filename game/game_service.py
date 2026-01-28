@@ -576,3 +576,21 @@ class GameService:
                 )
             else:
                 return SelectShotResult(success=False, error=str(e))
+
+    def fire_shots(self, game_id: str, player_id: str) -> None:
+        """Submit the player's aimed shots and enter waiting state.
+
+        Args:
+            game_id: The game ID
+            player_id: The player ID
+
+        Raises:
+            UnknownGameException: If game doesn't exist
+            UnknownPlayerException: If player doesn't exist
+            ValueError: If player has no shots aimed
+        """
+        game = self._get_game_or_raise(game_id)
+        player = self._get_player_or_raise(player_id)
+
+        # Delegate to Game model
+        game.fire_shots(player_id)

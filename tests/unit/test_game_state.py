@@ -179,3 +179,192 @@ class TestGameAimedShots:
         game_with_ships.aim_at(alice.id, Coord.J1)
         game_with_ships.aim_at(alice.id, Coord.J1)  # Same coordinate
         assert game_with_ships.get_aimed_shots_count(alice.id) == 1
+
+
+class TestFireShots:
+    """Unit tests for firing shots functionality"""
+
+    @pytest.fixture
+    def two_player_game_with_ships(self, alice: Player, bob: Player) -> Game:
+        """Create a two-player game with all ships placed"""
+        game = Game(player_1=alice, player_2=bob, game_mode=GameMode.TWO_PLAYER)
+
+        # Place all ships for player 1
+        board_1 = game.board[alice]
+        board_1.place_ship(Ship(ShipType.CARRIER), Coord.A1, Orientation.HORIZONTAL)
+        board_1.place_ship(Ship(ShipType.BATTLESHIP), Coord.C1, Orientation.HORIZONTAL)
+        board_1.place_ship(Ship(ShipType.CRUISER), Coord.E1, Orientation.HORIZONTAL)
+        board_1.place_ship(Ship(ShipType.SUBMARINE), Coord.G1, Orientation.HORIZONTAL)
+        board_1.place_ship(Ship(ShipType.DESTROYER), Coord.I1, Orientation.HORIZONTAL)
+
+        # Place all ships for player 2
+        board_2 = game.board[bob]
+        board_2.place_ship(Ship(ShipType.CARRIER), Coord.A1, Orientation.HORIZONTAL)
+        board_2.place_ship(Ship(ShipType.BATTLESHIP), Coord.C1, Orientation.HORIZONTAL)
+        board_2.place_ship(Ship(ShipType.CRUISER), Coord.E1, Orientation.HORIZONTAL)
+        board_2.place_ship(Ship(ShipType.SUBMARINE), Coord.G1, Orientation.HORIZONTAL)
+        board_2.place_ship(Ship(ShipType.DESTROYER), Coord.I1, Orientation.HORIZONTAL)
+
+        return game
+
+    def test_fire_shots_submits_aimed_shots(
+        self, alice: Player, two_player_game_with_ships: Game
+    ) -> None:
+        """Test that firing shots submits the currently aimed shots."""
+        game = two_player_game_with_ships
+
+        # Aim at 4 coordinates
+        game.aim_at(alice.id, Coord.A1)
+        game.aim_at(alice.id, Coord.B2)
+        game.aim_at(alice.id, Coord.C3)
+        game.aim_at(alice.id, Coord.D4)
+
+        # Fire the shots
+        game.fire_shots(alice.id)
+
+        # Shots should be recorded as fired
+        fired_shots = game.get_fired_shots(alice.id)
+        assert len(fired_shots) == 4
+        assert Coord.A1 in fired_shots
+        assert Coord.B2 in fired_shots
+        assert Coord.C3 in fired_shots
+        assert Coord.D4 in fired_shots
+
+    def test_fire_shots_with_fewer_than_available(
+        self, alice: Player, two_player_game_with_ships: Game
+    ) -> None:
+        """Test that firing fewer shots than available is allowed."""
+        game = two_player_game_with_ships
+
+        # Aim at only 4 coordinates (out of 6 available)
+        game.aim_at(alice.id, Coord.A1)
+        game.aim_at(alice.id, Coord.B2)
+        game.aim_at(alice.id, Coord.C3)
+        game.aim_at(alice.id, Coord.D4)
+
+        # Fire the shots - should succeed
+        game.fire_shots(alice.id)
+
+        fired_shots = game.get_fired_shots(alice.id)
+        assert len(fired_shots) == 4
+
+    def test_fire_shots_clears_aimed_shots(
+        self, alice: Player, two_player_game_with_ships: Game
+    ) -> None:
+        """Test that firing shots clears the aimed shots."""
+        game = two_player_game_with_ships
+
+        # Aim at some coordinates
+        game.aim_at(alice.id, Coord.A1)
+        game.aim_at(alice.id, Coord.B2)
+
+        assert game.get_aimed_shots_count(alice.id) == 2
+
+        # Fire the shots
+        game.fire_shots(alice.id)
+
+        # Aimed shots should be cleared
+        assert game.get_aimed_shots_count(alice.id) == 0
+
+    def test_fire_shots_sets_waiting_status(
+        self, alice: Player, two_player_game_with_ships: Game
+    ) -> None:
+        """Test that firing shots sets the player to waiting for opponent status."""
+        game = two_player_game_with_ships
+
+        # Aim at one shot before firing
+        game.aim_at(alice.id, Coord.A1)
+
+        # Fire shots
+        game.fire_shots(alice.id)
+
+        # Player should be in waiting status
+        assert game.is_waiting_for_opponent(alice.id) is True
+
+    def test_cannot_aim_after_firing(
+        self, alice: Player, two_player_game_with_ships: Game
+    ) -> None:
+        """Test that aiming is blocked after firing shots."""
+        game = two_player_game_with_ships
+
+        # Aim at one shot first
+        game.aim_at(alice.id, Coord.A1)
+
+        # Fire shots
+        game.fire_shots(alice.id)
+
+        # Attempting to aim should raise an error
+        with pytest.raises(ValueError, match="Cannot aim shots after firing"):
+            game.aim_at(alice.id, Coord.E5)
+
+    def test_get_fired_shots_returns_empty_initially(
+        self, alice: Player, two_player_game_with_ships: Game
+    ) -> None:
+        """Test that no shots are fired at game start."""
+        game = two_player_game_with_ships
+
+        fired_shots = game.get_fired_shots(alice.id)
+        assert len(fired_shots) == 0
+
+
+class TestWaitingForOpponent:
+    """Unit tests for waiting for opponent status"""
+
+    @pytest.fixture
+    def two_player_game_with_ships(self, alice: Player, bob: Player) -> Game:
+        """Create a two-player game with all ships placed"""
+        game = Game(player_1=alice, player_2=bob, game_mode=GameMode.TWO_PLAYER)
+
+        # Place all ships for player 1
+        board_1 = game.board[alice]
+        board_1.place_ship(Ship(ShipType.CARRIER), Coord.A1, Orientation.HORIZONTAL)
+        board_1.place_ship(Ship(ShipType.BATTLESHIP), Coord.C1, Orientation.HORIZONTAL)
+        board_1.place_ship(Ship(ShipType.CRUISER), Coord.E1, Orientation.HORIZONTAL)
+        board_1.place_ship(Ship(ShipType.SUBMARINE), Coord.G1, Orientation.HORIZONTAL)
+        board_1.place_ship(Ship(ShipType.DESTROYER), Coord.I1, Orientation.HORIZONTAL)
+
+        # Place all ships for player 2
+        board_2 = game.board[bob]
+        board_2.place_ship(Ship(ShipType.CARRIER), Coord.A1, Orientation.HORIZONTAL)
+        board_2.place_ship(Ship(ShipType.BATTLESHIP), Coord.C1, Orientation.HORIZONTAL)
+        board_2.place_ship(Ship(ShipType.CRUISER), Coord.E1, Orientation.HORIZONTAL)
+        board_2.place_ship(Ship(ShipType.SUBMARINE), Coord.G1, Orientation.HORIZONTAL)
+        board_2.place_ship(Ship(ShipType.DESTROYER), Coord.I1, Orientation.HORIZONTAL)
+
+        return game
+
+    def test_is_waiting_for_opponent_false_initially(
+        self, alice: Player, two_player_game_with_ships: Game
+    ) -> None:
+        """Test that player is not waiting for opponent at game start."""
+        game = two_player_game_with_ships
+
+        assert game.is_waiting_for_opponent(alice.id) is False
+
+    def test_is_waiting_for_opponent_true_after_firing(
+        self, alice: Player, two_player_game_with_ships: Game
+    ) -> None:
+        """Test that player is waiting for opponent after firing shots."""
+        game = two_player_game_with_ships
+
+        # Aim at one shot first
+        game.aim_at(alice.id, Coord.A1)
+
+        game.fire_shots(alice.id)
+
+        assert game.is_waiting_for_opponent(alice.id) is True
+
+    def test_opponent_not_waiting_after_first_player_fires(
+        self, alice: Player, bob: Player, two_player_game_with_ships: Game
+    ) -> None:
+        """Test that opponent is not waiting when only first player has fired."""
+        game = two_player_game_with_ships
+
+        # Player 1 aims and fires
+        game.aim_at(alice.id, Coord.A1)
+        game.fire_shots(alice.id)
+
+        # Player 1 is waiting
+        assert game.is_waiting_for_opponent(alice.id) is True
+        # Player 2 is not waiting (hasn't fired yet)
+        assert game.is_waiting_for_opponent(bob.id) is False

@@ -47,14 +47,14 @@ Feature: Two-Player Simultaneous Multi-Shot Gameplay
     And I should be able to select 3 more coordinates
     And the "Fire Shots" button should be enabled
 
-  # Scenario: Cannot select the same coordinate twice in aiming phase
-  #   Given it is Round 1
-  #   And I have selected coordinate "A1" to aim at
-  #   When I attempt to select coordinate "A1" again
-  #   Then I should see an error message "Coordinate already selected for this round"
-  #   And coordinate "A1" should remain selected once
-  #   And I should still have 5 remaining shot selections available
-  #
+  Scenario: Reselecting an aimed shot's coordinates un-aims the shot
+    Given it is Round 1
+    And I have only selected coordinate "A1" to aim at
+    When I select coordinate "A1" again
+    Then coordinate "A1" should be un-aimed
+    And I should not see coordinate "A1" marked as aimed
+    And I should still have 6 remaining shot selections available
+
   # Scenario: Cannot select more shots than available
   #   Given it is Round 1
   #   And I have 6 shots available

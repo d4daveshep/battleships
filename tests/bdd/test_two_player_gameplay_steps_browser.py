@@ -193,12 +193,60 @@ def can_select_3_more_coordinates(page: Page):
 def button_should_be_enabled(page: Page, button_name: str):
     """Verify that a button is enabled"""
     # Map button name to testid
-    testid_map = {
+    testid_map: dict[str, str] = {
         "Fire Shots": "fire-shots-button",
     }
-    testid = testid_map.get(
+    testid: str = testid_map.get(
         button_name, button_name.lower().replace(" ", "-") + "-button"
     )
     button = page.locator(f'[data-testid="{testid}"]')
     expect(button).to_be_visible()
     expect(button).to_be_enabled()
+
+
+# === Scenario: Reselecting an aimed shot's coordinates un-aims the shot ===
+
+
+@given(parsers.parse('I have only selected coordinate "{coord}" to aim at'))
+def have_only_selected_coordinate(page: Page, coord: str):
+    """Select exactly one coordinate to aim at"""
+    cell = page.locator(f'[data-testid="opponent-cell-{coord}"]')
+    expect(cell).to_be_visible()
+    cell.click()
+    # Wait for HTMX to update
+    page.wait_for_timeout(500)
+
+
+@when(parsers.parse('I select coordinate "{coord}" again'))
+def select_coordinate_again(page: Page, coord: str):
+    """Select the same coordinate again (toggle off)"""
+    cell = page.locator(f'[data-testid="opponent-cell-{coord}"]')
+    expect(cell).to_be_visible()
+    cell.click()
+    # Wait for HTMX to update
+    page.wait_for_timeout(500)
+
+
+@then(parsers.parse('coordinate "{coord}" should be un-aimed'))
+def coordinate_should_be_unaimed(page: Page, coord: str):
+    """Verify the coordinate is no longer aimed"""
+    cell = page.locator(f'[data-testid="opponent-cell-{coord}"]')
+    checkbox = cell.locator('input[type="checkbox"]')
+    expect(checkbox).not_to_be_checked()
+
+
+@then(parsers.parse('I should not see coordinate "{coord}" marked as aimed'))
+def should_not_see_coordinate_marked(page: Page, coord: str):
+    """Verify the coordinate is not visually marked as aimed"""
+    cell = page.locator(f'[data-testid="opponent-cell-{coord}"]')
+    # Check the cell doesn't have the aimed-cell class
+    expect(cell).not_to_have_class("aimed-cell")
+
+
+@then(
+    parsers.parse("I should still have {count:d} remaining shot selections available")
+)
+def should_have_remaining_shots(page: Page, count: int):
+    """Verify the number of remaining shot selections"""
+    shots_display = page.locator('[data-testid="shots-available"]')
+    expect(shots_display).to_contain_text(f"Shots Available: {count}")

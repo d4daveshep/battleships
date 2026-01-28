@@ -281,3 +281,105 @@ def button_should_be_enabled(context: MultiPlayerBDDContext, button_name: str):
     assert isinstance(button, Tag), f"Button is not a Tag element"
     # Check not disabled
     assert not button.has_attr("disabled"), f"Button '{button_name}' is disabled"
+
+
+# === Scenario: Reselecting an aimed shot's coordinates un-aims the shot ===
+
+
+@given(parsers.parse('I have only selected coordinate "{coord}" to aim at'))
+def have_only_selected_coordinate(context: MultiPlayerBDDContext, coord: str):
+    """Select exactly one coordinate to aim at"""
+    assert context.game_url is not None, "No game URL stored"
+    assert context.current_player_name is not None, "No current player set"
+
+    # Extract game_id from game_url (format: /game/{game_id})
+    game_id: str = context.game_url.split("/")[-1]
+
+    client = context.get_client_for_player(context.current_player_name)
+    response: Response = client.post(
+        "/aim-shot",
+        data={"game_id": game_id, "coordinate": coord},
+        headers={"HX-Request": "true"},
+    )
+    context.update_response(response)
+
+    # Refresh the page to get the full state
+    response = client.get(context.game_url)
+    context.update_response(response)
+
+
+@when(parsers.parse('I select coordinate "{coord}" again'))
+def select_coordinate_again(context: MultiPlayerBDDContext, coord: str):
+    """Select the same coordinate again (toggle off)"""
+    assert context.game_url is not None, "No game URL stored"
+    assert context.current_player_name is not None, "No current player set"
+
+    # Extract game_id from game_url
+    game_id: str = context.game_url.split("/")[-1]
+
+    client = context.get_client_for_player(context.current_player_name)
+    response: Response = client.post(
+        "/aim-shot",
+        data={"game_id": game_id, "coordinate": coord},
+        headers={"HX-Request": "true"},
+    )
+    context.update_response(response)
+
+    # Refresh the page to get the full state
+    response = client.get(context.game_url)
+    context.update_response(response)
+
+
+@then(parsers.parse('coordinate "{coord}" should be un-aimed'))
+def coordinate_should_be_unaimed(context: MultiPlayerBDDContext, coord: str):
+    """Verify the coordinate is no longer aimed"""
+    assert context.soup is not None
+    # Find the cell and check it's not checked
+    shots_board = context.soup.find(attrs={"data-testid": "shots-fired-board"})
+    assert shots_board is not None, "Shots fired board not found"
+    assert isinstance(shots_board, Tag)
+
+    cell = shots_board.find(attrs={"data-testid": f"opponent-cell-{coord}"})
+    assert cell is not None, f"Cell {coord} not found"
+    assert isinstance(cell, Tag)
+
+    # Check the checkbox is not checked
+    checkbox = cell.find("input", {"type": "checkbox"})
+    assert checkbox is not None, f"Checkbox not found in cell {coord}"
+    assert isinstance(checkbox, Tag), f"Checkbox is not a Tag element"
+    assert not checkbox.has_attr("checked"), f"Coordinate {coord} is still aimed"
+
+
+@then(parsers.parse('I should not see coordinate "{coord}" marked as aimed'))
+def should_not_see_coordinate_marked(context: MultiPlayerBDDContext, coord: str):
+    """Verify the coordinate is not visually marked as aimed"""
+    assert context.soup is not None
+    shots_board = context.soup.find(attrs={"data-testid": "shots-fired-board"})
+    assert shots_board is not None, "Shots fired board not found"
+    assert isinstance(shots_board, Tag)
+
+    cell = shots_board.find(attrs={"data-testid": f"opponent-cell-{coord}"})
+    assert cell is not None, f"Cell {coord} not found"
+    assert isinstance(cell, Tag)
+
+    # Check the cell doesn't have the aimed-cell class
+    cell_classes = cell.get("class", [])
+    if isinstance(cell_classes, str):
+        cell_classes = [cell_classes]
+    assert "aimed-cell" not in cell_classes, f"Cell {coord} still has aimed-cell class"
+
+
+@then(
+    parsers.parse("I should still have {count:d} remaining shot selections available")
+)
+def should_have_remaining_shots(context: MultiPlayerBDDContext, count: int):
+    """Verify the number of remaining shot selections"""
+    assert context.soup is not None
+
+    # Check the shots available display
+    shots_display = context.soup.find(attrs={"data-testid": "shots-available"})
+    assert shots_display is not None, "Shots available display not found"
+    text: str = shots_display.get_text()
+    assert f"Shots Available: {count}" in text, (
+        f"Expected 'Shots Available: {count}', got '{text}'"
+    )

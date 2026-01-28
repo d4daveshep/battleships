@@ -7,70 +7,67 @@ from tests.bdd.conftest import (
     navigate_to_login,
     fill_player_name,
     click_multiplayer_button,
+    select_coordinates,
 )
 
-# Global to store P2 client
-p2_client = None
-
+# Global to share state between fixtures in same scenario
+_p2_client_for_scenario: httpx.Client | None = None
 
 scenarios("../../features/two_player_gameplay.feature")
 
 
 @given("both players have completed ship placement")
 def players_completed_placement(page: Page):
-    global p2_client
+    global _p2_client_for_scenario
 
-    # 1. Reset Lobby
     with httpx.Client(base_url=BASE_URL) as client:
         client.post("/test/reset-lobby")
 
-    # 2. Login P2 (Opponent) via API
-    p2_client = httpx.Client(base_url=BASE_URL)
-    p2_client.post("/login", data={"player_name": "Player2", "game_mode": "human"})
+    _p2_client_for_scenario = httpx.Client(base_url=BASE_URL)
+    _p2_client_for_scenario.post(
+        "/login", data={"player_name": "Player2", "game_mode": "human"}
+    )
 
-    # 3. Login P1 (User) via Browser
     navigate_to_login(page)
     fill_player_name(page, "Player1")
     click_multiplayer_button(page)
 
-    # Wait for lobby
     page.wait_for_url("**/lobby")
 
-    # 4. P1 selects P2
-    # Wait for P2 to appear in list (long polling might delay it)
-    expect(page.locator('[data-testid="select-opponent-Player2"]')).to_be_visible(
-        timeout=10000
-    )
+    page.wait_for_selector('[data-testid="select-opponent-Player2"]', timeout=10000)
     page.locator('[data-testid="select-opponent-Player2"]').click()
 
-    # 5. P2 accepts request
-    # Wait a moment for the request to be registered
-    time.sleep(1)
-    p2_client.post("/accept-game-request", data={})
+    _p2_client_for_scenario.post("/accept-game-request", data={})
 
-    # 6. P1 should be redirected to ship placement
     page.wait_for_url("**/place-ships")
 
-    # 7. P1 places ships (Randomly)
     page.locator('[data-testid="random-placement-button"]').click()
-    # Wait for 5 ships placed
     expect(page.locator('[data-testid="ship-placement-count"]')).to_contain_text(
         "5 of 5 ships placed"
     )
 
-    # 8. P2 places ships (Randomly)
-    p2_client.post("/random-ship-placement", data={"player_name": "Player2"})
+    _p2_client_for_scenario.post(
+        "/random-ship-placement", data={"player_name": "Player2"}
+    )
 
 
 @given("both players are ready")
 def players_are_ready(page: Page):
-    global p2_client
+    global _p2_client_for_scenario
 
-    # P1 Ready
     page.locator('[data-testid="ready-button"]').click()
 
-    # P2 Ready
-    p2_client.post("/ready-for-game", data={"player_name": "Player2"})
+    # Use the existing p2_client from ship placement
+    if _p2_client_for_scenario is None:
+        _p2_client_for_scenario = httpx.Client(base_url=BASE_URL)
+        _p2_client_for_scenario.post(
+            "/login", data={"player_name": "Player2", "game_mode": "human"}
+        )
+
+    # Player2 is already logged in and has ships placed, just click ready
+    _p2_client_for_scenario.post("/ready-for-game", data={"player_name": "Player2"})
+
+    page.wait_for_url("**/game/*", timeout=30000)
 
 
 @given("the game has started")
@@ -258,13 +255,7 @@ def should_have_remaining_shots(page: Page, count: int):
 @given("I have selected 6 coordinates to aim at")
 def have_selected_6_coordinates(page: Page):
     """Select 6 coordinates to aim at"""
-    coords = ["A1", "B1", "C1", "D1", "E1", "F1"]
-    for coord in coords:
-        cell = page.locator(f'[data-testid="opponent-cell-{coord}"]')
-        expect(cell).to_be_visible()
-        cell.click()
-        # Wait for HTMX to update
-        page.wait_for_timeout(300)
+    select_coordinates(page, ["A1", "B1", "C1", "D1", "E1", "F1"])
 
 
 @when("I attempt to select another coordinate")

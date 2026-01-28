@@ -388,27 +388,32 @@ def should_have_remaining_shots(context: MultiPlayerBDDContext, count: int):
 # === Shot Selection Limit Steps ===
 
 
-@given("I have selected 6 coordinates to aim at")
-def have_selected_6_coordinates(context: MultiPlayerBDDContext):
-    """Select 6 coordinates to aim at"""
+def _select_aim_shot(context: MultiPlayerBDDContext, coordinate: str) -> None:
+    """Select a single coordinate to aim at via HTMX.
+
+    Args:
+        context: Multi-player BDD context
+        coordinate: The coordinate to select
+    """
     assert context.game_url is not None, "No game URL stored"
     assert context.current_player_name is not None, "No current player set"
 
-    # Extract game_id from game_url
-    game_id = context.game_url.split("/")[-1]
+    game_id = context.game_id
     client = context.get_client_for_player(context.current_player_name)
+    response = client.post(
+        "/aim-shot",
+        data={"game_id": game_id, "coordinate": coordinate},
+        headers={"HX-Request": "true"},
+    )
+    context.update_response(response)
 
-    # Select 6 coordinates
-    coords = ["A1", "B1", "C1", "D1", "E1", "F1"]
-    for coord in coords:
-        response = client.post(
-            "/aim-shot",
-            data={"game_id": game_id, "coordinate": coord},
-            headers={"HX-Request": "true"},
-        )
-        context.update_response(response)
 
-    # Refresh to get updated state
+@given("I have selected 6 coordinates to aim at")
+def have_selected_6_coordinates(context: MultiPlayerBDDContext):
+    """Select 6 coordinates to aim at"""
+    context.select_coordinates(["A1", "B1", "C1", "D1", "E1", "F1"])
+
+    client = context.get_client_for_player(context.current_player_name)
     response = client.get(context.game_url)
     context.update_response(response)
 
@@ -416,24 +421,17 @@ def have_selected_6_coordinates(context: MultiPlayerBDDContext):
 @when("I attempt to select another coordinate")
 def attempt_select_another_coordinate(context: MultiPlayerBDDContext):
     """Attempt to select a 7th coordinate when already at limit"""
-    assert context.game_url is not None, "No game URL stored"
-    assert context.current_player_name is not None, "No current player set"
-
-    # Extract game_id from game_url
-    game_id = context.game_url.split("/")[-1]
+    game_id = context.game_id
     client = context.get_client_for_player(context.current_player_name)
 
-    # Attempt to select a 7th coordinate
     htmx_response = client.post(
         "/aim-shot",
         data={"game_id": game_id, "coordinate": "G1"},
         headers={"HX-Request": "true"},
     )
 
-    # Store the HTMX response in context for error checking
     context.htmx_response = htmx_response
 
-    # Refresh the page to get the full state including counter
     response = client.get(context.game_url)
     context.update_response(response)
 

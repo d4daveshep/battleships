@@ -72,6 +72,13 @@ class MultiPlayerBDDContext(BaseBDDContext):
     game_url: str | None = None
     htmx_response: Response | None = None
 
+    @property
+    def game_id(self) -> str:
+        """Extract game_id from game_url"""
+        if self.game_url:
+            return self.game_url.split("/")[-1]
+        raise ValueError("game_url not set")
+
     def get_client_for_player(self, player_name: str) -> TestClient:
         """Get or create a TestClient for a specific player.
 
@@ -86,6 +93,26 @@ class MultiPlayerBDDContext(BaseBDDContext):
 
             self.player_clients[player_name] = TestClient(app, follow_redirects=False)
         return self.player_clients[player_name]
+
+    def select_coordinates(self, coordinates: list[str]) -> None:
+        """Select multiple coordinates to aim at.
+
+        Args:
+            coordinates: List of coordinate strings (e.g., ["A1", "B1"])
+        """
+        assert self.game_url is not None, "No game URL stored"
+        assert self.current_player_name is not None, "No current player set"
+
+        client = self.get_client_for_player(self.current_player_name)
+        game_id = self.game_id
+
+        for coord in coordinates:
+            response = client.post(
+                "/aim-shot",
+                data={"game_id": game_id, "coordinate": coord},
+                headers={"HX-Request": "true"},
+            )
+            self.update_response(response)
 
 
 @dataclass
@@ -319,6 +346,19 @@ def login_and_select_computer(page: Page, player_name: str = "TestPlayer") -> No
     fill_player_name(page, player_name)
     click_computer_button(page)
     page.wait_for_url("**/start-game*")
+
+
+def select_coordinates(page: Page, coordinates: list[str]) -> None:
+    """Select multiple coordinates to aim at.
+
+    Args:
+        page: Playwright Page instance
+        coordinates: List of coordinate strings (e.g., ["A1", "B1"])
+    """
+    for coord in coordinates:
+        cell = page.locator(f'[data-testid="opponent-cell-{coord}"]')
+        cell.click()
+        page.wait_for_timeout(300)
 
 
 # =============================================================================

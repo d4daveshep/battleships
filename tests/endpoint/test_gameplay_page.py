@@ -10,6 +10,30 @@ from fastapi import status
 from fastapi.testclient import TestClient
 
 
+def _create_game_with_ships(client: TestClient, player_name: str) -> str:
+    """Helper to create a game with ships placed - returns game_id"""
+    create_response = client.post(
+        "/start-game",
+        data={"action": "launch_game", "player_name": player_name},
+        follow_redirects=False,
+    )
+    game_url = create_response.headers["location"]
+    game_id = game_url.split("/")[-1]
+
+    client.post(
+        "/random-ship-placement",
+        data={"player_name": player_name},
+    )
+
+    return game_id
+
+
+@pytest.fixture
+def game_with_ships(authenticated_client: TestClient) -> str:
+    """Create a game with ships placed for testing"""
+    return _create_game_with_ships(authenticated_client, "TestPlayer")
+
+
 class TestGameplayPageEndpoint:
     """Tests for GET /game/{game_id} endpoint"""
 
@@ -116,27 +140,12 @@ class TestGameplayPageEndpoint:
 
     def test_game_page_context_variables(self, authenticated_client: TestClient):
         """Test that game page context contains round and shots available"""
-        # Create a game
-        create_response = authenticated_client.post(
-            "/start-game",
-            data={"action": "launch_game", "player_name": "Alice"},
-            follow_redirects=False,
-        )
-        game_url = create_response.headers["location"]
+        game_id = _create_game_with_ships(authenticated_client, "Alice")
 
-        # Place ships randomly so shots_available will be 6
-        authenticated_client.post(
-            "/random-ship-placement",
-            data={"player_name": "Alice"},
-        )
-
-        # Get game page
+        game_url = f"/game/{game_id}"
         response = authenticated_client.get(game_url)
         assert response.status_code == status.HTTP_200_OK
 
-        # Check for context variables in the rendered HTML
-        # Since we can't easily check context directly with TestClient,
-        # we check for the rendered values in the HTML
         assert "Round 1" in response.text
         assert "Shots Available: 6" in response.text
 
@@ -226,22 +235,8 @@ class TestAimShotEndpoint:
         self, authenticated_client: TestClient
     ):
         """Test that aim-shot endpoint works for valid request"""
-        # Create a game
-        create_response = authenticated_client.post(
-            "/start-game",
-            data={"action": "launch_game", "player_name": "Alice"},
-            follow_redirects=False,
-        )
-        game_url = create_response.headers["location"]
-        game_id = game_url.split("/")[-1]
+        game_id = _create_game_with_ships(authenticated_client, "Alice")
 
-        # Place ships so we have shots available
-        authenticated_client.post(
-            "/random-ship-placement",
-            data={"player_name": "Alice"},
-        )
-
-        # Send HTMX request to aim at a coordinate
         response = authenticated_client.post(
             "/aim-shot",
             data={"game_id": game_id, "coordinate": "J1"},
@@ -253,39 +248,22 @@ class TestAimShotEndpoint:
 
     def test_aim_shot_toggles_coordinate(self, authenticated_client: TestClient):
         """Test that aim-shot toggles coordinate on and off"""
-        # Create a game
-        create_response = authenticated_client.post(
-            "/start-game",
-            data={"action": "launch_game", "player_name": "Alice"},
-            follow_redirects=False,
-        )
-        game_url = create_response.headers["location"]
-        game_id = game_url.split("/")[-1]
+        game_id = _create_game_with_ships(authenticated_client, "Alice")
 
-        # Place ships
-        authenticated_client.post(
-            "/random-ship-placement",
-            data={"player_name": "Alice"},
-        )
-
-        # First aim - should add
         response1 = authenticated_client.post(
             "/aim-shot",
             data={"game_id": game_id, "coordinate": "J1"},
             headers={"HX-Request": "true"},
         )
         assert response1.status_code == status.HTTP_200_OK
-        # Response should indicate coordinate is now aimed
         assert "1/6" in response1.text or "aimed" in response1.text.lower()
 
-        # Second aim at same coordinate - should remove
         response2 = authenticated_client.post(
             "/aim-shot",
             data={"game_id": game_id, "coordinate": "J1"},
             headers={"HX-Request": "true"},
         )
         assert response2.status_code == status.HTTP_200_OK
-        # Response should indicate coordinate is no longer aimed
         assert "0/6" in response2.text or "0" in response2.text
 
     def test_aim_shot_returns_404_for_invalid_game(
@@ -301,22 +279,8 @@ class TestAimShotEndpoint:
 
     def test_aim_shot_prevents_excess_selection(self, authenticated_client: TestClient):
         """Test that aim-shot prevents selecting more shots than available"""
-        # Create a game
-        create_response = authenticated_client.post(
-            "/start-game",
-            data={"action": "launch_game", "player_name": "Alice"},
-            follow_redirects=False,
-        )
-        game_url = create_response.headers["location"]
-        game_id = game_url.split("/")[-1]
+        game_id = _create_game_with_ships(authenticated_client, "Alice")
 
-        # Place ships so we have 6 shots available
-        authenticated_client.post(
-            "/random-ship-placement",
-            data={"player_name": "Alice"},
-        )
-
-        # Aim at all 6 available shots
         for coord in ["A1", "B1", "C1", "D1", "E1", "F1"]:
             response = authenticated_client.post(
                 "/aim-shot",
@@ -325,13 +289,11 @@ class TestAimShotEndpoint:
             )
             assert response.status_code == status.HTTP_200_OK
 
-        # Now try to aim at a 7th coordinate - should fail
         fail_response = authenticated_client.post(
             "/aim-shot",
             data={"game_id": game_id, "coordinate": "G1"},
             headers={"HX-Request": "true"},
         )
 
-        # Should return error message about shot limit
         assert fail_response.status_code == status.HTTP_200_OK
         assert "All available shots aimed" in fail_response.text

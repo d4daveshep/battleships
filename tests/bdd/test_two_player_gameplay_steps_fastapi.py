@@ -1,6 +1,10 @@
 import pytest
 from pytest_bdd import scenarios, given, when, then, parsers
-from tests.bdd.conftest import MultiPlayerBDDContext
+from tests.bdd.conftest import (
+    MultiPlayerBDDContext,
+    login_player_fastapi,
+    place_all_ships_fastapi,
+)
 from bs4 import BeautifulSoup, Tag
 from httpx import Response
 
@@ -28,10 +32,10 @@ def players_completed_placement(context: MultiPlayerBDDContext):
     context.current_player_name = p1_name
 
     client1 = context.get_client_for_player(p1_name)
-    client1.post("/login", data={"player_name": p1_name, "game_mode": "human"})
+    login_player_fastapi(client1, p1_name, "human")
 
     client2 = context.get_client_for_player(p2_name)
-    client2.post("/login", data={"player_name": p2_name, "game_mode": "human"})
+    login_player_fastapi(client2, p2_name, "human")
 
     # 3. Match Players
     # Player 1 selects Player 2
@@ -40,35 +44,10 @@ def players_completed_placement(context: MultiPlayerBDDContext):
     client2.post("/accept-game-request", data={})
 
     # 4. Place Ships for Player 1
-    ships = [
-        ("Carrier", "A1", "horizontal"),
-        ("Battleship", "C1", "horizontal"),
-        ("Cruiser", "E1", "horizontal"),
-        ("Submarine", "G1", "horizontal"),
-        ("Destroyer", "I1", "horizontal"),
-    ]
-    for ship, start, orientation in ships:
-        client1.post(
-            "/place-ship",
-            data={
-                "player_name": p1_name,
-                "ship_name": ship,
-                "start_coordinate": start,
-                "orientation": orientation,
-            },
-        )
+    place_all_ships_fastapi(client1, p1_name)
 
     # 5. Place Ships for Player 2
-    for ship, start, orientation in ships:
-        client2.post(
-            "/place-ship",
-            data={
-                "player_name": p2_name,
-                "ship_name": ship,
-                "start_coordinate": start,
-                "orientation": orientation,
-            },
-        )
+    place_all_ships_fastapi(client2, p2_name)
 
 
 @given("both players are ready")
@@ -87,15 +66,14 @@ def players_are_ready(context: MultiPlayerBDDContext):
     )
 
     # Store the game URL from the redirect
-    if response.status_code in [302, 303] and "location" in response.headers:
-        context.game_url = response.headers["location"]
-    else:
+    context.game_url = context.extract_game_url_from_response(response)
+
+    if not context.game_url:
         # Try to get game URL from P1's status check
         status_response = client1.get(
             "/place-ships/opponent-status", headers={"HX-Request": "true"}
         )
-        if "HX-Redirect" in status_response.headers:
-            context.game_url = status_response.headers["HX-Redirect"]
+        context.game_url = context.extract_game_url_from_response(status_response)
 
 
 @given("the game has started")

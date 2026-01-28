@@ -79,6 +79,21 @@ class MultiPlayerBDDContext(BaseBDDContext):
             return self.game_url.split("/")[-1]
         raise ValueError("game_url not set")
 
+    def extract_game_url_from_response(self, response: Response) -> str | None:
+        """Extract game URL from response headers (redirect or HTMX).
+
+        Args:
+            response: The HTTP response to check
+
+        Returns:
+            The game URL if found, None otherwise
+        """
+        if response.status_code in [302, 303] and "location" in response.headers:
+            return response.headers["location"]
+        if "HX-Redirect" in response.headers:
+            return response.headers["HX-Redirect"]
+        return None
+
     def get_client_for_player(self, player_name: str) -> TestClient:
         """Get or create a TestClient for a specific player.
 
@@ -295,6 +310,16 @@ def page(browser: Browser, fastapi_server):
     page.set_default_timeout(LONG_POLL_TIMEOUT_MS)
     yield page
     page.close()
+
+
+@pytest.fixture(scope="function")
+def opponent_client(fastapi_server):
+    """Fixture for a second player client in multiplayer tests.
+
+    Provides an independent httpx Client that can interact with the running server.
+    """
+    with httpx.Client(base_url=BASE_URL) as client:
+        yield client
 
 
 # =============================================================================

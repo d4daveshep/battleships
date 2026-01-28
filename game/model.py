@@ -432,3 +432,29 @@ class Game:
     def get_aimed_shots_count(self, player_id: str) -> int:
         """Get the number of coordinates the player has aimed at this round."""
         return len(self.get_aimed_shots(player_id))
+
+    def get_shot_counter_display(self, player_id: str) -> str:
+        """Get formatted shot counter display for a player."""
+        aimed = self.get_aimed_shots_count(player_id)
+        available = self.get_shots_available(player_id)
+        return f"Shots Aimed: {aimed}/{available}"
+
+    def is_coordinate_selectable(self, player_id: str, coord: Coord) -> bool:
+        """Check if a coordinate can be selected for aiming.
+
+        Args:
+            player_id: The player ID
+            coord: The coordinate to check
+
+        Returns:
+            True if coordinate can be selected, False if already aimed or no shots available
+        """
+        # Check if already aimed at this coordinate
+        if coord in self.get_aimed_shots(player_id):
+            return False
+
+        # Check if player has shots available
+        shots_available = self.get_shots_available(player_id)
+        aimed_count = self.get_aimed_shots_count(player_id)
+
+        return aimed_count < shots_available

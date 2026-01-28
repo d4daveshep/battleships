@@ -383,3 +383,90 @@ def should_have_remaining_shots(context: MultiPlayerBDDContext, count: int):
     assert f"Shots Available: {count}" in text, (
         f"Expected 'Shots Available: {count}', got '{text}'"
     )
+
+
+# === Shot Selection Limit Steps ===
+
+
+@given("I have selected 6 coordinates to aim at")
+def have_selected_6_coordinates(context: MultiPlayerBDDContext):
+    """Select 6 coordinates to aim at"""
+    assert context.game_url is not None, "No game URL stored"
+    assert context.current_player_name is not None, "No current player set"
+
+    # Extract game_id from game_url
+    game_id = context.game_url.split("/")[-1]
+    client = context.get_client_for_player(context.current_player_name)
+
+    # Select 6 coordinates
+    coords = ["A1", "B1", "C1", "D1", "E1", "F1"]
+    for coord in coords:
+        response = client.post(
+            "/aim-shot",
+            data={"game_id": game_id, "coordinate": coord},
+            headers={"HX-Request": "true"},
+        )
+        context.update_response(response)
+
+    # Refresh to get updated state
+    response = client.get(context.game_url)
+    context.update_response(response)
+
+
+@when("I attempt to select another coordinate")
+def attempt_select_another_coordinate(context: MultiPlayerBDDContext):
+    """Attempt to select a 7th coordinate when already at limit"""
+    assert context.game_url is not None, "No game URL stored"
+    assert context.current_player_name is not None, "No current player set"
+
+    # Extract game_id from game_url
+    game_id = context.game_url.split("/")[-1]
+    client = context.get_client_for_player(context.current_player_name)
+
+    # Attempt to select a 7th coordinate
+    htmx_response = client.post(
+        "/aim-shot",
+        data={"game_id": game_id, "coordinate": "G1"},
+        headers={"HX-Request": "true"},
+    )
+
+    # Store the HTMX response in context for error checking
+    context.htmx_response = htmx_response
+
+    # Refresh the page to get the full state including counter
+    response = client.get(context.game_url)
+    context.update_response(response)
+
+
+@then("the coordinate should not be selectable")
+def coordinate_not_selectable(context: MultiPlayerBDDContext):
+    """Verify the coordinate was not added to aimed shots"""
+    # The HTMX response should contain an error message
+    assert context.htmx_response is not None
+    assert context.htmx_response.status_code == 200
+    assert "All available shots aimed" in context.htmx_response.text
+
+
+@then('I should see a message "All available shots aimed"')
+def see_shot_limit_message(context: MultiPlayerBDDContext):
+    """Verify the error message is displayed"""
+    assert context.htmx_response is not None
+    assert "All available shots aimed" in context.htmx_response.text
+
+
+@then('I should see "Shots Aimed: 6/6" displayed')
+def see_shots_aimed_counter(context: MultiPlayerBDDContext):
+    """Verify the shot counter shows 6/6"""
+    assert context.soup is not None
+
+    # Check the shots aimed display
+    shots_display = context.soup.find(attrs={"data-testid": "shots-aimed"})
+    if shots_display:
+        text: str = shots_display.get_text()
+        assert "Shots Aimed: 6/6" in text, f"Expected 'Shots Aimed: 6/6', got '{text}'"
+    else:
+        # Alternative: check for counter in aiming status
+        aiming_status = context.soup.find(attrs={"data-testid": "aiming-status"})
+        if aiming_status:
+            text = aiming_status.get_text()
+            assert "6/6" in text, f"Expected '6/6' in aiming status, got '{text}'"

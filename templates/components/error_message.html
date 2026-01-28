@@ -1,3 +1,6 @@
-{% if error_message %}
-<div data-testid="error-message">{{ error_message }}</div>
-{% endif %}
+<div id="aiming-status" data-testid="aiming-status">
+    {% if error_message %}
+    <div data-testid="error-message" class="game-info-item" style="color: var(--color-error);">{{ error_message }}</div>
+    {% endif %}
+    <p class="game-info-item" data-testid="shots-aimed-display">Shots Aimed: {{ aimed_count }}/{{ shots_available }}</p>
+</div>

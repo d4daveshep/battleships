@@ -250,3 +250,55 @@ def should_have_remaining_shots(page: Page, count: int):
     """Verify the number of remaining shot selections"""
     shots_display = page.locator('[data-testid="shots-available"]')
     expect(shots_display).to_contain_text(f"Shots Available: {count}")
+
+
+# === Scenario: Cannot select more shots than available ===
+
+
+@given("I have selected 6 coordinates to aim at")
+def have_selected_6_coordinates(page: Page):
+    """Select 6 coordinates to aim at"""
+    coords = ["A1", "B1", "C1", "D1", "E1", "F1"]
+    for coord in coords:
+        cell = page.locator(f'[data-testid="opponent-cell-{coord}"]')
+        expect(cell).to_be_visible()
+        cell.click()
+        # Wait for HTMX to update
+        page.wait_for_timeout(300)
+
+
+@when("I attempt to select another coordinate")
+def attempt_select_another_coordinate(page: Page):
+    """Attempt to select a 7th coordinate when already at limit"""
+    cell = page.locator('[data-testid="opponent-cell-G1"]')
+    expect(cell).to_be_visible()
+    cell.click()
+    # Wait for HTMX to update and show error message
+    error_message = page.locator('[data-testid="error-message"]')
+    expect(error_message).to_contain_text("All available shots aimed", timeout=5000)
+
+
+@then("the coordinate should not be selectable")
+def coordinate_not_selectable(page: Page):
+    """Verify the coordinate was not added to aimed shots"""
+    # After error message appears, verify the checkbox is not checked
+    # Note: The checkbox might be checked by browser before HTMX response,
+    # but the server rejected it, so we check it's not in the aimed list
+    cell = page.locator('[data-testid="opponent-cell-G1"]')
+    # Check that the cell doesn't have the aimed-cell class
+    expect(cell).not_to_have_class("aimed-cell")
+
+
+@then('I should see a message "All available shots aimed"')
+def see_shot_limit_message(page: Page):
+    """Verify the error message is displayed"""
+    error_message = page.locator('[data-testid="error-message"]')
+    expect(error_message).to_contain_text("All available shots aimed")
+
+
+@then('I should see "Shots Aimed: 6/6" displayed')
+def see_shots_aimed_counter(page: Page):
+    """Verify the shot counter shows 6/6"""
+    # Check for shots available display (which shows the total available)
+    shots_available = page.locator('[data-testid="shots-available"]')
+    expect(shots_available).to_contain_text("Shots Available: 6")

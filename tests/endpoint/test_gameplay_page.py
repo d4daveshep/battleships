@@ -298,3 +298,40 @@ class TestAimShotEndpoint:
             headers={"HX-Request": "true"},
         )
         assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_aim_shot_prevents_excess_selection(self, authenticated_client: TestClient):
+        """Test that aim-shot prevents selecting more shots than available"""
+        # Create a game
+        create_response = authenticated_client.post(
+            "/start-game",
+            data={"action": "launch_game", "player_name": "Alice"},
+            follow_redirects=False,
+        )
+        game_url = create_response.headers["location"]
+        game_id = game_url.split("/")[-1]
+
+        # Place ships so we have 6 shots available
+        authenticated_client.post(
+            "/random-ship-placement",
+            data={"player_name": "Alice"},
+        )
+
+        # Aim at all 6 available shots
+        for coord in ["A1", "B1", "C1", "D1", "E1", "F1"]:
+            response = authenticated_client.post(
+                "/aim-shot",
+                data={"game_id": game_id, "coordinate": coord},
+                headers={"HX-Request": "true"},
+            )
+            assert response.status_code == status.HTTP_200_OK
+
+        # Now try to aim at a 7th coordinate - should fail
+        fail_response = authenticated_client.post(
+            "/aim-shot",
+            data={"game_id": game_id, "coordinate": "G1"},
+            headers={"HX-Request": "true"},
+        )
+
+        # Should return error message about shot limit
+        assert fail_response.status_code == status.HTTP_200_OK
+        assert "All available shots aimed" in fail_response.text

@@ -183,7 +183,28 @@ async def aim_shot(
     role: PlayerGameRole = _get_player_role(game, player)
 
     # Toggle aim and get result
-    result: AimResult = game_service.toggle_aim(game_id, player.id, coordinate)
+    try:
+        result: AimResult = game_service.toggle_aim(game_id, player.id, coordinate)
+    except ValueError as e:
+        # Check if it's the shot limit error
+        if "Cannot aim more shots than available" in str(e):
+            # Get current aimed count for the display
+            aimed_coords: set[Coord] = game.get_aimed_shots(player.id)
+            aimed_count: int = len(aimed_coords)
+            shots_available: int = game.get_shots_available(player.id)
+            # Return error message component with shot count
+            return templates.TemplateResponse(
+                request=request,
+                name="components/error_message.html",
+                context={
+                    "error_message": "All available shots aimed",
+                    "aimed_count": aimed_count,
+                    "shots_available": shots_available,
+                },
+            )
+        else:
+            # Re-raise other ValueErrors
+            raise
 
     # Get the current aimed coordinates for the template
     aimed_coords: set[Coord] = game.get_aimed_shots(player.id)

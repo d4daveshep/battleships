@@ -763,3 +763,125 @@ class TestToggleAim:
         assert hasattr(result, "is_aimed")
         assert hasattr(result, "aimed_count")
         assert hasattr(result, "shots_available")
+
+
+class TestSelectShot:
+    """Tests for GameService.select_shot() method - shot selection limit enforcement"""
+
+    # Uses game_service fixture from conftest.py
+
+    @pytest.fixture
+    def player_with_ships_and_max_aimed(
+        self, game_service: GameService
+    ) -> tuple[Player, str]:
+        """Create a player in a game with all ships placed and max shots aimed"""
+        from game.model import Ship, Orientation
+
+        alice = Player(name="Alice", status=PlayerStatus.AVAILABLE)
+        game_service.add_player(alice)
+        game_id = game_service.create_single_player_game(alice.id)
+
+        # Place all ships to get 6 shots available
+        board = game_service.get_game_board(alice.id)
+        board.place_ship(Ship(ShipType.CARRIER), Coord.A1, Orientation.HORIZONTAL)
+        board.place_ship(Ship(ShipType.BATTLESHIP), Coord.C1, Orientation.HORIZONTAL)
+        board.place_ship(Ship(ShipType.CRUISER), Coord.E1, Orientation.HORIZONTAL)
+        board.place_ship(Ship(ShipType.SUBMARINE), Coord.G1, Orientation.HORIZONTAL)
+        board.place_ship(Ship(ShipType.DESTROYER), Coord.I1, Orientation.HORIZONTAL)
+
+        # Aim at all 6 available shots
+        game = game_service.games[game_id]
+        game.aim_at(alice.id, Coord.A1)
+        game.aim_at(alice.id, Coord.B1)
+        game.aim_at(alice.id, Coord.C1)
+        game.aim_at(alice.id, Coord.D1)
+        game.aim_at(alice.id, Coord.E1)
+        game.aim_at(alice.id, Coord.F1)
+
+        return alice, game_id
+
+    def test_cannot_select_more_shots_than_available(
+        self,
+        game_service: GameService,
+        player_with_ships_and_max_aimed: tuple[Player, str],
+    ) -> None:
+        """Test that select_shot fails when player already aimed max shots"""
+        alice, game_id = player_with_ships_and_max_aimed
+
+        # Attempt to select another coordinate when all 6 shots are already aimed
+        result = game_service.select_shot(game_id, alice.id, "G7")
+
+        # Should fail with appropriate error message
+        assert result.success is False
+        assert result.error == "All available shots aimed"
+        assert "G7" not in game_service.games[game_id].get_aimed_shots(alice.id)
+
+    @pytest.fixture
+    def player_with_ships_for_counter(
+        self, game_service: GameService
+    ) -> tuple[Player, str]:
+        """Create a player in a game with all ships placed"""
+        from game.model import Ship, Orientation
+
+        alice = Player(name="Alice", status=PlayerStatus.AVAILABLE)
+        game_service.add_player(alice)
+        game_id = game_service.create_single_player_game(alice.id)
+
+        # Place all ships to get 6 shots available
+        board = game_service.get_game_board(alice.id)
+        board.place_ship(Ship(ShipType.CARRIER), Coord.A1, Orientation.HORIZONTAL)
+        board.place_ship(Ship(ShipType.BATTLESHIP), Coord.C1, Orientation.HORIZONTAL)
+        board.place_ship(Ship(ShipType.CRUISER), Coord.E1, Orientation.HORIZONTAL)
+        board.place_ship(Ship(ShipType.SUBMARINE), Coord.G1, Orientation.HORIZONTAL)
+        board.place_ship(Ship(ShipType.DESTROYER), Coord.I1, Orientation.HORIZONTAL)
+
+        return alice, game_id
+
+    def test_shot_counter_display_format(
+        self,
+        game_service: GameService,
+        player_with_ships_for_counter: tuple[Player, str],
+    ) -> None:
+        """Test that shot counter displays correct format"""
+        alice, game_id = player_with_ships_for_counter
+
+        # Aim at 3 coordinates out of 6 available
+        game = game_service.games[game_id]
+        game.aim_at(alice.id, Coord.A1)
+        game.aim_at(alice.id, Coord.B1)
+        game.aim_at(alice.id, Coord.C1)
+
+        # Get counter display
+        counter = game.get_shot_counter_display(alice.id)
+
+        # Should format correctly
+        assert counter == "Shots Aimed: 3/6"
+
+    def test_coordinate_selection_state_management(
+        self,
+        game_service: GameService,
+        player_with_ships_for_counter: tuple[Player, str],
+    ) -> None:
+        """Test that coordinate selection state is managed correctly"""
+        alice, game_id = player_with_ships_for_counter
+
+        # Initially no shots aimed
+        game = game_service.games[game_id]
+
+        # Check coordinate states
+        is_selectable_a1 = game.is_coordinate_selectable(alice.id, Coord.A1)
+        is_selectable_c3 = game.is_coordinate_selectable(alice.id, Coord.C3)
+
+        # A1 should be selectable (not yet aimed), C3 should be selectable
+        assert is_selectable_a1 is True
+        assert is_selectable_c3 is True
+
+        # Aim at A1
+        game.aim_at(alice.id, Coord.A1)
+
+        # Now A1 should not be selectable (already aimed), C3 should still be selectable
+        is_selectable_a1_after = game.is_coordinate_selectable(alice.id, Coord.A1)
+        is_selectable_c3_after = game.is_coordinate_selectable(alice.id, Coord.C3)
+
+        assert is_selectable_a1_after is False
+        assert is_selectable_c3_after is True

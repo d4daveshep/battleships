@@ -55,15 +55,15 @@ Feature: Two-Player Simultaneous Multi-Shot Gameplay
     And I should not see coordinate "A1" marked as aimed
     And I should still have 6 remaining shot selections available
 
-  # Scenario: Cannot select more shots than available
-  #   Given it is Round 1
-  #   And I have 6 shots available
-  #   And I have selected 6 coordinates to aim at
-  #   When I attempt to select a 7th coordinate
-  #   Then the coordinate should not be selectable
-  #   And I should see a message "All available shots aimed"
-  #   And I should see "Shots Aimed: 6/6" displayed
-  #
+  Scenario: Cannot select more shots than available
+    Given it is Round 1
+    And I have 6 shots available
+    And I have selected 6 coordinates to aim at
+    When I attempt to select another coordinate
+    Then the coordinate should not be selectable
+    And I should see a message "All available shots aimed"
+    And I should see "Shots Aimed: 6/6" displayed
+
   # Scenario: Can fire fewer shots than available
   #   Given it is Round 1
   #   And I have 6 shots available

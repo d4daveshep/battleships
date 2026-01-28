@@ -31,6 +31,13 @@ class AimResult(NamedTuple):
     shots_available: int
 
 
+class SelectShotResult(NamedTuple):
+    """Result of a select_shot operation."""
+
+    success: bool
+    error: str | None = None
+
+
 from game.player import Player, PlayerStatus
 
 if TYPE_CHECKING:
@@ -47,6 +54,8 @@ __all__ = [
     "PlayerNotInGameException",
     "DuplicatePlayerException",
     "UnknownGameException",
+    "AimResult",
+    "SelectShotResult",
 ]
 
 
@@ -537,3 +546,33 @@ class GameService:
             aimed_count=game.get_aimed_shots_count(player_id),
             shots_available=game.get_shots_available(player_id),
         )
+
+    def select_shot(
+        self, game_id: str, player_id: str, coord_str: str
+    ) -> SelectShotResult:
+        """Select a shot coordinate for a player.
+
+        Args:
+            game_id: The game ID
+            player_id: The player ID
+            coord_str: The coordinate string (e.g., "A1", "J10")
+
+        Returns:
+            SelectShotResult with success status and optional error message
+
+        Raises:
+            UnknownGameException: If game doesn't exist
+        """
+        game = self._get_game_or_raise(game_id)
+        coord: Coord = Coord[coord_str]
+
+        try:
+            game.aim_at(player_id, coord)
+            return SelectShotResult(success=True)
+        except ValueError as e:
+            if str(e) == "Cannot aim more shots than available":
+                return SelectShotResult(
+                    success=False, error="All available shots aimed"
+                )
+            else:
+                return SelectShotResult(success=False, error=str(e))

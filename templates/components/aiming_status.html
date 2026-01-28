@@ -6,8 +6,8 @@
 {# OOB swap for fire button - updates enable/disable state #}
 <button id="fire-shots-btn"
         hx-swap-oob="true"
-        type="submit" 
-        class="btn-primary btn-large" 
+        type="submit"
+        class="btn-primary btn-large"
         data-testid="fire-shots-button"
         {% if aimed_count == 0 %}disabled{% endif %}>
     Fire Shots

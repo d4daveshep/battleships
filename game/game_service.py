@@ -1,5 +1,6 @@
 import asyncio
 import random
+from enum import StrEnum
 from typing import TYPE_CHECKING
 
 from game.exceptions import (
@@ -39,6 +40,20 @@ class SelectShotResult(NamedTuple):
     error: str | None = None
 
 
+class ShotStatus(StrEnum):
+    """Status of the shot processing."""
+
+    WAITING = "waiting"
+    COMPLETED = "completed"
+
+
+class ShotResult(NamedTuple):
+    """Result of a fire_shots operation."""
+
+    status: ShotStatus
+    game: Game
+
+
 from game.player import Player, PlayerStatus
 
 if TYPE_CHECKING:
@@ -57,6 +72,8 @@ __all__ = [
     "UnknownGameException",
     "AimResult",
     "SelectShotResult",
+    "ShotStatus",
+    "ShotResult",
 ]
 
 
@@ -575,12 +592,15 @@ class GameService:
         except Exception as e:
             return SelectShotResult(success=False, error=str(e))
 
-    def fire_shots(self, game_id: str, player_id: str) -> None:
+    def fire_shots(self, game_id: str, player_id: str) -> ShotResult:
         """Submit the player's aimed shots and enter waiting state.
 
         Args:
             game_id: The game ID
             player_id: The player ID
+
+        Returns:
+            ShotResult with status and updated game
 
         Raises:
             UnknownGameException: If game doesn't exist
@@ -593,3 +613,10 @@ class GameService:
 
         # Delegate to Game model
         game.fire_shots(player_id)
+
+        status = (
+            ShotStatus.WAITING
+            if game.is_waiting_for_opponent(player_id)
+            else ShotStatus.COMPLETED
+        )
+        return ShotResult(status, game)

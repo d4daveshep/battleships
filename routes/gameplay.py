@@ -372,9 +372,32 @@ async def game_page(request: Request, game_id: str) -> HTMLResponse:
     if game.is_waiting_for_opponent(player.id):
         context["status_message"] = "Waiting for opponent to fire..."
         context["waiting_for_opponent"] = True
+    elif (
+        role.opponent
+        and game.is_waiting_for_opponent(role.opponent.id)
+        and not game.is_waiting_for_opponent(player.id)
+    ):
+        context["status_message"] = "Opponent has fired - waiting for you"
 
     return templates.TemplateResponse(
         request=request,
         name="gameplay.html",
         context=context,
     )
+
+
+@router.get("/game/{game_id}/status", response_class=HTMLResponse)
+async def game_status(request: Request, game_id: str) -> HTMLResponse:
+    """Poll for game status updates.
+
+    This endpoint is called by HTMX to check if the round has advanced.
+    It returns the updated gameplay page.
+
+    Args:
+        request: The FastAPI request object
+        game_id: The unique identifier for the game
+
+    Returns:
+        HTMLResponse with updated gameplay template
+    """
+    return await game_page(request, game_id)

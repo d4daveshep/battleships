@@ -185,8 +185,13 @@ class GameBoard:
 
     def __init__(self) -> None:
         self.ships: list[Ship] = []
-        self.shots_received: dict = {}
-        self.shots_fired: dict = {}
+        self.shots_received: dict[Coord, bool] = {}
+        self.shots_fired: dict[Coord, bool] = {}
+
+    def receive_shots(self, shots: set[Coord]) -> None:
+        """Record received shots."""
+        for shot in shots:
+            self.shots_received[shot] = True
 
     def _invalid_coords(self) -> set[Coord]:
         invalid_coords: set[Coord] = set()
@@ -491,6 +496,28 @@ class Game:
         self.fired_shots[player_id].update(aimed)
         self.aimed_shots[player_id] = set()
         self._waiting_for_opponent[player_id] = True
+
+        if self.game_mode == GameMode.TWO_PLAYER and len(self.fired_shots) == 2:
+            self._resolve_round()
+
+    def _resolve_round(self) -> None:
+        """Process shots for both players and advance the round."""
+        if not self.player_2:
+            return
+
+        # Apply shots to boards
+        p1_shots = self.get_fired_shots(self.player_1.id)
+        self.board[self.player_2].receive_shots(p1_shots)
+
+        p2_shots = self.get_fired_shots(self.player_2.id)
+        self.board[self.player_1].receive_shots(p2_shots)
+
+        # Clear pending shots and waiting status
+        self.fired_shots = {}
+        self._waiting_for_opponent = {}
+
+        # Increment round
+        self.round += 1
 
     def get_fired_shots(self, player_id: str) -> set[Coord]:
         """Get the set of coordinates the player has fired this round.

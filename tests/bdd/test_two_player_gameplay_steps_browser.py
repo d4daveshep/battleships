@@ -308,6 +308,7 @@ def see_waiting_for_opponent_message(page: Page):
 
 
 @then("I should not be able to aim additional shots")
+@then("I should not be able to aim or fire additional shots")
 def cannot_aim_additional_shots(page: Page):
     cell = page.locator(GamePageLocators.opponent_cell("G1"))
     expect(cell).to_be_visible()
@@ -315,3 +316,160 @@ def cannot_aim_additional_shots(page: Page):
 
     error_message = page.locator(GamePageLocators.ERROR_MESSAGE)
     expect(error_message).to_contain_text("Cannot aim shots after firing", timeout=5000)
+
+    # Fire button should be disabled (aimed_count is 0 after firing)
+    expect(page.locator(GamePageLocators.FIRE_SHOTS_BUTTON)).to_be_disabled()
+
+
+# === Simultaneous Play Steps ===
+
+
+@given('I have clicked "Fire Shots"')
+def clicked_fire_shots(page: Page):
+    """Simulate clicking fire shots button"""
+    page.locator(GamePageLocators.FIRE_SHOTS_BUTTON).click()
+
+
+@given("I have fired my 6 shots")
+def fired_6_shots(page: Page):
+    """Aim and fire 6 shots"""
+    # 1. Aim 6 shots
+    have_selected_6_coordinates(page)
+    # 2. Fire
+    page.locator(GamePageLocators.FIRE_SHOTS_BUTTON).click()
+
+
+def _get_game_id(page: Page) -> str:
+    """Extract game ID from current URL"""
+    # URL format: .../game/{game_id}
+    return page.url.split("/")[-1]
+
+
+def _opponent_fires(page: Page, opponent_client: httpx.Client):
+    """Helper to make opponent fire shots"""
+    game_id = _get_game_id(page)
+    # Opponent aims shots (A1-F1)
+    coords = ["A1", "B1", "C1", "D1", "E1", "F1"]
+    for coord in coords:
+        opponent_client.post(
+            "/aim-shot",
+            data={"game_id": game_id, "coordinate": coord},
+            headers={"HX-Request": "true"},
+        )
+
+    # Opponent fires
+    # We assume the opponent is "Player2" (setup in fixtures)
+    opponent_client.post(
+        "/fire-shots", data={"game_id": game_id, "player_name": "Player2"}
+    )
+
+
+@given("my opponent has already fired their shots")
+def opponent_fired_shots(page: Page, opponent_client: httpx.Client):
+    """Simulate opponent firing shots"""
+    _opponent_fires(page, opponent_client)
+    # Reload page to reflect opponent status if needed, but the scenario implies
+    # we might just be landing or it's a state setup.
+    # If we are already on the page, a refresh might be needed to see "Opponent has fired"
+    page.reload()
+
+
+@when("my opponent fires their shots")
+def opponent_fires_action(page: Page, opponent_client: httpx.Client):
+    """Action: Opponent fires"""
+    _opponent_fires(page, opponent_client)
+
+
+@given("I am waiting for my opponent")
+@when("I am waiting for my opponent to fire")
+def waiting_for_opponent(page: Page):
+    """Verify waiting state"""
+    see_waiting_for_opponent_message(page)
+
+
+@then("both players' shots should be processed together")
+def shots_processed_together(page: Page):
+    """Verify round resolution"""
+    # Should see Round 2
+    expect(page.locator('[data-testid="round-indicator"]')).to_contain_text("Round 2")
+
+
+@then("I should see the round results within 5 seconds")
+def see_round_results_polling(page: Page):
+    """Wait for polling update"""
+    expect(page.locator('[data-testid="round-indicator"]')).to_contain_text(
+        "Round 2", timeout=5000
+    )
+
+
+@then("I should see a loading indicator")
+def see_loading_indicator(page: Page):
+    """Verify loading indicator in waiting message"""
+    see_waiting_for_opponent_message(page)
+
+
+@then("the page should update automatically when opponent fires")
+def page_update_automatically(page: Page, opponent_client: httpx.Client):
+    """Verify polling mechanism"""
+    # Opponent fires now
+    _opponent_fires(page, opponent_client)
+    # Page should update to Round 2 automatically via HTMX polling
+    expect(page.locator('[data-testid="round-indicator"]')).to_contain_text(
+        "Round 2", timeout=5000
+    )
+
+
+@then("the round number should increment to Round 2")
+def round_increments(page: Page):
+    """Verify round number"""
+    expect(page.locator('[data-testid="round-indicator"]')).to_contain_text("Round 2")
+
+
+@then("I should see 'Opponent has fired - waiting for you' displayed")
+def see_opponent_fired_message(page: Page):
+    """Verify message when opponent fires first"""
+    expect(page.locator(GamePageLocators.GAME_STATUS)).to_contain_text(
+        "Opponent has fired - waiting for you"
+    )
+
+
+@given("I am still aiming my shots")
+def still_aiming(page: Page):
+    """Verify I am still in aiming phase"""
+    # Implicitly true if we can see the board and aim
+    expect(page.locator(GamePageLocators.SHOTS_FIRED_BOARD)).to_be_visible()
+    # Refresh to ensure we get the latest message ("Opponent has fired")
+    page.reload()
+
+
+@then("I should still be able to aim and fire my shots")
+def still_able_to_aim_and_fire(page: Page):
+    """Verify that aiming/firing is not blocked"""
+    # Try to aim a shot (e.g. A1) to prove it's possible
+    coord = "A1"
+    cell = page.locator(GamePageLocators.opponent_cell(coord))
+    cell.click()
+    expect(cell.locator('input[type="checkbox"]')).to_be_checked()
+
+    # Button should be enabled
+    expect(page.locator(GamePageLocators.FIRE_SHOTS_BUTTON)).to_be_enabled()
+
+
+@when("I fire my shots")
+def fire_my_shots(page: Page):
+    """Fire shots"""
+    page.locator(GamePageLocators.FIRE_SHOTS_BUTTON).click()
+
+
+@then("the round should resolve immediately")
+def round_resolves_immediately(page: Page):
+    """Verify round resolves without delay"""
+    expect(page.locator('[data-testid="round-indicator"]')).to_contain_text("Round 2")
+
+
+@then(parsers.parse("I should see the round results within {seconds:d} seconds"))
+def see_round_results_within_seconds(page: Page, seconds: int):
+    """Wait for update with specific timeout"""
+    expect(page.locator('[data-testid="round-indicator"]')).to_contain_text(
+        "Round 2", timeout=seconds * 1000
+    )

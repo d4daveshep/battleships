@@ -68,10 +68,18 @@
     </div>
 
     {% if status_message %}
-    <div class="alert alert-info" data-testid="game-status">
+    <div class="alert alert-info" data-testid="game-status"
+         {% if waiting_for_opponent %}
+         hx-get="/game/{{ game_id }}/status"
+         hx-trigger="every 2s"
+         hx-target="#gameplay-container"
+         hx-select="#gameplay-container"
+         hx-swap="outerHTML"
+         {% endif %}>
         {{ status_message }}
     </div>
     {% endif %}
+
 
     <div class="grid grid-2">
         <!-- My Ships Board (Static) -->

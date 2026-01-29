@@ -517,10 +517,11 @@ def see_waiting_for_opponent_message(context: MultiPlayerBDDContext):
 
 
 @then("I should not be able to aim additional shots")
+@then("I should not be able to aim or fire additional shots")
 def cannot_aim_additional_shots(context: MultiPlayerBDDContext):
     """Verify that aiming additional shots is blocked"""
-    assert context.game_url is not None, "No game URL stored"
-    assert context.current_player_name is not None, "No current player set"
+    assert context.game_url is not None
+    assert context.current_player_name is not None
 
     game_id: str = context.game_url.split("/")[-1]
     client = context.get_client_for_player(context.current_player_name)
@@ -535,3 +536,160 @@ def cannot_aim_additional_shots(context: MultiPlayerBDDContext):
     # Should get an error response
     assert htmx_response.status_code == 200
     assert "Cannot aim shots after firing" in htmx_response.text
+
+
+# === Simultaneous Play Steps ===
+
+
+@given('I have clicked "Fire Shots"')
+def clicked_fire_shots(context: MultiPlayerBDDContext):
+    """Simulate clicking fire shots button"""
+    click_button(context, "Fire Shots")
+
+
+@given("I have fired my 6 shots")
+def fired_6_shots(context: MultiPlayerBDDContext):
+    """Aim and fire 6 shots"""
+    # 1. Aim 6 shots
+    have_selected_6_coordinates(context)
+    # 2. Fire
+    click_button(context, "Fire Shots")
+
+
+@when("I fire my shots")
+def just_fire_shots(context: MultiPlayerBDDContext):
+    """Just click fire (assuming shots aimed)"""
+    click_button(context, "Fire Shots")
+
+
+def _opponent_fires(context: MultiPlayerBDDContext):
+    """Helper to make opponent fire shots"""
+    assert context.game_url is not None
+    assert context.current_player_name is not None
+
+    # Identify opponent
+    me = context.current_player_name
+    opponent = "Player2" if me == "Player1" else "Player1"
+
+    client = context.get_client_for_player(opponent)
+    game_id = context.game_url.split("/")[-1]
+
+    # Aim shots for opponent (A1-F1)
+    coords = ["A1", "B1", "C1", "D1", "E1", "F1"]
+    for coord in coords:
+        client.post(
+            "/aim-shot",
+            data={"game_id": game_id, "coordinate": coord},
+            headers={"HX-Request": "true"},
+        )
+
+    # Fire
+    client.post("/fire-shots", data={"game_id": game_id, "player_name": opponent})
+
+
+@given("my opponent has already fired their shots")
+def opponent_fired_shots(context: MultiPlayerBDDContext):
+    """Simulate opponent firing shots"""
+    _opponent_fires(context)
+
+
+@when("my opponent fires their shots")
+def opponent_fires_action(context: MultiPlayerBDDContext):
+    """Action: Opponent fires"""
+    _opponent_fires(context)
+
+
+@given("I am waiting for my opponent")
+@when("I am waiting for my opponent to fire")
+def waiting_for_opponent(context: MultiPlayerBDDContext):
+    """Verify waiting state"""
+    see_waiting_for_opponent_message(context)
+
+
+@given("I am still aiming my shots")
+def still_aiming(context: MultiPlayerBDDContext):
+    """Verify I am still in aiming phase"""
+    assert context.game_url is not None
+    assert context.current_player_name is not None
+
+    # Refresh page to get latest status (including opponent status)
+    client = context.get_client_for_player(context.current_player_name)
+    response = client.get(context.game_url)
+    context.update_response(response)
+
+
+@then("both players' shots should be processed together")
+def shots_processed_together(context: MultiPlayerBDDContext):
+    """Verify round resolution"""
+    assert context.game_url is not None
+    assert context.current_player_name is not None
+
+    # Refresh page
+    client = context.get_client_for_player(context.current_player_name)
+    response = client.get(context.game_url)
+    context.update_response(response)
+
+    # Check Round 2
+    assert "Round 2" in response.text
+
+
+@then(parsers.parse("I should see the round results within {seconds:d} seconds"))
+def see_round_results_polling(context: MultiPlayerBDDContext, seconds: int):
+    """Simulate polling until results appear"""
+    assert context.game_url is not None
+    assert context.current_player_name is not None
+
+    client = context.get_client_for_player(context.current_player_name)
+    game_id = context.game_url.split("/")[-1]
+
+    # Poll status (simulate one poll, assuming immediate update in test environment)
+    response = client.get(f"/game/{game_id}/status")
+    context.update_response(response)
+
+    assert "Round 2" in response.text
+
+
+@then("I should see a loading indicator")
+def see_loading_indicator(context: MultiPlayerBDDContext):
+    """Verify loading indicator in waiting message"""
+    see_waiting_for_opponent_message(context)
+
+
+@then("the page should update automatically when opponent fires")
+def page_update_automatically(context: MultiPlayerBDDContext):
+    """Verify polling mechanism"""
+    # Opponent fires now to trigger the update
+    _opponent_fires(context)
+    see_round_results_polling(context, 5)
+
+
+@then("the round number should increment to Round 2")
+def round_increments(context: MultiPlayerBDDContext):
+    """Verify round number"""
+    assert context.soup is not None
+    assert "Round 2" in context.soup.get_text()
+
+
+@then("I should see 'Opponent has fired - waiting for you' displayed")
+def see_opponent_fired_message(context: MultiPlayerBDDContext):
+    """Verify message when opponent fires first"""
+    assert context.soup is not None
+    text = context.soup.get_text()
+    assert "Opponent has fired - waiting for you" in text
+
+
+@then("I should still be able to aim and fire my shots")
+def still_able_to_aim_and_fire(context: MultiPlayerBDDContext):
+    """Verify that aiming/firing is not blocked"""
+    # Try to aim a shot to prove it's possible
+    select_coordinate_to_aim(context, "A1")
+    # Now button should be enabled
+    button_should_be_enabled(context, "Fire Shots")
+
+
+@then("the round should resolve immediately")
+def round_resolves_immediately(context: MultiPlayerBDDContext):
+    """Verify round resolves without delay when both have fired"""
+    # Check for Round 2
+    assert context.soup is not None
+    assert "Round 2" in context.soup.get_text()

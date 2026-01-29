@@ -30,16 +30,15 @@ Feature: Two-Player Hit Feedback
   #   And the Hits Made area should show round number "1" marked twice on Carrier
   #   And the Hits Made area should show round number "1" marked once on Destroyer
   #
-  # Scenario: All shots miss in a round
-  #   Given it is Round 1
-  #   And I have fired 6 shots
-  #   And my opponent has fired their shots
-  #   And none of my shots hit any opponent ships
-  #   When the round resolves
-  #   Then I should see "Hits Made This Round: None" displayed
-  #   And the Hits Made area should show no new shots marked
-  #   And I should see all 6 of my shots marked as misses on the Shots Fired board
-  #
+  Scenario: All shots miss in a round
+    Given it is Round 1
+    And I have fired 6 shots
+    And my opponent has fired their shots
+    And none of my shots hit any opponent ships
+    When the round resolves
+    Then I should see "Hits Made This Round: None" displayed
+    And the Hits Made area should show no new shots marked
+    And I should see all 6 of my shots marked as misses on the Shots Fired board
   # Scenario: Hits Made area tracks cumulative hits across rounds
   #   Given it is Round 3
   #   And in Round 1 I hit the opponent's Battleship 1 time

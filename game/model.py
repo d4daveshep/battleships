@@ -566,6 +566,9 @@ class Game:
         self.aimed_shots: dict[str, set[Coord]] = {}
         self.fired_shots: dict[str, set[Coord]] = {}
         self._waiting_for_opponent: dict[str, bool] = {}
+        self.last_round_results: dict[
+            str, dict[str, int]
+        ] = {}  # player_id -> {ship_name: hit_count}
 
         # Validate that two player games have an opponent
         if self.game_mode == GameMode.TWO_PLAYER and not self.player_2:
@@ -708,12 +711,38 @@ class Game:
         self.board[self.player_1].receive_shots(p2_shots, self.round)
         self.board[self.player_2].record_fired_shots(p2_shots, self.round)
 
+        # Track round results (which ships were hit)
+        self.last_round_results = {
+            self.player_1.id: self._get_hits_made(p1_shots, self.board[self.player_2]),
+            self.player_2.id: self._get_hits_made(p2_shots, self.board[self.player_1]),
+        }
+
         # Clear pending shots and waiting status
         self.fired_shots = {}
         self._waiting_for_opponent = {}
 
         # Increment round
         self.round += 1
+
+    def _get_hits_made(
+        self, shots: set[Coord], opponent_board: GameBoard
+    ) -> dict[str, int]:
+        """Calculate which ships were hit and how many times.
+
+        Args:
+            shots: Coordinates that were fired
+            opponent_board: The opponent's board
+
+        Returns:
+            Dict mapping ship name to hit count
+        """
+        hits: dict[str, int] = {}
+        for shot in shots:
+            ship = opponent_board.get_ship_at(shot)
+            if ship:
+                ship_name = ship.ship_type.value
+                hits[ship_name] = hits.get(ship_name, 0) + 1
+        return hits
 
     def get_fired_shots(self, player_id: str) -> set[Coord]:
         """Get the set of coordinates the player has fired this round.

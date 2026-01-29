@@ -134,6 +134,9 @@ def _create_gameplay_context(
     aimed_count: int = len(aimed_coords)
     aimed_coordinates: list[str] = [c.name for c in aimed_coords]
 
+    # Get last round results for current player
+    last_round_hits: dict[str, int] = game.last_round_results.get(current_player.id, {})
+
     return {
         "player_name": current_player.name,
         "opponent_name": opponent_name,
@@ -145,6 +148,7 @@ def _create_gameplay_context(
         "aimed_count": aimed_count,
         "aimed_coordinates": aimed_coordinates,
         "status_message": status_message,
+        "last_round_hits": last_round_hits,
     }
 
 

@@ -87,6 +87,26 @@
     </div>
     {% endif %}
 
+    {% if last_round_hits is defined and round_number > 1 %}
+    <div class="card" data-testid="round-results">
+        <div class="card-header">
+            <h3 class="card-title">Round {{ round_number - 1 }} Results</h3>
+        </div>
+        <div class="card-body">
+            {% if last_round_hits %}
+                <p><strong>Hits Made This Round:</strong></p>
+                <ul>
+                {% for ship_name, hit_count in last_round_hits.items() %}
+                    <li>{{ ship_name }}: {{ hit_count }} hit{% if hit_count != 1 %}s{% endif %}</li>
+                {% endfor %}
+                </ul>
+            {% else %}
+                <p><strong>Hits Made This Round: None</strong></p>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
 
     <div class="grid grid-2">
         <!-- My Ships Board (Static) -->

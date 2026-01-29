@@ -11,19 +11,23 @@ Feature: Two-Player Round Progression
 
   # === Round Progression ===
 
-  # Scenario: Round number increments after both players fire
-  #   Given it is Round 1
-  #   And I have fired my shots
-  #   And my opponent has fired their shots
-  #   When the round resolves
-  #   Then I should see "Round 2" displayed
-  #   And I should be able to aim new shots for Round 2
-  #
-  # Scenario: Round number stays same while waiting for opponent
-  #   Given it is Round 3
-  #   And I have fired my shots
-  #   And my opponent has not yet fired
-  #   Then I should still see "Round 3" displayed
-  #   And I should see "Waiting for opponent to fire..." displayed
-  #   When my opponent fires their shots
-  #   Then I should see "Round 4" displayed
+  Scenario: Round number increments after both players fire
+    Given it is Round 1
+    And I have fired my shots
+    And my opponent has fired their shots
+    When the round resolves
+    Then I should see "Round 2" displayed
+    And I should be able to aim new shots for Round 2
+
+  Scenario: Round doesn't advance while waiting
+    Given it is Round 3
+    And I have fired my shots
+    But my opponent has not yet fired
+    Then I should see "Round 3" displayed
+    And I should see "Waiting for opponent to fire..." displayed
+
+  Scenario: Round advances when both players have fired
+    Given it is Round 3
+    And I have already fired my shots
+    When my opponent fires their shots
+    Then I should see "Round 4" displayed 

@@ -15,6 +15,7 @@ from tests.bdd.conftest import (
 scenarios(
     "../../features/two_player_shot_selection.feature",
     "../../features/two_player_round_resolution.feature",
+    "../../features/two_player_round_progression.feature",
 )
 
 
@@ -456,3 +457,159 @@ def see_round_results_within_seconds(page: Page, seconds: int):
     expect(page.locator('[data-testid="round-indicator"]')).to_contain_text(
         "Round 2", timeout=seconds * 1000
     )
+
+
+# === Round Progression Steps ===
+
+
+def get_current_round_from_page(page: Page) -> int:
+    """Extract current round number from page.
+
+    Args:
+        page: Playwright page with gameplay content
+
+    Returns:
+        Current round number (defaults to 1 if not found)
+    """
+    round_indicator = page.locator(GamePageLocators.ROUND_INDICATOR)
+    text: str = round_indicator.text_content() or "Round 1"
+
+    for i in range(1, 11):  # Check rounds 1-10
+        if f"Round {i}" in text:
+            return i
+    return 1
+
+
+def advance_one_round(page: Page, opponent_client: httpx.Client) -> None:
+    """Advance game by one round by having both players fire.
+
+    Args:
+        page: Playwright page for current player
+        opponent_client: HTTP client for opponent
+    """
+    game_id: str = _get_game_id(page)
+    coordinates: list[str] = ["A1", "B1", "C1", "D1", "E1", "F1"]
+
+    # Current player aims and fires
+    select_coordinates(page, coordinates)
+    page.locator(GamePageLocators.FIRE_SHOTS_BUTTON).click()
+
+    # Opponent aims and fires via API
+    opponent_fires_via_api(opponent_client, game_id, "Player2")
+
+    # Wait for round to resolve (page should update)
+    page.wait_for_timeout(1000)  # Give time for polling to update
+
+
+@given(parsers.parse("it is Round {round_num:d}"))
+def it_is_round_n(page: Page, opponent_client: httpx.Client, round_num: int) -> None:
+    """Ensure game is at specific round number by advancing rounds if needed.
+
+    Args:
+        page: Playwright page for current player
+        opponent_client: HTTP client for opponent
+        round_num: Target round number
+    """
+    # Get current round from page
+    current_round: int = get_current_round_from_page(page)
+
+    # If we're already at the target round, we're done
+    if current_round == round_num:
+        return
+
+    # Advance rounds until we reach the target
+    while current_round < round_num:
+        advance_one_round(page, opponent_client)
+        current_round += 1
+        page.reload()  # Reload to see updated round
+        page.wait_for_timeout(500)
+
+    # Verify we're now at the target round
+    expect(page.locator(GamePageLocators.ROUND_INDICATOR)).to_contain_text(
+        f"Round {round_num}"
+    )
+
+
+@given("I have fired my shots")
+def i_have_fired_my_shots(page: Page) -> None:
+    """Aim all available shots and fire them.
+
+    Args:
+        page: Playwright page for current player
+    """
+    coordinates: list[str] = ["A1", "B1", "C1", "D1", "E1", "F1"]
+    select_coordinates(page, coordinates)
+    page.locator(GamePageLocators.FIRE_SHOTS_BUTTON).click()
+    page.wait_for_timeout(500)  # Wait for fire action to complete
+
+
+@given("my opponent has fired their shots")
+def opponent_has_fired_shots_given(page: Page, opponent_client: httpx.Client) -> None:
+    """Trigger opponent to fire their shots.
+
+    Args:
+        page: Playwright page for current player
+        opponent_client: HTTP client for opponent
+    """
+    game_id: str = _get_game_id(page)
+    opponent_fires_via_api(opponent_client, game_id, "Player2")
+
+
+@when("the round resolves")
+def when_round_resolves(page: Page) -> None:
+    """Wait for round to resolve and page to update.
+
+    Args:
+        page: Playwright page
+    """
+    # Give time for polling to detect round resolution
+    page.wait_for_timeout(3000)
+    page.reload()  # Ensure we see the latest state
+
+
+@then(parsers.parse('I should see "Round {round_num:d}" displayed'))
+def should_see_round_displayed(page: Page, round_num: int) -> None:
+    """Verify round number is displayed on the page.
+
+    Args:
+        page: Playwright page
+        round_num: Expected round number
+    """
+    expect(page.locator(GamePageLocators.ROUND_INDICATOR)).to_contain_text(
+        f"Round {round_num}"
+    )
+
+
+@then(parsers.parse("I should be able to aim new shots for Round {round_num:d}"))
+def can_aim_new_shots(page: Page, round_num: int) -> None:
+    """Verify aiming controls are enabled after round advances.
+
+    Args:
+        page: Playwright page
+        round_num: Current round number (unused but required by feature)
+    """
+    # Check that the shots-fired board is present
+    shots_board = page.locator(GamePageLocators.SHOTS_FIRED_BOARD)
+    expect(shots_board).to_be_visible()
+
+    # Check that we can interact with checkboxes (at least one should be clickable)
+    first_cell = page.locator(
+        f'{GamePageLocators.SHOTS_FIRED_BOARD} input[type="checkbox"]'
+    ).first
+    expect(first_cell).to_be_enabled()
+
+
+@given("my opponent has not yet fired")
+def opponent_has_not_yet_fired() -> None:
+    """Opponent has not fired yet (no-op step for state description)."""
+    pass
+
+
+@given("I have already fired my shots")
+def i_have_already_fired(page: Page) -> None:
+    """I have already fired my shots (alias for 'I have fired my shots').
+
+    Args:
+        page: Playwright page
+    """
+    i_have_fired_my_shots(page)

@@ -1,5 +1,7 @@
 import pytest
 from pytest_bdd import scenarios, given, when, then, parsers
+from starlette.testclient import TestClient
+
 from tests.bdd.conftest import (
     MultiPlayerBDDContext,
     login_player_fastapi,
@@ -12,6 +14,7 @@ from httpx import Response
 scenarios(
     "../../features/two_player_shot_selection.feature",
     "../../features/two_player_round_resolution.feature",
+    "../../features/two_player_round_progression.feature",
 )
 
 
@@ -618,6 +621,13 @@ def opponent_fires_action(context: MultiPlayerBDDContext):
     """Action: Opponent fires"""
     _opponent_fires(context)
 
+    # Refresh the page to see the update
+    assert context.game_url is not None, "No game URL stored"
+    assert context.current_player_name is not None, "No current player set"
+    client: TestClient = context.get_client_for_player(context.current_player_name)
+    response: Response = client.get(context.game_url)
+    context.update_response(response)
+
 
 @given("I am waiting for my opponent")
 @when("I am waiting for my opponent to fire")
@@ -713,3 +723,226 @@ def round_resolves_immediately(context: MultiPlayerBDDContext):
     # Check for Round 2
     assert context.soup is not None
     assert "Round 2" in context.soup.get_text()
+
+
+# === Round Progression Steps ===
+
+
+def _get_current_round_from_page(context: MultiPlayerBDDContext) -> int:
+    """Extract current round number from page text.
+
+    Args:
+        context: BDD context with loaded page
+
+    Returns:
+        Current round number (defaults to 1 if not found)
+    """
+    assert context.soup is not None, "No page loaded"
+    page_text: str = context.soup.get_text()
+
+    for i in range(1, 11):  # Check rounds 1-10
+        if f"Round {i}" in page_text:
+            return i
+    return 1
+
+
+def _advance_one_round(
+    context: MultiPlayerBDDContext,
+    client: TestClient,
+    opponent_client: TestClient,
+    opponent_name: str,
+) -> None:
+    """Advance game by one round by having both players fire.
+
+    Args:
+        context: BDD context with game state
+        client: Current player's test client
+        opponent_client: Opponent's test client
+        opponent_name: Name of the opponent
+    """
+    assert context.current_player_name is not None
+    game_id: str = context.game_id
+    coordinates: list[str] = ["A1", "B1", "C1", "D1", "E1", "F1"]
+
+    # Both players aim and fire
+    for player_client, player_name in [
+        (client, context.current_player_name),
+        (opponent_client, opponent_name),
+    ]:
+        # Aim all shots
+        for coord in coordinates:
+            player_client.post(
+                "/aim-shot",
+                data={"game_id": game_id, "coordinate": coord},
+                headers={"HX-Request": "true"},
+            )
+        # Fire shots
+        player_client.post(
+            "/fire-shots",
+            data={"game_id": game_id, "player_name": player_name},
+        )
+
+
+@given(parsers.parse("it is Round {round_num:d}"))
+def it_is_round_n(context: MultiPlayerBDDContext, round_num: int) -> None:
+    """Ensure game is at specific round number by advancing rounds if needed.
+
+    Args:
+        context: BDD context with game state
+        round_num: Target round number
+    """
+    assert context.soup is not None, "No page loaded"
+    assert context.game_url is not None, "No game URL stored"
+    assert context.current_player_name is not None, "No current player set"
+
+    # Get current round from page
+    current_round: int = _get_current_round_from_page(context)
+
+    # If we're already at the target round, we're done
+    if current_round == round_num:
+        return
+
+    # Set up clients
+    client: TestClient = context.get_client_for_player(context.current_player_name)
+    opponent_name: str = (
+        "Player2" if context.current_player_name == "Player1" else "Player1"
+    )
+    opponent_client: TestClient = context.get_client_for_player(opponent_name)
+
+    # Advance rounds until we reach the target
+    while current_round < round_num:
+        _advance_one_round(context, client, opponent_client, opponent_name)
+        current_round += 1
+
+    # Refresh page to see updated state
+    response: Response = client.get(context.game_url)
+    context.update_response(response)
+
+    # Verify we're now at the target round
+    assert f"Round {round_num}" in context.soup.get_text(), (
+        f"Failed to advance to Round {round_num}"
+    )
+
+
+@given("I have fired my shots")
+def i_have_fired_my_shots(context: MultiPlayerBDDContext) -> None:
+    """Aim all available shots and fire them.
+
+    Args:
+        context: BDD context with game state
+    """
+    assert context.game_url is not None, "No game URL stored"
+    assert context.current_player_name is not None, "No current player set"
+
+    client: TestClient = context.get_client_for_player(context.current_player_name)
+    game_id: str = context.game_id
+    coordinates: list[str] = ["A1", "B1", "C1", "D1", "E1", "F1"]
+
+    # Aim all shots
+    for coord in coordinates:
+        client.post(
+            "/aim-shot",
+            data={"game_id": game_id, "coordinate": coord},
+            headers={"HX-Request": "true"},
+        )
+
+    # Fire shots
+    response: Response = client.post(
+        "/fire-shots",
+        data={"game_id": game_id, "player_name": context.current_player_name},
+    )
+    context.update_response(response)
+
+
+@given("my opponent has fired their shots")
+def opponent_has_fired_shots_given(context: MultiPlayerBDDContext) -> None:
+    """Trigger opponent to fire their shots.
+
+    Args:
+        context: BDD context with game state
+    """
+    assert context.game_url is not None, "No game URL stored"
+    assert context.current_player_name is not None, "No current player set"
+
+    # Determine opponent
+    opponent_name: str = (
+        "Player2" if context.current_player_name == "Player1" else "Player1"
+    )
+    opponent_client: TestClient = context.get_client_for_player(opponent_name)
+    game_id: str = context.game_id
+
+    opponent_fires_via_api(opponent_client, game_id, opponent_name)
+
+
+@when("the round resolves")
+def when_round_resolves(context: MultiPlayerBDDContext) -> None:
+    """Reload the page to see round resolution.
+
+    Args:
+        context: BDD context with game state
+    """
+    assert context.game_url is not None, "No game URL stored"
+    assert context.current_player_name is not None, "No current player set"
+
+    # Refresh the gameplay page
+    client: TestClient = context.get_client_for_player(context.current_player_name)
+    response: Response = client.get(context.game_url)
+    context.update_response(response)
+
+
+@then(parsers.parse('I should see "Round {round_num:d}" displayed'))
+def should_see_round_displayed(context: MultiPlayerBDDContext, round_num: int) -> None:
+    """Verify round number is displayed on the page.
+
+    Args:
+        context: BDD context with loaded page
+        round_num: Expected round number
+    """
+    assert context.soup is not None, "No page loaded"
+    page_text: str = context.soup.get_text()
+    assert f"Round {round_num}" in page_text, f"Expected 'Round {round_num}' in page"
+
+
+@then(parsers.parse("I should be able to aim new shots for Round {round_num:d}"))
+def can_aim_new_shots(context: MultiPlayerBDDContext, round_num: int) -> None:
+    """Verify aiming controls are enabled after round advances.
+
+    Args:
+        context: BDD context with loaded page
+        round_num: Current round number (unused but required by feature)
+    """
+    assert context.soup is not None, "No page loaded"
+
+    # Check that the shots-fired board is present and interactive
+    shots_board = context.soup.find(attrs={"data-testid": "shots-fired-board"})
+    assert shots_board is not None, "Shots fired board not found"
+    assert isinstance(shots_board, Tag), "Shots board is not a Tag element"
+
+    # Check that checkboxes are not disabled (can aim)
+    checkboxes: list[Tag] = shots_board.find_all("input", {"type": "checkbox"})
+    assert len(checkboxes) > 0, "No checkboxes found for aiming"
+
+    # None should be disabled
+    for checkbox in checkboxes:
+        assert not checkbox.has_attr("disabled"), "Aiming checkboxes are disabled"
+
+
+@given("my opponent has not yet fired")
+def opponent_has_not_yet_fired(context: MultiPlayerBDDContext) -> None:
+    """Opponent has not fired yet (no-op step for state description).
+
+    Args:
+        context: BDD context (unused)
+    """
+    # This is a state description, nothing to do
+    pass
+
+
+@given("I have already fired my shots")
+def i_have_already_fired(context: MultiPlayerBDDContext) -> None:
+    """I have already fired my shots (alias for 'I have fired my shots').
+
+    Args:
+        context: BDD context with game state
+    """
+    i_have_fired_my_shots(context)

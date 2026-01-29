@@ -1,3 +1,5 @@
+from typing import Any
+
 import pytest
 
 from game.model import (
@@ -10,15 +12,286 @@ from game.model import (
     ShipAlreadyPlacedError,
     ShipPlacementOutOfBoundsError,
     ShipPlacementTooCloseError,
+    ShotInfo,
+    ShipHitData,
 )
+from tests.unit.conftest import board_with_single_ship
+
+
+class TestShotInfo:
+    """Tests for ShotInfo NamedTuple."""
+
+    def test_shot_info_creation(self) -> None:
+        """Test that ShotInfo can be created with all required fields."""
+        shot_info: ShotInfo = ShotInfo(
+            round_number=3,
+            is_hit=True,
+            ship_type=ShipType.CARRIER,
+        )
+        assert shot_info.round_number == 3
+        assert shot_info.is_hit is True
+        assert shot_info.ship_type == ShipType.CARRIER
+
+    def test_shot_info_creation_with_miss(self) -> None:
+        """Test that ShotInfo can be created for a miss (no ship_type)."""
+        shot_info: ShotInfo = ShotInfo(
+            round_number=1,
+            is_hit=False,
+            ship_type=None,
+        )
+        assert shot_info.round_number == 1
+        assert shot_info.is_hit is False
+        assert shot_info.ship_type is None
+
+    def test_shot_info_is_immutable(self) -> None:
+        """Test that ShotInfo is immutable (NamedTuple)."""
+        shot_info: ShotInfo = ShotInfo(
+            round_number=2,
+            is_hit=True,
+            ship_type=ShipType.DESTROYER,
+        )
+        with pytest.raises(AttributeError):
+            shot_info.round_number = 5  # type: ignore
 
 
 class TestGameBoard:
-    def test_board_creation(self):
+    def test_board_creation(self) -> None:
         board: GameBoard = GameBoard()
         assert len(board.ships) == 0
         assert len(board.shots_received) == 0
         assert len(board.shots_fired) == 0
+
+    def test_shots_received_stores_shot_info(self) -> None:
+        """Test that shots_received is dict[Coord, ShotInfo]."""
+        # Place a ship so we can test hits
+        board, ship = board_with_single_ship(
+            ShipType.DESTROYER, Coord.A1, Orientation.HORIZONTAL
+        )
+
+        # Receive shots (one hit, one miss)
+        board.receive_shots({Coord.A1, Coord.B1}, round_number=1)
+
+        # Verify shots_received contains ShotInfo objects
+        assert len(board.shots_received) == 2
+        assert Coord.A1 in board.shots_received
+        assert Coord.B1 in board.shots_received
+
+        # Check the hit shot
+        hit_info: ShotInfo = board.shots_received[Coord.A1]
+        assert isinstance(hit_info, ShotInfo)
+        assert hit_info.round_number == 1
+        assert hit_info.is_hit is True
+        assert hit_info.ship_type == ShipType.DESTROYER
+
+        # Check the miss shot
+        miss_info: ShotInfo = board.shots_received[Coord.B1]
+        assert isinstance(miss_info, ShotInfo)
+        assert miss_info.round_number == 1
+        assert miss_info.is_hit is False
+        assert miss_info.ship_type is None
+
+    def test_receive_shots_with_multiple_rounds(self) -> None:
+        """Test that receive_shots can be called multiple times with different rounds."""
+        board: GameBoard = GameBoard()
+
+        # Round 1
+        board.receive_shots({Coord.A1}, round_number=1)
+        assert board.shots_received[Coord.A1].round_number == 1
+
+        # Round 2
+        board.receive_shots({Coord.B2}, round_number=2)
+        assert board.shots_received[Coord.B2].round_number == 2
+
+        # Both shots should be tracked
+        assert len(board.shots_received) == 2
+
+    def test_shots_fired_stores_shot_info(self) -> None:
+        """Test that shots_fired is dict[Coord, ShotInfo]."""
+        board: GameBoard = GameBoard()
+
+        # Record fired shots
+        board.record_fired_shots({Coord.A1, Coord.B2}, round_number=1)
+
+        # Verify shots_fired contains ShotInfo objects
+        assert len(board.shots_fired) == 2
+        assert Coord.A1 in board.shots_fired
+        assert Coord.B2 in board.shots_fired
+
+        # Check shot info (we don't know if hits yet, just that shots were fired)
+        shot_a1: ShotInfo = board.shots_fired[Coord.A1]
+        assert isinstance(shot_a1, ShotInfo)
+        assert shot_a1.round_number == 1
+        # For fired shots, hit status is unknown until opponent board is checked
+        # So we'll just record is_hit=False as placeholder
+        assert shot_a1.is_hit is False
+        assert shot_a1.ship_type is None
+
+    def test_record_fired_shots_with_multiple_rounds(self) -> None:
+        """Test that record_fired_shots can be called multiple times."""
+        board: GameBoard = GameBoard()
+
+        # Round 1
+        board.record_fired_shots({Coord.A1}, round_number=1)
+        assert board.shots_fired[Coord.A1].round_number == 1
+
+        # Round 2
+        board.record_fired_shots({Coord.B2}, round_number=2)
+        assert board.shots_fired[Coord.B2].round_number == 2
+
+        # Both shots should be tracked
+        assert len(board.shots_fired) == 2
+
+    def test_has_ship_at_returns_true_for_ship_position(self) -> None:
+        """Test that has_ship_at returns True when coordinate has a ship."""
+        board, ship = board_with_single_ship(
+            ShipType.DESTROYER, Coord.A1, Orientation.HORIZONTAL
+        )
+
+        # A1 and A2 have the destroyer
+        assert board.has_ship_at(Coord.A1) is True
+        assert board.has_ship_at(Coord.A2) is True
+
+    def test_has_ship_at_returns_false_for_empty_position(self) -> None:
+        """Test that has_ship_at returns False when coordinate is empty."""
+        board, ship = board_with_single_ship(
+            ShipType.DESTROYER, Coord.A1, Orientation.HORIZONTAL
+        )
+
+        # B1 is empty
+        assert board.has_ship_at(Coord.B1) is False
+        # C5 is empty
+        assert board.has_ship_at(Coord.C5) is False
+
+    def test_receive_shots_registers_hit_on_ship(self) -> None:
+        """Test that receive_shots registers hits on the ship object."""
+        board, ship = board_with_single_ship(
+            ShipType.DESTROYER, Coord.A1, Orientation.HORIZONTAL
+        )
+        # Ship is at A1, A2
+
+        # Receive shot at A1 (hit)
+        board.receive_shots({Coord.A1}, round_number=1)
+
+        # Verify hit was registered on ship
+        assert Coord.A1 in ship.hits
+        assert len(ship.hits) == 1
+        assert ship.is_sunk is False
+
+    def test_receive_shots_marks_ship_as_sunk(self) -> None:
+        """Test that receive_shots marks ship as sunk when all positions hit."""
+        board, ship = board_with_single_ship(
+            ShipType.DESTROYER, Coord.A1, Orientation.HORIZONTAL
+        )
+        # Ship is at A1, A2
+
+        # Receive both hits
+        board.receive_shots({Coord.A1, Coord.A2}, round_number=1)
+
+        # Verify ship is sunk
+        assert Coord.A1 in ship.hits
+        assert Coord.A2 in ship.hits
+        assert ship.is_sunk is True
+
+    def test_get_shots_received_by_round_returns_empty_for_no_shots(self) -> None:
+        """Test that get_shots_received_by_round returns empty for rounds with no shots."""
+        board: GameBoard = GameBoard()
+
+        shots: set[Coord] = board.get_shots_received_by_round(1)
+        assert len(shots) == 0
+
+    def test_get_shots_received_by_round_returns_shots_for_round(self) -> None:
+        """Test that get_shots_received_by_round returns shots for that round."""
+        board: GameBoard = GameBoard()
+
+        # Round 1
+        board.receive_shots({Coord.A1, Coord.B1}, round_number=1)
+        # Round 2
+        board.receive_shots({Coord.C3}, round_number=2)
+
+        # Get round 1 shots
+        round1_shots: set[Coord] = board.get_shots_received_by_round(1)
+        assert len(round1_shots) == 2
+        assert Coord.A1 in round1_shots
+        assert Coord.B1 in round1_shots
+
+        # Get round 2 shots
+        round2_shots: set[Coord] = board.get_shots_received_by_round(2)
+        assert len(round2_shots) == 1
+        assert Coord.C3 in round2_shots
+
+    def test_get_shots_fired_by_round(self) -> None:
+        """Test that get_shots_fired_by_round returns shots for that round."""
+        board: GameBoard = GameBoard()
+
+        # Round 1
+        board.record_fired_shots({Coord.A1}, round_number=1)
+        # Round 2
+        board.record_fired_shots({Coord.B2, Coord.C3}, round_number=2)
+
+        # Get round 1 shots
+        round1_shots: set[Coord] = board.get_shots_fired_by_round(1)
+        assert len(round1_shots) == 1
+        assert Coord.A1 in round1_shots
+
+        # Get round 2 shots
+        round2_shots: set[Coord] = board.get_shots_fired_by_round(2)
+        assert len(round2_shots) == 2
+        assert Coord.B2 in round2_shots
+        assert Coord.C3 in round2_shots
+
+    def test_get_hits_made_returns_ship_hit_data(self) -> None:
+        """Test that get_hits_made returns hit tracking data for opponent's ships."""
+        # Player's board (who fired the shots)
+        player_board: GameBoard = GameBoard()
+
+        # Opponent's board with ships
+        opponent_board: GameBoard = GameBoard()
+        destroyer: Ship = Ship(ShipType.DESTROYER)
+        carrier: Ship = Ship(ShipType.CARRIER)
+        opponent_board.place_ship(destroyer, Coord.A1, Orientation.HORIZONTAL)  # A1, A2
+        opponent_board.place_ship(carrier, Coord.C1, Orientation.HORIZONTAL)  # C1-C5
+
+        # Round 1: Player fires and opponent receives
+        player_board.record_fired_shots({Coord.A1}, round_number=1)
+        opponent_board.receive_shots({Coord.A1}, round_number=1)
+
+        # Round 2: Player fires and opponent receives
+        player_board.record_fired_shots({Coord.C1, Coord.D1}, round_number=2)
+        opponent_board.receive_shots({Coord.C1, Coord.D1}, round_number=2)
+
+        # Round 3: Player fires and opponent receives (sinks Destroyer)
+        player_board.record_fired_shots({Coord.A2, Coord.C2}, round_number=3)
+        opponent_board.receive_shots({Coord.A2, Coord.C2}, round_number=3)
+
+        # Get hits made (need to pass opponent board to determine hits)
+        hits_made: dict[str, ShipHitData] = player_board.get_hits_made(opponent_board)
+
+        # Should have entries for all 5 ship types
+        assert len(hits_made) == 5
+        assert "Destroyer" in hits_made
+        assert "Carrier" in hits_made
+        assert "Battleship" in hits_made
+        assert "Cruiser" in hits_made
+        assert "Submarine" in hits_made
+
+        # Check Destroyer (sunk)
+        destroyer_data: ShipHitData = hits_made["Destroyer"]
+        assert destroyer_data.is_sunk is True
+        assert len(destroyer_data.hits) == 2
+        assert ("A1", 1) in destroyer_data.hits
+        assert ("A2", 3) in destroyer_data.hits
+
+        # Check Carrier (not sunk)
+        carrier_data: ShipHitData = hits_made["Carrier"]
+        assert carrier_data.is_sunk is False
+        assert len(carrier_data.hits) == 2
+        assert ("C1", 2) in carrier_data.hits
+        assert ("C2", 3) in carrier_data.hits
+
+        # Check unhit ships (no hits)
+        assert hits_made["Battleship"].hits == []
+        assert hits_made["Cruiser"].hits == []
+        assert hits_made["Submarine"].hits == []
 
     valid_horizontal_ship_placement_data: list[
         tuple[ShipType, Coord, Orientation, list[Coord]]
@@ -250,11 +523,11 @@ class TestShipPlacementExceptionMessages:
         """Test ShipPlacementOutOfBoundsError has user_message property"""
         board = GameBoard()
         carrier = Ship(ShipType.CARRIER)
-        
+
         with pytest.raises(ShipPlacementOutOfBoundsError) as exc_info:
             board.place_ship(carrier, Coord.A8, Orientation.HORIZONTAL)
-        
-        assert hasattr(exc_info.value, 'user_message')
+
+        assert hasattr(exc_info.value, "user_message")
         assert exc_info.value.user_message == "Ship placement goes outside the board"
 
     def test_overlap_error_has_user_message(self):
@@ -262,14 +535,14 @@ class TestShipPlacementExceptionMessages:
         board = GameBoard()
         carrier1 = Ship(ShipType.CARRIER)
         carrier2 = Ship(ShipType.BATTLESHIP)  # Different type to avoid duplicate error
-        
+
         board.place_ship(carrier1, Coord.A1, Orientation.HORIZONTAL)
-        
+
         with pytest.raises(ShipPlacementTooCloseError) as exc_info:
             # Try to place ship on same position (overlap)
             board.place_ship(carrier2, Coord.A1, Orientation.HORIZONTAL)
-        
-        assert hasattr(exc_info.value, 'user_message')
+
+        assert hasattr(exc_info.value, "user_message")
         assert exc_info.value.user_message == "Ships cannot overlap"
 
     def test_touching_error_has_user_message(self):
@@ -277,14 +550,14 @@ class TestShipPlacementExceptionMessages:
         board = GameBoard()
         carrier = Ship(ShipType.CARRIER)
         battleship = Ship(ShipType.BATTLESHIP)
-        
+
         board.place_ship(carrier, Coord.A1, Orientation.HORIZONTAL)
-        
+
         with pytest.raises(ShipPlacementTooCloseError) as exc_info:
             # Try to place ship adjacent (touching but not overlapping)
             board.place_ship(battleship, Coord.B1, Orientation.HORIZONTAL)
-        
-        assert hasattr(exc_info.value, 'user_message')
+
+        assert hasattr(exc_info.value, "user_message")
         assert exc_info.value.user_message == "Ships must have empty space around them"
 
     def test_already_placed_error_has_user_message(self):
@@ -292,11 +565,11 @@ class TestShipPlacementExceptionMessages:
         board = GameBoard()
         carrier1 = Ship(ShipType.CARRIER)
         carrier2 = Ship(ShipType.CARRIER)
-        
+
         board.place_ship(carrier1, Coord.A1, Orientation.HORIZONTAL)
-        
+
         with pytest.raises(ShipAlreadyPlacedError) as exc_info:
             board.place_ship(carrier2, Coord.C1, Orientation.HORIZONTAL)
-        
-        assert hasattr(exc_info.value, 'user_message')
+
+        assert hasattr(exc_info.value, "user_message")
         assert exc_info.value.user_message == "Ships must have empty space around them"

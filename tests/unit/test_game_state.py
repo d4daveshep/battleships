@@ -100,14 +100,10 @@ class TestGameAimedShots:
     @pytest.fixture
     def game_with_ships(self, alice: Player) -> Game:
         """Create a game with all ships placed (6 shots available)"""
+        from tests.unit.conftest import place_all_ships_standard_layout
+
         game = Game(player_1=alice, game_mode=GameMode.SINGLE_PLAYER)
-        board = game.board[alice]
-        # Place all ships with spacing (skipping rows)
-        board.place_ship(Ship(ShipType.CARRIER), Coord.A1, Orientation.HORIZONTAL)
-        board.place_ship(Ship(ShipType.BATTLESHIP), Coord.C1, Orientation.HORIZONTAL)
-        board.place_ship(Ship(ShipType.CRUISER), Coord.E1, Orientation.HORIZONTAL)
-        board.place_ship(Ship(ShipType.SUBMARINE), Coord.G1, Orientation.HORIZONTAL)
-        board.place_ship(Ship(ShipType.DESTROYER), Coord.I1, Orientation.HORIZONTAL)
+        place_all_ships_standard_layout(game.board[alice])
         return game
 
     def test_game_initializes_with_empty_aimed_shots(self, alice):
@@ -185,28 +181,7 @@ class TestGameAimedShots:
 class TestFireShots:
     """Unit tests for firing shots functionality"""
 
-    @pytest.fixture
-    def two_player_game_with_ships(self, alice: Player, bob: Player) -> Game:
-        """Create a two-player game with all ships placed"""
-        game = Game(player_1=alice, player_2=bob, game_mode=GameMode.TWO_PLAYER)
-
-        # Place all ships for player 1
-        board_1 = game.board[alice]
-        board_1.place_ship(Ship(ShipType.CARRIER), Coord.A1, Orientation.HORIZONTAL)
-        board_1.place_ship(Ship(ShipType.BATTLESHIP), Coord.C1, Orientation.HORIZONTAL)
-        board_1.place_ship(Ship(ShipType.CRUISER), Coord.E1, Orientation.HORIZONTAL)
-        board_1.place_ship(Ship(ShipType.SUBMARINE), Coord.G1, Orientation.HORIZONTAL)
-        board_1.place_ship(Ship(ShipType.DESTROYER), Coord.I1, Orientation.HORIZONTAL)
-
-        # Place all ships for player 2
-        board_2 = game.board[bob]
-        board_2.place_ship(Ship(ShipType.CARRIER), Coord.A1, Orientation.HORIZONTAL)
-        board_2.place_ship(Ship(ShipType.BATTLESHIP), Coord.C1, Orientation.HORIZONTAL)
-        board_2.place_ship(Ship(ShipType.CRUISER), Coord.E1, Orientation.HORIZONTAL)
-        board_2.place_ship(Ship(ShipType.SUBMARINE), Coord.G1, Orientation.HORIZONTAL)
-        board_2.place_ship(Ship(ShipType.DESTROYER), Coord.I1, Orientation.HORIZONTAL)
-
-        return game
+    # Uses two_player_game_with_ships fixture from conftest.py
 
     def test_fire_shots_submits_aimed_shots(
         self, alice: Player, two_player_game_with_ships: Game
@@ -311,28 +286,7 @@ class TestFireShots:
 class TestWaitingForOpponent:
     """Unit tests for waiting for opponent status"""
 
-    @pytest.fixture
-    def two_player_game_with_ships(self, alice: Player, bob: Player) -> Game:
-        """Create a two-player game with all ships placed"""
-        game = Game(player_1=alice, player_2=bob, game_mode=GameMode.TWO_PLAYER)
-
-        # Place all ships for player 1
-        board_1 = game.board[alice]
-        board_1.place_ship(Ship(ShipType.CARRIER), Coord.A1, Orientation.HORIZONTAL)
-        board_1.place_ship(Ship(ShipType.BATTLESHIP), Coord.C1, Orientation.HORIZONTAL)
-        board_1.place_ship(Ship(ShipType.CRUISER), Coord.E1, Orientation.HORIZONTAL)
-        board_1.place_ship(Ship(ShipType.SUBMARINE), Coord.G1, Orientation.HORIZONTAL)
-        board_1.place_ship(Ship(ShipType.DESTROYER), Coord.I1, Orientation.HORIZONTAL)
-
-        # Place all ships for player 2
-        board_2 = game.board[bob]
-        board_2.place_ship(Ship(ShipType.CARRIER), Coord.A1, Orientation.HORIZONTAL)
-        board_2.place_ship(Ship(ShipType.BATTLESHIP), Coord.C1, Orientation.HORIZONTAL)
-        board_2.place_ship(Ship(ShipType.CRUISER), Coord.E1, Orientation.HORIZONTAL)
-        board_2.place_ship(Ship(ShipType.SUBMARINE), Coord.G1, Orientation.HORIZONTAL)
-        board_2.place_ship(Ship(ShipType.DESTROYER), Coord.I1, Orientation.HORIZONTAL)
-
-        return game
+    # Uses two_player_game_with_ships fixture from conftest.py
 
     def test_is_waiting_for_opponent_false_initially(
         self, alice: Player, two_player_game_with_ships: Game

@@ -1,5 +1,6 @@
 import pytest
 from game.model import Game, GameMode, Ship, ShipType, Orientation, Coord
+from tests.unit.conftest import board_with_single_ship
 
 
 class TestGameSimultaneous:
@@ -9,12 +10,16 @@ class TestGameSimultaneous:
         g = Game(player_1=alice, player_2=bob, game_mode=GameMode.TWO_PLAYER)
 
         # Place ships for Alice
-        board1 = g.board[alice]
-        board1.place_ship(Ship(ShipType.DESTROYER), Coord.A1, Orientation.HORIZONTAL)
+        board1, ship1 = board_with_single_ship(
+            ShipType.DESTROYER, Coord.A1, Orientation.HORIZONTAL
+        )
+        g.board[alice] = board1
 
         # Place ships for Bob
-        board2 = g.board[bob]
-        board2.place_ship(Ship(ShipType.DESTROYER), Coord.A1, Orientation.HORIZONTAL)
+        board2, ship2 = board_with_single_ship(
+            ShipType.DESTROYER, Coord.A1, Orientation.HORIZONTAL
+        )
+        g.board[bob] = board2
 
         return g
 

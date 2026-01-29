@@ -4,6 +4,7 @@ import pytest
 
 from game.game_service import GameService
 from game.lobby import Lobby
+from game.model import Coord, Game, GameBoard, GameMode, Orientation, Ship, ShipType
 from game.player import Player, PlayerStatus
 from services.auth_service import AuthService
 from services.lobby_service import LobbyService
@@ -12,6 +13,47 @@ from services.lobby_service import LobbyService
 def make_player(name: str, status: PlayerStatus = PlayerStatus.AVAILABLE) -> Player:
     """Helper function to create Player objects for testing."""
     return Player(name, status)
+
+
+# =============================================================================
+# Board and Ship Setup Helpers
+# =============================================================================
+
+
+def board_with_single_ship(
+    ship_type: ShipType = ShipType.DESTROYER,
+    start: Coord = Coord.A1,
+    orientation: Orientation = Orientation.HORIZONTAL,
+) -> tuple[GameBoard, Ship]:
+    """Create a board with one ship placed.
+
+    Args:
+        ship_type: Type of ship to place (default: Destroyer)
+        start: Starting coordinate (default: A1)
+        orientation: Ship orientation (default: Horizontal)
+
+    Returns:
+        Tuple of (GameBoard, Ship) with ship already placed
+    """
+    board = GameBoard()
+    ship = Ship(ship_type)
+    board.place_ship(ship, start, orientation)
+    return board, ship
+
+
+def place_all_ships_standard_layout(board: GameBoard) -> None:
+    """Place all 5 ships with standard spacing on a board.
+
+    Ships are placed horizontally on rows A, C, E, G, I starting at column 1.
+
+    Args:
+        board: GameBoard to place ships on
+    """
+    board.place_ship(Ship(ShipType.CARRIER), Coord.A1, Orientation.HORIZONTAL)
+    board.place_ship(Ship(ShipType.BATTLESHIP), Coord.C1, Orientation.HORIZONTAL)
+    board.place_ship(Ship(ShipType.CRUISER), Coord.E1, Orientation.HORIZONTAL)
+    board.place_ship(Ship(ShipType.SUBMARINE), Coord.G1, Orientation.HORIZONTAL)
+    board.place_ship(Ship(ShipType.DESTROYER), Coord.I1, Orientation.HORIZONTAL)
 
 
 # =============================================================================
@@ -261,6 +303,25 @@ def two_player_game(game_service: GameService) -> TwoPlayerGameSetup:
         TwoPlayerGameSetup with Alice and Bob in a game
     """
     return create_two_player_game_setup(game_service)
+
+
+@pytest.fixture
+def two_player_game_with_ships(alice: Player, bob: Player) -> Game:
+    """Two-player game with all ships placed for both players.
+
+    Ships are placed in standard layout (rows A,C,E,G,I) for both players.
+
+    Args:
+        alice: Alice player from fixture
+        bob: Bob player from fixture
+
+    Returns:
+        Game with both players having all ships placed
+    """
+    game = Game(player_1=alice, player_2=bob, game_mode=GameMode.TWO_PLAYER)
+    place_all_ships_standard_layout(game.board[alice])
+    place_all_ships_standard_layout(game.board[bob])
+    return game
 
 
 @pytest.fixture

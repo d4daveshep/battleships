@@ -1,4 +1,5 @@
-from game.model import Ship, ShipType
+from game.model import Ship, ShipType, Coord, Orientation, GameBoard
+from tests.unit.conftest import board_with_single_ship
 
 
 class TestShipType:
@@ -51,8 +52,74 @@ class TestShipType:
 
 
 class TestShip:
-    def test_ship_creation(self):
+    def test_ship_creation(self) -> None:
         ship: Ship = Ship(ship_type=ShipType.CARRIER)
         assert ship.ship_type == ShipType.CARRIER
         assert ship.length == 5
         assert ship.shots_available == 2
+
+    def test_ship_has_hits_set(self) -> None:
+        """Test that Ship has a hits attribute."""
+        ship: Ship = Ship(ship_type=ShipType.DESTROYER)
+        assert hasattr(ship, "hits")
+        assert isinstance(ship.hits, set)
+
+    def test_ship_hits_initially_empty(self) -> None:
+        """Test that hits set is empty on creation."""
+        ship: Ship = Ship(ship_type=ShipType.DESTROYER)
+        assert len(ship.hits) == 0
+
+    def test_register_hit_adds_coord_to_hits(self) -> None:
+        """Test that register_hit adds coordinate to hits if it's in positions."""
+        board, ship = board_with_single_ship(
+            ShipType.DESTROYER, Coord.A1, Orientation.HORIZONTAL
+        )
+        # Ship is at A1, A2
+
+        # Register hit at A1
+        result: bool = ship.register_hit(Coord.A1)
+        assert result is True
+        assert Coord.A1 in ship.hits
+        assert len(ship.hits) == 1
+
+    def test_register_hit_ignores_non_ship_coords(self) -> None:
+        """Test that register_hit does nothing if coord not in positions."""
+        board, ship = board_with_single_ship(
+            ShipType.DESTROYER, Coord.A1, Orientation.HORIZONTAL
+        )
+        # Ship is at A1, A2
+
+        # Try to register hit at B1 (not part of ship)
+        result: bool = ship.register_hit(Coord.B1)
+        assert result is False
+        assert Coord.B1 not in ship.hits
+        assert len(ship.hits) == 0
+
+    def test_is_sunk_false_when_no_hits(self) -> None:
+        """Test that is_sunk returns False when no hits."""
+        board, ship = board_with_single_ship(
+            ShipType.DESTROYER, Coord.A1, Orientation.HORIZONTAL
+        )
+
+        assert ship.is_sunk is False
+
+    def test_is_sunk_false_when_partial_hits(self) -> None:
+        """Test that is_sunk returns False when only some positions hit."""
+        board, ship = board_with_single_ship(
+            ShipType.DESTROYER, Coord.A1, Orientation.HORIZONTAL
+        )
+        # Ship is at A1, A2
+
+        ship.register_hit(Coord.A1)
+        assert ship.is_sunk is False
+
+    def test_is_sunk_true_when_all_positions_hit(self) -> None:
+        """Test that is_sunk returns True when all positions hit."""
+        board, ship = board_with_single_ship(
+            ShipType.DESTROYER, Coord.A1, Orientation.HORIZONTAL
+        )
+        # Ship is at A1, A2
+
+        ship.register_hit(Coord.A1)
+        ship.register_hit(Coord.A2)
+        assert ship.is_sunk is True

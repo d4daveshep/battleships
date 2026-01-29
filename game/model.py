@@ -20,6 +20,8 @@ __all__ = [
     "ShipAlreadyPlacedError",
     "ShipPlacementOutOfBoundsError",
     "ShipPlacementTooCloseError",
+    "ShotInfo",
+    "ShipHitData",
     "Orientation",
     "ShipType",
     "CoordDetails",
@@ -32,6 +34,32 @@ __all__ = [
     "GameStatus",
     "Game",
 ]
+
+
+class ShotInfo(NamedTuple):
+    """Information about a shot fired or received.
+
+    Attributes:
+        round_number: The round number when the shot was fired/received
+        is_hit: Whether the shot hit a ship (True) or missed (False)
+        ship_type: The type of ship that was hit (None if miss)
+    """
+
+    round_number: int
+    is_hit: bool
+    ship_type: "ShipType | None"
+
+
+class ShipHitData(NamedTuple):
+    """Hit tracking data for a single ship type.
+
+    Attributes:
+        hits: List of (coord_name, round_number) tuples for each hit
+        is_sunk: Whether all positions of the ship have been hit
+    """
+
+    hits: list[tuple[str, int]]
+    is_sunk: bool
 
 
 class Orientation(StrEnum):
@@ -161,6 +189,7 @@ class CoordHelper:
 class Ship:
     ship_type: ShipType
     positions: list[Coord] = field(default_factory=list)
+    hits: set[Coord] = field(default_factory=set)
 
     @property
     def length(self) -> int:
@@ -169,6 +198,29 @@ class Ship:
     @property
     def shots_available(self) -> int:
         return self.ship_type.shots_available
+
+    def register_hit(self, coord: Coord) -> bool:
+        """Register a hit on this ship at the given coordinate.
+
+        Args:
+            coord: The coordinate that was hit
+
+        Returns:
+            True if the hit was registered (coord is part of ship), False otherwise
+        """
+        if coord in self.positions:
+            self.hits.add(coord)
+            return True
+        return False
+
+    @property
+    def is_sunk(self) -> bool:
+        """Check if this ship is sunk (all positions have been hit).
+
+        Returns:
+            True if all positions have been hit, False otherwise
+        """
+        return len(self.positions) > 0 and len(self.hits) == len(self.positions)
 
 
 class GameBoard:
@@ -185,13 +237,155 @@ class GameBoard:
 
     def __init__(self) -> None:
         self.ships: list[Ship] = []
-        self.shots_received: dict[Coord, bool] = {}
-        self.shots_fired: dict[Coord, bool] = {}
+        self.shots_received: dict[Coord, ShotInfo] = {}
+        self.shots_fired: dict[Coord, ShotInfo] = {}
 
-    def receive_shots(self, shots: set[Coord]) -> None:
-        """Record received shots."""
+    def receive_shots(self, shots: set[Coord], round_number: int) -> None:
+        """Record received shots with round tracking and hit detection.
+
+        Args:
+            shots: Set of coordinates being shot at
+            round_number: The current round number
+        """
         for shot in shots:
-            self.shots_received[shot] = True
+            # Get the ship at this coordinate (if any)
+            ship: Ship | None = self.get_ship_at(shot)
+            is_hit: bool = ship is not None
+            ship_type: ShipType | None = ship.ship_type if ship else None
+
+            # If hit, register the hit on the ship
+            if ship:
+                ship.register_hit(shot)
+
+            # Store shot info
+            self.shots_received[shot] = ShotInfo(
+                round_number=round_number,
+                is_hit=is_hit,
+                ship_type=ship_type,
+            )
+
+    def record_fired_shots(self, shots: set[Coord], round_number: int) -> None:
+        """Record shots fired at opponent with round tracking.
+
+        Args:
+            shots: Set of coordinates being shot at
+            round_number: The current round number
+
+        Note:
+            Hit detection for fired shots happens on the opponent's board.
+            We store is_hit=False and ship_type=None as placeholders.
+        """
+        for shot in shots:
+            self.shots_fired[shot] = ShotInfo(
+                round_number=round_number,
+                is_hit=False,  # Placeholder - hit status determined on opponent board
+                ship_type=None,
+            )
+
+    def get_ship_at(self, coord: Coord) -> Ship | None:
+        """Get the ship at a coordinate, or None if empty.
+
+        Args:
+            coord: The coordinate to check
+
+        Returns:
+            Ship at the coordinate, or None if no ship there
+        """
+        for ship in self.ships:
+            if coord in ship.positions:
+                return ship
+        return None
+
+    def has_ship_at(self, coord: Coord) -> bool:
+        """Check if a coordinate contains a ship (would be a hit if shot).
+
+        Args:
+            coord: The coordinate to check
+
+        Returns:
+            True if the coordinate has a ship, False otherwise
+        """
+        return self.get_ship_at(coord) is not None
+
+    def get_shots_received_by_round(self, round_number: int) -> set[Coord]:
+        """Get all shots received in a specific round.
+
+        Args:
+            round_number: The round number to query
+
+        Returns:
+            Set of coordinates shot at in that round
+        """
+        return {
+            coord
+            for coord, shot_info in self.shots_received.items()
+            if shot_info.round_number == round_number
+        }
+
+    def get_shots_fired_by_round(self, round_number: int) -> set[Coord]:
+        """Get all shots fired in a specific round.
+
+        Args:
+            round_number: The round number to query
+
+        Returns:
+            Set of coordinates fired at in that round
+        """
+        return {
+            coord
+            for coord, shot_info in self.shots_fired.items()
+            if shot_info.round_number == round_number
+        }
+
+    def get_hits_made(self, opponent_board: "GameBoard") -> dict[str, ShipHitData]:
+        """Get hit tracking data for opponent's ships.
+
+        Cross-references this board's shots_fired with opponent's ships to determine
+        which opponent ships have been hit and when.
+
+        Args:
+            opponent_board: The opponent's game board with their ships
+
+        Returns:
+            Dictionary mapping ship names to ShipHitData:
+            {
+                "Destroyer": ShipHitData(hits=[("A1", 1), ("A2", 3)], is_sunk=True),
+                "Carrier": ShipHitData(hits=[("C1", 2)], is_sunk=False),
+                ...
+            }
+            Where hits are list of (coord_name, round_number) tuples.
+        """
+        # Initialize result with all 5 ship types
+        hits_by_ship: dict[str, list[tuple[str, int]]] = {}
+        for ship_type in ShipType:
+            hits_by_ship[ship_type.ship_name] = []
+
+        # Cross-reference fired shots with opponent's ships
+        for coord, shot_info in self.shots_fired.items():
+            # Check if this shot hit an opponent ship
+            ship_type: ShipType | None = opponent_board.ship_type_at(coord)
+            if ship_type:
+                # Add this hit to the ship's hit list with round number
+                hits_by_ship[ship_type.ship_name].append(
+                    (coord.name, shot_info.round_number)
+                )
+
+        # Build final result with ShipHitData
+        hits_made: dict[str, ShipHitData] = {}
+        for ship_type in ShipType:
+            ship_name: str = ship_type.ship_name
+            # Check if ship is sunk on opponent's board
+            is_sunk: bool = False
+            for ship in opponent_board.ships:
+                if ship.ship_type == ship_type and ship.is_sunk:
+                    is_sunk = True
+                    break
+
+            hits_made[ship_name] = ShipHitData(
+                hits=hits_by_ship[ship_name], is_sunk=is_sunk
+            )
+
+        return hits_made
 
     def _invalid_coords(self) -> set[Coord]:
         invalid_coords: set[Coord] = set()
@@ -505,12 +699,14 @@ class Game:
         if not self.player_2:
             return
 
-        # Apply shots to boards
+        # Apply shots to boards (use current round number before incrementing)
         p1_shots = self.get_fired_shots(self.player_1.id)
-        self.board[self.player_2].receive_shots(p1_shots)
+        self.board[self.player_2].receive_shots(p1_shots, self.round)
+        self.board[self.player_1].record_fired_shots(p1_shots, self.round)
 
         p2_shots = self.get_fired_shots(self.player_2.id)
-        self.board[self.player_1].receive_shots(p2_shots)
+        self.board[self.player_1].receive_shots(p2_shots, self.round)
+        self.board[self.player_2].record_fired_shots(p2_shots, self.round)
 
         # Clear pending shots and waiting status
         self.fired_shots = {}

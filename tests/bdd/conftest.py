@@ -1,6 +1,7 @@
 import subprocess
 import time
 from dataclasses import dataclass, field
+from typing import Any
 
 import httpx
 import pytest
@@ -19,6 +20,44 @@ BASE_URL = "http://localhost:8000/"
 # Long-polling timeout in milliseconds
 # Server-side long-poll timeout is 35 seconds, so client timeout must be higher
 LONG_POLL_TIMEOUT_MS = 40000
+
+
+# =============================================================================
+# Gameplay Page Locators
+# =============================================================================
+
+
+class GamePageLocators:
+    """Centralized selectors for the gameplay page."""
+
+    READY_BUTTON = '[data-testid="ready-button"]'
+    RANDOM_PLACEMENT_BUTTON = '[data-testid="random-placement-button"]'
+    SHIP_PLACEMENT_COUNT = '[data-testid="ship-placement-count"]'
+    SHOTS_FIRED_BOARD = '[data-testid="shots-fired-board"]'
+    MY_SHIPS_BOARD = '[data-testid="my-ships-board"]'
+    FIRE_SHOTS_BUTTON = '[data-testid="fire-shots-button"]'
+    HITS_MADE_AREA = '[data-testid="hits-made-area"]'
+    AIMING_STATUS = '[data-testid="aiming-status"]'
+    SHOTS_AVAILABLE = '[data-testid="shots-available"]'
+    ERROR_MESSAGE = '[data-testid="error-message"]'
+    GAME_STATUS = '[data-testid="game-status"]'
+    CHECKED_CELLS = '[data-testid="shots-fired-board"] input[type="checkbox"]:checked'
+    ROUND_INDICATOR = '[data-testid="round-indicator"]'
+
+    @staticmethod
+    def opponent_cell(coord: str) -> str:
+        """Selector for opponent cell at given coordinate."""
+        return f'[data-testid="opponent-cell-{coord}"]'
+
+    @staticmethod
+    def player_cell(coord: str) -> str:
+        """Selector for player cell at given coordinate."""
+        return f'[data-testid="player-cell-{coord}"]'
+
+    @staticmethod
+    def select_opponent_button(player_name: str) -> str:
+        """Selector for button to select opponent."""
+        return f'[data-testid="select-opponent-{player_name}"]'
 
 
 @dataclass
@@ -455,3 +494,35 @@ def login_and_goto_lobby_fastapi(
         redirect_url = login_response.headers.get("location", "/lobby")
         return client.get(redirect_url)
     return login_response
+
+
+# =============================================================================
+# Two-Player Gameplay Helpers
+# =============================================================================
+
+
+def opponent_fires_via_api(
+    client: TestClient | httpx.Client,
+    game_id: str,
+    opponent_name: str = "Player2",
+    coordinates: list[str] | None = None,
+) -> None:
+    """Make opponent aim and fire shots via API.
+
+    Args:
+        client: HTTP client (httpx or TestClient)
+        game_id: The game ID
+        opponent_name: Name of the opponent player
+        coordinates: Coordinates to fire at (defaults to A1-F1)
+    """
+    if coordinates is None:
+        coordinates = ["A1", "B1", "C1", "D1", "E1", "F1"]
+
+    for coord in coordinates:
+        client.post(
+            "/aim-shot",
+            data={"game_id": game_id, "coordinate": coord},
+            headers={"HX-Request": "true"},
+        )
+
+    client.post("/fire-shots", data={"game_id": game_id, "player_name": opponent_name})

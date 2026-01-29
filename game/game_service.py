@@ -609,7 +609,6 @@ class GameService:
             ActionAfterFireError: If player has already fired
         """
         game = self._get_game_or_raise(game_id)
-        player = self._get_player_or_raise(player_id)
 
         # Delegate to Game model
         game.fire_shots(player_id)

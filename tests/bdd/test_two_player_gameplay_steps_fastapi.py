@@ -4,11 +4,15 @@ from tests.bdd.conftest import (
     MultiPlayerBDDContext,
     login_player_fastapi,
     place_all_ships_fastapi,
+    opponent_fires_via_api,
 )
 from bs4 import BeautifulSoup, Tag
 from httpx import Response
 
-scenarios("../../features/two_player_gameplay.feature")
+scenarios(
+    "../../features/two_player_shot_selection.feature",
+    "../../features/two_player_round_resolution.feature",
+)
 
 
 @pytest.fixture
@@ -574,17 +578,7 @@ def _opponent_fires(context: MultiPlayerBDDContext):
     client = context.get_client_for_player(opponent)
     game_id = context.game_url.split("/")[-1]
 
-    # Aim shots for opponent (A1-F1)
-    coords = ["A1", "B1", "C1", "D1", "E1", "F1"]
-    for coord in coords:
-        client.post(
-            "/aim-shot",
-            data={"game_id": game_id, "coordinate": coord},
-            headers={"HX-Request": "true"},
-        )
-
-    # Fire
-    client.post("/fire-shots", data={"game_id": game_id, "player_name": opponent})
+    opponent_fires_via_api(client, game_id, opponent)
 
 
 @given("my opponent has already fired their shots")

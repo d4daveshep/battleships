@@ -401,16 +401,16 @@ class Game:
         """
         return secrets.token_urlsafe(16)
 
-    def get_shots_available(self, player_id: str) -> int:
-        player = None
+    def _get_player_by_id(self, player_id: str) -> "Player":
+        """Get player by ID or raise ValueError."""
         if self.player_1.id == player_id:
-            player = self.player_1
-        elif self.player_2 and self.player_2.id == player_id:
-            player = self.player_2
+            return self.player_1
+        if self.player_2 and self.player_2.id == player_id:
+            return self.player_2
+        raise ValueError(f"Player with ID {player_id} not found in this game")
 
-        if not player:
-            raise ValueError(f"Player with ID {player_id} not found in this game")
-
+    def get_shots_available(self, player_id: str) -> int:
+        player = self._get_player_by_id(player_id)
         return sum(ship.shots_available for ship in self.board[player].ships)
 
     def aim_at(self, player_id: str, coord: Coord) -> None:

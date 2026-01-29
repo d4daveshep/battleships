@@ -3,38 +3,19 @@ from playwright.sync_api import Page, expect
 from pytest_bdd import scenarios, given, when, then, parsers
 from tests.bdd.conftest import (
     BASE_URL,
+    GamePageLocators,
     navigate_to_login,
     fill_player_name,
     click_multiplayer_button,
     select_coordinates,
+    opponent_fires_via_api,
 )
 
 
-# Centralized locators for the gameplay page
-class GamePageLocators:
-    READY_BUTTON = '[data-testid="ready-button"]'
-    RANDOM_PLACEMENT_BUTTON = '[data-testid="random-placement-button"]'
-    SHIP_PLACEMENT_COUNT = '[data-testid="ship-placement-count"]'
-    SHOTS_FIRED_BOARD = '[data-testid="shots-fired-board"]'
-    MY_SHIPS_BOARD = '[data-testid="my-ships-board"]'
-    FIRE_SHOTS_BUTTON = '[data-testid="fire-shots-button"]'
-    HITS_MADE_AREA = '[data-testid="hits-made-area"]'
-    AIMING_STATUS = '[data-testid="aiming-status"]'
-    SHOTS_AVAILABLE = '[data-testid="shots-available"]'
-    ERROR_MESSAGE = '[data-testid="error-message"]'
-    GAME_STATUS = '[data-testid="game-status"]'
-    CHECKED_CELLS = '[data-testid="shots-fired-board"] input[type="checkbox"]:checked'
-
-    @staticmethod
-    def opponent_cell(coord: str) -> str:
-        return f'[data-testid="opponent-cell-{coord}"]'
-
-    @staticmethod
-    def select_opponent_button(player_name: str) -> str:
-        return f'[data-testid="select-opponent-{player_name}"]'
-
-
-scenarios("../../features/two_player_gameplay.feature")
+scenarios(
+    "../../features/two_player_shot_selection.feature",
+    "../../features/two_player_round_resolution.feature",
+)
 
 
 def setup_opponent(client: httpx.Client, player_name: str = "Player2") -> None:
@@ -348,20 +329,7 @@ def _get_game_id(page: Page) -> str:
 def _opponent_fires(page: Page, opponent_client: httpx.Client):
     """Helper to make opponent fire shots"""
     game_id = _get_game_id(page)
-    # Opponent aims shots (A1-F1)
-    coords = ["A1", "B1", "C1", "D1", "E1", "F1"]
-    for coord in coords:
-        opponent_client.post(
-            "/aim-shot",
-            data={"game_id": game_id, "coordinate": coord},
-            headers={"HX-Request": "true"},
-        )
-
-    # Opponent fires
-    # We assume the opponent is "Player2" (setup in fixtures)
-    opponent_client.post(
-        "/fire-shots", data={"game_id": game_id, "player_name": "Player2"}
-    )
+    opponent_fires_via_api(opponent_client, game_id, "Player2")
 
 
 @given("my opponent has already fired their shots")

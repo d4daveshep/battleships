@@ -7,6 +7,8 @@ from tests.bdd.conftest import (
     login_player_fastapi,
     place_all_ships_fastapi,
     opponent_fires_via_api,
+    DEFAULT_HIT_COORDINATES,
+    DEFAULT_MISS_COORDINATES,
 )
 from bs4 import BeautifulSoup, Tag
 from httpx import Response
@@ -825,22 +827,30 @@ def it_is_round_n(context: MultiPlayerBDDContext, round_num: int) -> None:
     )
 
 
-@given("I have fired my shots")
-def i_have_fired_my_shots(context: MultiPlayerBDDContext) -> None:
-    """Aim all available shots and fire them.
+def _aim_and_fire_shots(
+    context: MultiPlayerBDDContext,
+    coordinates: list[str],
+    count: int | None = None,
+) -> None:
+    """Helper function to aim and fire shots for the current player.
 
     Args:
         context: BDD context with game state
+        coordinates: List of coordinates to aim at
+        count: Optional number of shots to fire (defaults to all coordinates)
     """
     assert context.game_url is not None, "No game URL stored"
     assert context.current_player_name is not None, "No current player set"
 
     client: TestClient = context.get_client_for_player(context.current_player_name)
     game_id: str = context.game_id
-    coordinates: list[str] = ["A1", "B1", "C1", "D1", "E1", "F1"]
 
-    # Aim all shots
-    for coord in coordinates:
+    # Determine how many shots to fire
+    shots_to_fire: int = count if count is not None else len(coordinates)
+
+    # Aim shots
+    for i in range(shots_to_fire):
+        coord = coordinates[i]
         client.post(
             "/aim-shot",
             data={"game_id": game_id, "coordinate": coord},
@@ -853,6 +863,16 @@ def i_have_fired_my_shots(context: MultiPlayerBDDContext) -> None:
         data={"game_id": game_id, "player_name": context.current_player_name},
     )
     context.update_response(response)
+
+
+@given("I have fired my shots")
+def i_have_fired_my_shots(context: MultiPlayerBDDContext) -> None:
+    """Aim all available shots and fire them.
+
+    Args:
+        context: BDD context with game state
+    """
+    _aim_and_fire_shots(context, DEFAULT_HIT_COORDINATES)
 
 
 @given("my opponent has fired their shots")
@@ -960,32 +980,7 @@ def i_have_fired_n_shots(context: MultiPlayerBDDContext, count: int) -> None:
         context: BDD context with game state
         count: Number of shots to fire
     """
-    assert context.game_url is not None, "No game URL stored"
-    assert context.current_player_name is not None, "No current player set"
-
-    client: TestClient = context.get_client_for_player(context.current_player_name)
-    game_id: str = context.game_id
-
-    # Choose coordinates that will miss opponent ships
-    # Opponent ships are at: A1-A5, C1-C4, E1-E3, G1-G3, I1-I2 (horizontal)
-    # Fire at coordinates in column J to guarantee misses
-    miss_coords: list[str] = ["J1", "J2", "J3", "J4", "J5", "J6"]
-
-    # Aim the requested number of shots
-    for i in range(count):
-        coord = miss_coords[i]
-        client.post(
-            "/aim-shot",
-            data={"game_id": game_id, "coordinate": coord},
-            headers={"HX-Request": "true"},
-        )
-
-    # Fire shots
-    response: Response = client.post(
-        "/fire-shots",
-        data={"game_id": game_id, "player_name": context.current_player_name},
-    )
-    context.update_response(response)
+    _aim_and_fire_shots(context, DEFAULT_MISS_COORDINATES, count)
 
 
 @given("none of my shots hit any opponent ships")

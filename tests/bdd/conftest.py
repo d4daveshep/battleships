@@ -223,6 +223,25 @@ DEFAULT_SHIP_PLACEMENTS: list[tuple[str, str, str]] = [
     ("Destroyer", "I1", "horizontal"),
 ]
 
+# Default shot coordinates for testing
+# Ships at: A1-A5, C1-C4, E1-E3, G1-G3, I1-I2 (horizontal default placement)
+DEFAULT_HIT_COORDINATES: list[str] = [
+    "A1",
+    "B1",
+    "C1",
+    "D1",
+    "E1",
+    "F1",
+]  # Will hit ships
+DEFAULT_MISS_COORDINATES: list[str] = [
+    "J1",
+    "J2",
+    "J3",
+    "J4",
+    "J5",
+    "J6",
+]  # Will miss all ships
+
 
 def get_orientation_value(orientation_text: str) -> str:
     """Convert human-readable orientation to API value.
@@ -507,6 +526,7 @@ def opponent_fires_via_api(
     game_id: str,
     opponent_name: str = "Player2",
     coordinates: list[str] | None = None,
+    count: int | None = None,
 ) -> None:
     """Make opponent aim and fire shots via API.
 
@@ -515,11 +535,16 @@ def opponent_fires_via_api(
         game_id: The game ID
         opponent_name: Name of the opponent player
         coordinates: Coordinates to fire at (defaults to A1-F1)
+        count: Number of shots to fire (defaults to all coordinates)
     """
     if coordinates is None:
-        coordinates = ["A1", "B1", "C1", "D1", "E1", "F1"]
+        coordinates = DEFAULT_HIT_COORDINATES
 
-    for coord in coordinates:
+    # Determine how many shots to fire
+    shots_to_fire: int = count if count is not None else len(coordinates)
+
+    for i in range(shots_to_fire):
+        coord = coordinates[i]
         client.post(
             "/aim-shot",
             data={"game_id": game_id, "coordinate": coord},

@@ -712,9 +712,14 @@ class Game:
         self.board[self.player_2].record_fired_shots(p2_shots, self.round)
 
         # Track round results (which ships were hit)
+        # Note: receive_shots already detected hits, so we extract from that data
         self.last_round_results = {
-            self.player_1.id: self._get_hits_made(p1_shots, self.board[self.player_2]),
-            self.player_2.id: self._get_hits_made(p2_shots, self.board[self.player_1]),
+            self.player_1.id: self._get_hits_from_board(
+                self.board[self.player_2], self.round
+            ),
+            self.player_2.id: self._get_hits_from_board(
+                self.board[self.player_1], self.round
+            ),
         }
 
         # Clear pending shots and waiting status
@@ -724,24 +729,27 @@ class Game:
         # Increment round
         self.round += 1
 
-    def _get_hits_made(
-        self, shots: set[Coord], opponent_board: GameBoard
+    def _get_hits_from_board(
+        self, opponent_board: GameBoard, round_number: int
     ) -> dict[str, int]:
-        """Calculate which ships were hit and how many times.
+        """Extract hit information from opponent board's shots_received data.
+
+        This method aggregates hits that occurred in the specified round by
+        examining the ShotInfo data already stored by receive_shots().
 
         Args:
-            shots: Coordinates that were fired
-            opponent_board: The opponent's board
+            opponent_board: The opponent's board (where shots were received)
+            round_number: The round number to aggregate hits for
 
         Returns:
-            Dict mapping ship name to hit count
+            Dict mapping ship name to hit count for the specified round
         """
         hits: dict[str, int] = {}
-        for shot in shots:
-            ship = opponent_board.get_ship_at(shot)
-            if ship:
-                ship_name = ship.ship_type.value
-                hits[ship_name] = hits.get(ship_name, 0) + 1
+        for coord, shot_info in opponent_board.shots_received.items():
+            if shot_info.round_number == round_number and shot_info.is_hit:
+                if shot_info.ship_type:
+                    ship_name = shot_info.ship_type.value
+                    hits[ship_name] = hits.get(ship_name, 0) + 1
         return hits
 
     def get_fired_shots(self, player_id: str) -> set[Coord]:

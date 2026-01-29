@@ -43,6 +43,7 @@ class TestGameplaySimultaneous:
         mock_game.is_waiting_for_opponent.return_value = True
         mock_game.get_shots_available.return_value = 6
         mock_game.get_aimed_shots.return_value = set()
+        mock_game.last_round_results = {}  # Add last_round_results attribute
 
         # Mock Board
         mock_board = MagicMock()
@@ -99,6 +100,7 @@ class TestGameplaySimultaneous:
         mock_game.is_waiting_for_opponent.return_value = False
         mock_game.get_shots_available.return_value = 6
         mock_game.get_aimed_shots.return_value = set()
+        mock_game.last_round_results = {}  # Add last_round_results attribute
 
         mock_board = MagicMock()
         mock_board.get_placed_ships_for_display.return_value = {}

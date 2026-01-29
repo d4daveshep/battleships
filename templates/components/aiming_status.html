@@ -1,6 +1,13 @@
 {# Aiming status component for gameplay #}
 <div id="aiming-status" data-testid="aiming-status">
     <p class="game-info-item" data-testid="shots-aimed-display">Shots Aimed: {{ aimed_count }}/{{ shots_available }}</p>
+    <div class="game-info-item" data-testid="aimed-coordinates-list">
+        {% if aimed_coordinates %}
+            <strong>Aimed at:</strong> {{ aimed_coordinates | join(', ') }}
+        {% else %}
+            <strong>Aimed at:</strong> None
+        {% endif %}
+    </div>
 </div>
 
 {# OOB swap for fire button - updates enable/disable state #}

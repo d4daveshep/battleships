@@ -25,6 +25,7 @@ Feature: Two-Player Shot Selection
     And I select coordinate "B3" to aim at
     And I select coordinate "E5" to aim at
     Then I should see 3 coordinates marked as aimed
+    And I should see a list of the aimed coordinates 
     And I should see "Shots Aimed: 3/6" displayed
     And I should be able to select 3 more coordinates
     And the "Fire Shots" button should be enabled
@@ -35,6 +36,7 @@ Feature: Two-Player Shot Selection
     When I select coordinate "A1" again
     Then coordinate "A1" should be un-aimed
     And I should not see coordinate "A1" marked as aimed
+    And the aimed coordinates list should not contain "A1"
     And I should still have 6 remaining shot selections available
 
   Scenario: Cannot select more shots than available

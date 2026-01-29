@@ -233,6 +233,16 @@ def see_coordinates_marked_as_aimed(context: MultiPlayerBDDContext, count: int):
     )
 
 
+@then("I should see a list of the aimed coordinates")
+def see_aimed_coordinates_list(context: MultiPlayerBDDContext):
+    """Verify that a list of aimed coordinates is displayed"""
+    assert context.soup is not None
+
+    # Find the aimed coordinates list element
+    aimed_list = context.soup.find(attrs={"data-testid": "aimed-coordinates-list"})
+    assert aimed_list is not None, "Aimed coordinates list element not found"
+
+
 @then("I should be able to select 3 more coordinates")
 def can_select_3_more_coordinates(context: MultiPlayerBDDContext):
     """Verify 3 more coordinates can be selected (6-3=3)"""
@@ -349,6 +359,22 @@ def should_not_see_coordinate_marked(context: MultiPlayerBDDContext, coord: str)
     if isinstance(cell_classes, str):
         cell_classes = [cell_classes]
     assert "aimed-cell" not in cell_classes, f"Cell {coord} still has aimed-cell class"
+
+
+@then(parsers.parse('the aimed coordinates list should not contain "{coord}"'))
+def aimed_list_should_not_contain(context: MultiPlayerBDDContext, coord: str):
+    """Verify that the aimed coordinates list does not contain a specific coordinate"""
+    assert context.soup is not None
+
+    # Find the aimed coordinates list element
+    aimed_list = context.soup.find(attrs={"data-testid": "aimed-coordinates-list"})
+    assert aimed_list is not None, "Aimed coordinates list element not found"
+
+    # Check that the coordinate is not in the list
+    list_text: str = aimed_list.get_text()
+    assert coord not in list_text, (
+        f"Coordinate {coord} found in aimed list when it should not be present"
+    )
 
 
 @then(

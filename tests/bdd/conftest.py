@@ -39,6 +39,7 @@ class GamePageLocators:
     HITS_MADE_AREA = '[data-testid="hits-made-area"]'
     AIMING_STATUS = '[data-testid="aiming-status"]'
     SHOTS_AVAILABLE = '[data-testid="shots-available"]'
+    AIMED_COORDINATES_LIST = '[data-testid="aimed-coordinates-list"]'
     ERROR_MESSAGE = '[data-testid="error-message"]'
     GAME_STATUS = '[data-testid="game-status"]'
     CHECKED_CELLS = '[data-testid="shots-fired-board"] input[type="checkbox"]:checked'

@@ -159,6 +159,13 @@ def see_coordinates_marked_as_aimed(page: Page, count: int):
     expect(checked_cells).to_have_count(count)
 
 
+@then("I should see a list of the aimed coordinates")
+def see_aimed_coordinates_list(page: Page):
+    """Verify that a list of aimed coordinates is displayed"""
+    aimed_list = page.locator(GamePageLocators.AIMED_COORDINATES_LIST)
+    expect(aimed_list).to_be_visible()
+
+
 @then("I should be able to select 3 more coordinates")
 def can_select_3_more_coordinates(page: Page):
     aiming_status = page.locator(GamePageLocators.AIMING_STATUS)
@@ -207,6 +214,14 @@ def coordinate_should_be_unaimed(page: Page, coord: str):
 def should_not_see_coordinate_marked(page: Page, coord: str):
     cell = page.locator(GamePageLocators.opponent_cell(coord))
     expect(cell).not_to_have_class("aimed-cell")
+
+
+@then(parsers.parse('the aimed coordinates list should not contain "{coord}"'))
+def aimed_list_should_not_contain(page: Page, coord: str):
+    """Verify that the aimed coordinates list does not contain a specific coordinate"""
+    aimed_list = page.locator(GamePageLocators.AIMED_COORDINATES_LIST)
+    expect(aimed_list).to_be_visible()
+    expect(aimed_list).not_to_contain_text(coord)
 
 
 @then(

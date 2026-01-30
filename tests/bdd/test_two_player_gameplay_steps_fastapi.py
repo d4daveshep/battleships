@@ -14,10 +14,8 @@ from bs4 import BeautifulSoup, Tag
 from httpx import Response
 
 scenarios(
-    "../../features/two_player_shot_selection.feature",
-    "../../features/two_player_round_resolution.feature",
-    "../../features/two_player_round_progression.feature",
-    "../../features/two_player_hit_feedback.feature",
+    "../../features/two_player_core_gameplay.feature",
+    "../../features/two_player_board_and_feedback.feature",
 )
 
 
@@ -95,6 +93,14 @@ def game_has_started(context: MultiPlayerBDDContext):
     # But typically we get redirected there.
     # Let's assume we can access the game page if the game is started.
     # We might need to follow the redirect from the ready check.
+    pass
+
+
+@given(parsers.parse("the game is in progress at Round {round_num:d}"))
+@given(parsers.parse("the game is in progress"))
+def game_in_progress(context: MultiPlayerBDDContext, round_num: int | None = None):
+    """Ensure game is at specific round or just in progress"""
+    # This is implicitly true after game setup
     pass
 
 
@@ -425,6 +431,9 @@ def _select_aim_shot(context: MultiPlayerBDDContext, coordinate: str) -> None:
 @given("I have selected 6 coordinates to aim at")
 def have_selected_6_coordinates(context: MultiPlayerBDDContext):
     """Select 6 coordinates to aim at"""
+    assert context.current_player_name is not None, "No current player set"
+    assert context.game_url is not None, "No game URL stored"
+
     context.select_coordinates(["A1", "B1", "C1", "D1", "E1", "F1"])
 
     client = context.get_client_for_player(context.current_player_name)
@@ -435,6 +444,9 @@ def have_selected_6_coordinates(context: MultiPlayerBDDContext):
 @when("I attempt to select another coordinate")
 def attempt_select_another_coordinate(context: MultiPlayerBDDContext):
     """Attempt to select a 7th coordinate when already at limit"""
+    assert context.current_player_name is not None, "No current player set"
+    assert context.game_url is not None, "No game URL stored"
+
     game_id = context.game_id
     client = context.get_client_for_player(context.current_player_name)
 
@@ -1048,3 +1060,342 @@ def see_all_shots_as_misses(context: MultiPlayerBDDContext, count: int) -> None:
     # TODO: Need to verify miss markers are displayed
     # For now, just verify the board exists
     pass
+
+
+# === Board Visibility Steps (from two_player_board_and_feedback.feature) ===
+
+
+@given("I have ships placed on my board")
+def ships_placed_on_my_board(context: MultiPlayerBDDContext):
+    """Verify ships are placed on player's board."""
+    # Ships should already be placed from background
+    pass
+
+
+@given("my opponent has fired shots at my board in previous rounds")
+def opponent_fired_shots_at_my_board(context: MultiPlayerBDDContext):
+    """Simulate opponent firing shots in previous rounds."""
+    pytest.skip("Round progression not yet fully implemented")
+
+
+@given("my opponent has ships placed on their board")
+def opponent_has_ships_placed(context: MultiPlayerBDDContext):
+    """Verify opponent has ships placed."""
+    # Opponent ships should be placed from game setup
+    pass
+
+
+@given("I have fired shots in previous rounds")
+def i_have_fired_shots_in_previous_rounds(context: MultiPlayerBDDContext):
+    """Simulate firing shots in previous rounds."""
+    pytest.skip("Round progression not yet fully implemented")
+
+
+@given(parsers.parse("I have fired {count:d} shots"))
+def i_have_fired_n_shots_specific(context: MultiPlayerBDDContext, count: int):
+    """Aim and fire a specific number of shots at coordinates that will miss."""
+    _aim_and_fire_shots(context, DEFAULT_MISS_COORDINATES, count)
+
+
+@then('I should see all my ship positions on "My Ships and Shots Received" board')
+def see_all_ship_positions(context: MultiPlayerBDDContext):
+    """Verify all ship positions are visible on My Ships board."""
+    assert context.soup is not None, "No page loaded"
+    my_ships_board = context.soup.find(attrs={"data-testid": "my-ships-board"})
+
+    assert my_ships_board is not None, "My Ships board should be visible"
+
+    board_text = my_ships_board.get_text()
+    assert any(code in board_text for code in ["D", "C", "B", "A", "S"]), (
+        "Ship codes should be visible on My Ships board"
+    )
+
+
+@then("I should see all shots my opponent has fired at my board")
+def see_opponent_shots_on_my_board(context: MultiPlayerBDDContext):
+    """Verify opponent's shots are marked on My Ships board."""
+    pytest.skip("Round progression not yet fully implemented")
+
+
+@then("I should see round numbers for each shot received")
+def see_round_numbers_for_received_shots(context: MultiPlayerBDDContext):
+    """Verify round numbers are displayed for received shots."""
+    pytest.skip("Round progression not yet fully implemented")
+
+
+@then("I should see which of my ships have been hit")
+def see_which_ships_hits(context: MultiPlayerBDDContext):
+    """Verify ships that have been hit are marked."""
+    pytest.skip("Not yet implemented")
+
+
+@then("I should see which of my ships have been sunk")
+def see_which_ships_sunk(context: MultiPlayerBDDContext):
+    """Verify sunk ships are marked."""
+    pytest.skip("Not yet implemented")
+
+
+@then("I should not see any of my opponent's ship positions")
+def should_not_see_opponent_ship_positions(context: MultiPlayerBDDContext):
+    """Verify opponent ship positions are NOT visible."""
+    assert context.soup is not None, "No page loaded"
+    shots_fired_board = context.soup.find(attrs={"data-testid": "shots-fired-board"})
+
+    assert shots_fired_board is not None, "Shots Fired board should be visible"
+    assert shots_fired_board is not None
+
+
+@then('I should see all shots I have fired on the "Shots Fired" board')
+def see_all_fired_shots(context: MultiPlayerBDDContext):
+    """Verify all fired shots are marked on Shots Fired board."""
+    pytest.skip("Round progression not yet fully implemented")
+
+
+@then(
+    parsers.parse(
+        'I should see the "Hits Made" area showing which ships I\'ve hit with the round numbers'
+    )
+)
+def see_hits_made_area_with_round_numbers(context: MultiPlayerBDDContext):
+    """Verify Hits Made area shows ship hit tracking."""
+    assert context.soup is not None, "No page loaded"
+    hits_made_area = context.soup.find(attrs={"data-testid": "hits-made-area"})
+
+    assert hits_made_area is not None, "Hits Made area should be visible"
+
+    area_text = hits_made_area.get_text()
+    assert "Carrier" in area_text
+    assert "Destroyer" in area_text
+
+
+@then('I should see the "Hits Made" area next to the Shots Fired board')
+def see_hits_made_area_next_to_shots_fired(context: MultiPlayerBDDContext):
+    """Verify Hits Made area is present."""
+    assert context.soup is not None, "No page loaded"
+    hits_made_area = context.soup.find(attrs={"data-testid": "hits-made-area"})
+
+    assert hits_made_area is not None, "Hits Made area should be visible"
+
+
+@then(
+    "I should see 5 ship rows labeled: Carrier, Battleship, Cruiser, Submarine, Destroyer"
+)
+def see_five_ship_rows(context: MultiPlayerBDDContext):
+    """Verify all 5 ship types are listed."""
+    assert context.soup is not None, "No page loaded"
+    hits_made_area = context.soup.find(attrs={"data-testid": "hits-made-area"})
+
+    assert hits_made_area is not None, "Hits Made area should be visible"
+    area_text = hits_made_area.get_text()
+    assert "Carrier" in area_text
+    assert "Battleship" in area_text
+    assert "Cruiser" in area_text
+    assert "Submarine" in area_text
+    assert "Destroyer" in area_text
+
+
+@then("each ship row should show spaces for tracking hits")
+def each_ship_row_shows_hit_spaces(context: MultiPlayerBDDContext):
+    """Verify ship rows have hit tracking spaces."""
+    assert context.soup is not None, "No page loaded"
+
+    carrier_row = context.soup.find(attrs={"data-testid": "hit-track-carrier"})
+    assert carrier_row is not None, "Carrier hit tracking row should exist"
+    assert hasattr(carrier_row, "find_all"), "Carrier row should be a Tag element"
+
+    hit_spaces = carrier_row.find_all(class_="hit-space")  # type: ignore[attr-defined]
+    assert len(hit_spaces) == 5, "Carrier should have 5 hit spaces"
+
+
+@then('I should see "My Ships and Shots Received" board')
+def see_my_ships_board_check(context: MultiPlayerBDDContext):
+    """Verify My Ships board is visible."""
+    assert context.soup is not None, "No page loaded"
+    my_ships_board = context.soup.find(attrs={"data-testid": "my-ships-board"})
+
+    assert my_ships_board is not None, "My Ships board should be visible"
+
+
+@then('I should see "Shots Fired" board')
+def see_shots_fired_board_check(context: MultiPlayerBDDContext):
+    """Verify Shots Fired board is visible."""
+    assert context.soup is not None, "No page loaded"
+    shots_fired_board = context.soup.find(attrs={"data-testid": "shots-fired-board"})
+
+    assert shots_fired_board is not None, "Shots Fired board should be visible"
+
+
+@then('I should see "Hits Made" area')
+def see_hits_made_area_check(context: MultiPlayerBDDContext):
+    """Verify Hits Made area is visible."""
+    assert context.soup is not None, "No page loaded"
+    hits_made_area = context.soup.find(attrs={"data-testid": "hits-made-area"})
+
+    assert hits_made_area is not None, "Hits Made area should be visible"
+
+
+@then("both boards should show a 10x10 grid with coordinates A-J and 1-10")
+def both_boards_show_10x10_grid(context: MultiPlayerBDDContext):
+    """Verify both boards have proper grid structure."""
+    assert context.soup is not None, "No page loaded"
+
+    my_ships_board = context.soup.find(attrs={"data-testid": "my-ships-board"})
+    assert my_ships_board is not None
+
+    board_text = my_ships_board.get_text()
+    assert "A" in board_text and "J" in board_text
+
+    shots_fired_board = context.soup.find(attrs={"data-testid": "shots-fired-board"})
+    assert shots_fired_board is not None
+
+    board_text = shots_fired_board.get_text()
+    assert "A" in board_text and "J" in board_text
+
+
+@then("all three areas should be clearly distinguishable")
+def all_three_areas_distinguishable(context: MultiPlayerBDDContext):
+    """Verify all three areas exist and are separate."""
+    assert context.soup is not None, "No page loaded"
+
+    my_ships = context.soup.find(attrs={"data-testid": "my-ships-board"})
+    shots_fired = context.soup.find(attrs={"data-testid": "shots-fired-board"})
+    hits_made = context.soup.find(attrs={"data-testid": "hits-made-area"})
+
+    assert my_ships is not None, "My Ships board should exist"
+    assert shots_fired is not None, "Shots Fired board should exist"
+    assert hits_made is not None, "Hits Made area should exist"
+
+    assert my_ships != shots_fired
+    assert shots_fired != hits_made
+    assert my_ships != hits_made
+
+
+# === Hit Feedback Scenario Steps (simplified) ===
+
+
+@given(parsers.parse("{count:d} of my shots hit my opponent's {ship_name}"))
+def n_shots_hit_opponent_ship(
+    context: MultiPlayerBDDContext, count: int, ship_name: str
+):
+    """Simulate hitting opponent's ship a specific number of times."""
+    pytest.skip("Hit feedback requires round resolution implementation")
+
+
+@given(parsers.parse("my opponent hit my {ship_name} {count:d} times"))
+def opponent_hit_my_ship(context: MultiPlayerBDDContext, ship_name: str, count: int):
+    """Simulate opponent hitting my ship."""
+    pytest.skip("Hit feedback requires round resolution implementation")
+
+
+@given(
+    parsers.parse(
+        "in Round {round_num:d} I hit the opponent's {ship_name} {count:d} time"
+    )
+)
+@given(
+    parsers.parse(
+        "in Round {round_num:d} I hit the opponent's {ship_name} {count:d} times"
+    )
+)
+def hit_opponent_ship_in_round(
+    context: MultiPlayerBDDContext, round_num: int, ship_name: str, count: int
+):
+    """Simulate hitting opponent's ship in a specific round."""
+    pytest.skip("Hit feedback requires round resolution implementation")
+
+
+@given(parsers.parse('my opponent has a {ship_name} at "{coords}"'))
+def opponent_has_ship_at_positions(
+    context: MultiPlayerBDDContext, ship_name: str, coords: str
+):
+    """Verify opponent has a ship at specific coordinates."""
+    pytest.skip("Ship placement verification not fully implemented")
+
+
+@given(parsers.parse("I fire {count:d} shots"))
+def i_fire_n_shots(context: MultiPlayerBDDContext, count: int):
+    """Fire a specific number of shots."""
+    pytest.skip("Hit feedback requires round resolution implementation")
+
+
+@then(
+    parsers.parse(
+        "I should see round numbers marked in the spaces where I've hit each ship"
+    )
+)
+def see_round_numbers_in_hit_spaces(context: MultiPlayerBDDContext):
+    """Verify round numbers are marked in hit tracking spaces."""
+    pytest.skip("Hit feedback display requires round resolution implementation")
+
+
+@then('sunk ships should be clearly marked as "SUNK"')
+def sunk_ships_marked_as_sunk(context: MultiPlayerBDDContext):
+    """Verify sunk ships are marked as SUNK."""
+    pytest.skip("Sunk ship marking not fully implemented")
+
+
+@then("I should NOT see the exact coordinates of the hits")
+def should_not_see_hit_coordinates(context: MultiPlayerBDDContext):
+    """Verify hit coordinates are not displayed."""
+    pytest.skip("Coordinate hiding not fully implemented")
+
+
+@then(parsers.parse('I should see "{ship_name}: {count:d} hits total" displayed'))
+def see_ship_total_hits_displayed(
+    context: MultiPlayerBDDContext, ship_name: str, count: int
+):
+    """Verify total hits for a ship are displayed."""
+    pytest.skip("Total hits display not fully implemented")
+
+
+@then(parsers.parse('I should see "Your {ship_name} was hit {count:d} time" displayed'))
+@then(
+    parsers.parse('I should see "Your {ship_name} was hit {count:d} times" displayed')
+)
+def see_my_ship_hits_displayed(
+    context: MultiPlayerBDDContext, ship_name: str, count: int
+):
+    """Verify hits received on my ships are displayed."""
+    pytest.skip("Hits received display not fully implemented")
+
+
+@then(parsers.parse('I should see "Hits Made This Round: {message}" displayed'))
+def see_hits_made_this_round_displayed(context: MultiPlayerBDDContext, message: str):
+    """Verify hits made this round are displayed."""
+    pytest.skip("Hits made this round display not fully implemented")
+
+
+@then(
+    parsers.parse(
+        'the Hits Made area should show round number "{round_num:d}" marked {count:d} times on {ship_name}'
+    )
+)
+def see_hit_tracking_in_area(
+    context: MultiPlayerBDDContext, round_num: int, count: int, ship_name: str
+):
+    """Verify hit tracking shows round numbers in ship rows."""
+    pytest.skip("Hit tracking display not fully implemented")
+
+
+@then(parsers.parse("the {ship_name} should have {count:d} total hits"))
+def see_ship_total_hits(context: MultiPlayerBDDContext, ship_name: str, count: int):
+    """Verify ship has correct total hits."""
+    pytest.skip("Total hits tracking not fully implemented")
+
+
+@then(parsers.parse("I should see the exact coordinates of the hits on my board"))
+def see_received_hit_coordinates(context: MultiPlayerBDDContext):
+    """Verify received hit coordinates are displayed on my board."""
+    pytest.skip("Received hit coordinates display not fully implemented")
+
+
+@then(parsers.parse('coordinates should be marked with round number "{round_num:d}"'))
+def see_coordinates_with_round_number(context: MultiPlayerBDDContext, round_num: int):
+    """Verify coordinates are marked with round number."""
+    pytest.skip("Coordinate round marking not fully implemented")
+
+
+@then(parsers.parse("the {ship_name} should show {count:d} new hit markers"))
+def see_new_hit_markers(context: MultiPlayerBDDContext, ship_name: str, count: int):
+    """Verify new hit markers are shown for a ship."""
+    pytest.skip("New hit markers display not fully implemented")

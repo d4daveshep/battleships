@@ -141,10 +141,14 @@
                         {% for col in range(1, 11) %}
                             {% set coord = row ~ col %}
                             {% set ship_data = cell_to_ship.get(coord) %}
+                            {% set shot_data = shots_received.get(coord) if shots_received else None %}
                             <td data-testid="player-cell-{{ coord }}" 
-                                class="ship-grid-cell"
-                                {% if ship_data %}data-ship="{{ ship_data.name.lower() }}"{% endif %}>
-                                {% if ship_data %}
+                                class="ship-grid-cell{% if shot_data %} shot-marker{% if shot_data.is_hit %} hit{% else %} miss{% endif %}{% endif %}"
+                                {% if ship_data %}data-ship="{{ ship_data.name.lower() }}"{% endif %}
+                                {% if shot_data %}data-round="{{ shot_data.round_number }}"{% endif %}>
+                                {% if shot_data %}
+                                    {{ shot_data.round_number }}
+                                {% elif ship_data %}
                                     {{ ship_data.code }}
                                 {% endif %}
                             </td>
@@ -177,20 +181,26 @@
                         {% for col in range(1, 11) %}
                             {% set coord = row ~ col %}
                             {% set is_aimed = coord in aimed_coordinates %}
+                            {% set shot_result = shots_fired_results.get(coord) if shots_fired_results else None %}
                             <td data-testid="opponent-cell-{{ coord }}" 
-                                class="ship-grid-cell interactive-cell{% if is_aimed %} aimed-cell{% endif %}"
-                                {% if is_aimed %}data-aimed="true"{% endif %}>
-                                <label>
-                                    <input type="checkbox" 
-                                           name="coordinate" 
-                                           value="{{ coord }}"
-                                           {% if is_aimed %}checked{% endif %}
-                                           hx-post="/aim-shot"
-                                           hx-vals='{"game_id": "{{ game_id }}", "coordinate": "{{ coord }}"}'
-                                           hx-target="#aiming-status"
-                                           hx-swap="outerHTML">
-                                    <span class="cell-marker"></span>
-                                </label>
+                                class="ship-grid-cell interactive-cell{% if is_aimed %} aimed-cell{% endif %}{% if shot_result %} shot-marker{% if shot_result.is_hit %} hit{% else %} miss{% endif %}{% endif %}"
+                                {% if is_aimed %}data-aimed="true"{% endif %}
+                                {% if shot_result %}data-round="{{ shot_result.round_number }}"{% endif %}>
+                                {% if shot_result %}
+                                    <span class="round-marker">{{ shot_result.round_number }}</span>
+                                {% else %}
+                                    <label>
+                                        <input type="checkbox" 
+                                               name="coordinate" 
+                                               value="{{ coord }}"
+                                               {% if is_aimed %}checked{% endif %}
+                                               hx-post="/aim-shot"
+                                               hx-vals='{"game_id": "{{ game_id }}", "coordinate": "{{ coord }}"}'
+                                               hx-target="#aiming-status"
+                                               hx-swap="outerHTML">
+                                        <span class="cell-marker"></span>
+                                    </label>
+                                {% endif %}
                             </td>
                         {% endfor %}
                     </tr>
@@ -216,14 +226,36 @@
 
     <!-- Hits Made Area -->
     <div class="ship-board-container" data-testid="hits-made-area">
-        <h3>Opponent Ships Status</h3>
-        <div class="ship-legend">
-            {% set ships = ["Carrier", "Battleship", "Cruiser", "Submarine", "Destroyer"] %}
-            {% for ship in ships %}
-            <div class="legend-item">
-                <span class="legend-color {{ ship.lower() }}"></span>
-                <span>{{ ship }}</span>
-            </div>
+        <h3>Hits Made</h3>
+        <p>Track your hits on opponent ships</p>
+        
+        {% set ship_types = ["Carrier", "Battleship", "Cruiser", "Submarine", "Destroyer"] %}
+        {% set ship_lengths = {"Carrier": 5, "Battleship": 4, "Cruiser": 3, "Submarine": 3, "Destroyer": 2} %}
+        
+        <div class="hits-tracking">
+            {% for ship_name in ship_types %}
+                {% set ship_hits = hits_made.get(ship_name, {"hits": [], "is_sunk": False}) if hits_made else {"hits": [], "is_sunk": False} %}
+                <div class="ship-hit-row" data-testid="hit-track-{{ ship_name.lower() }}">
+                    <div class="ship-name">
+                        <span class="legend-color {{ ship_name.lower() }}"></span>
+                        {{ ship_name }}
+                        {% if ship_hits.is_sunk %}
+                            <span class="sunk-badge">SUNK</span>
+                        {% endif %}
+                    </div>
+                    <div class="hit-spaces">
+                        {% set max_hits = ship_lengths[ship_name] %}
+                        {% for i in range(max_hits) %}
+                            <span class="hit-space{% if i < ship_hits.hits|length %} filled{% endif %}">
+                                {% if i < ship_hits.hits|length %}
+                                    {{ ship_hits.hits[i].round }}
+                                {% else %}
+                                    ·
+                                {% endif %}
+                            </span>
+                        {% endfor %}
+                    </div>
+                </div>
             {% endfor %}
         </div>
     </div>

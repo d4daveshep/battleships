@@ -7,7 +7,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 from game.game_service import AimResult, Game, GameService, GameStatus
-from game.model import Coord, GameBoard
+from game.model import Coord, GameBoard, ShotInfo
 from game.player import Player
 from game.exceptions import (
     ShotLimitExceededError,
@@ -137,6 +137,39 @@ def _create_gameplay_context(
     # Get last round results for current player
     last_round_hits: dict[str, int] = game.last_round_results.get(current_player.id, {})
 
+    # Get shots received (for displaying on player's own board)
+    shots_received_dict: dict[str, dict[str, Any]] = {}
+    for coord, shot_info in player_board.shots_received.items():
+        shots_received_dict[coord.name] = {
+            "round_number": shot_info.round_number,
+            "is_hit": shot_info.is_hit,
+        }
+
+    # Get shots fired with results (for displaying on opponent board)
+    shots_fired_results_dict: dict[str, dict[str, Any]] = {}
+    shots_with_results: dict[Coord, ShotInfo] = (
+        player_board.get_shots_fired_with_results(opponent_board)
+    )
+    for coord, shot_info in shots_with_results.items():
+        shots_fired_results_dict[coord.name] = {
+            "round_number": shot_info.round_number,
+            "is_hit": shot_info.is_hit,
+        }
+
+    # Get cumulative hits made on opponent ships
+    from game.model import ShipHitData
+
+    hits_made_raw: dict[str, ShipHitData] = player_board.get_hits_made(opponent_board)
+    hits_made_dict: dict[str, dict[str, Any]] = {}
+    for ship_name, hit_data in hits_made_raw.items():
+        hits_made_dict[ship_name] = {
+            "hits": [
+                {"coord": coord_name, "round": round_num}
+                for coord_name, round_num in hit_data.hits
+            ],
+            "is_sunk": hit_data.is_sunk,
+        }
+
     return {
         "player_name": current_player.name,
         "opponent_name": opponent_name,
@@ -149,6 +182,9 @@ def _create_gameplay_context(
         "aimed_coordinates": aimed_coordinates,
         "status_message": status_message,
         "last_round_hits": last_round_hits,
+        "shots_received": shots_received_dict,
+        "shots_fired_results": shots_fired_results_dict,
+        "hits_made": hits_made_dict,
     }
 
 

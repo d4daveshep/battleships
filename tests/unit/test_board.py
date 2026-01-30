@@ -293,6 +293,76 @@ class TestGameBoard:
         assert hits_made["Cruiser"].hits == []
         assert hits_made["Submarine"].hits == []
 
+    def test_get_shots_fired_with_results_returns_enriched_shot_info(self) -> None:
+        """Test that get_shots_fired_with_results returns shots_fired with actual hit/miss status."""
+        # Player's board (who fired the shots)
+        player_board: GameBoard = GameBoard()
+
+        # Opponent's board with ships
+        opponent_board: GameBoard = GameBoard()
+        destroyer: Ship = Ship(ShipType.DESTROYER)
+        opponent_board.place_ship(destroyer, Coord.A1, Orientation.HORIZONTAL)  # A1, A2
+
+        # Round 1: Player fires at A1 (hit) and B1 (miss)
+        player_board.record_fired_shots({Coord.A1, Coord.B1}, round_number=1)
+        opponent_board.receive_shots({Coord.A1, Coord.B1}, round_number=1)
+
+        # Get shots fired with actual hit/miss results
+        shots_with_results: dict[Coord, ShotInfo] = (
+            player_board.get_shots_fired_with_results(opponent_board)
+        )
+
+        # Should have both shots
+        assert len(shots_with_results) == 2
+        assert Coord.A1 in shots_with_results
+        assert Coord.B1 in shots_with_results
+
+        # A1 should show as hit
+        hit_shot: ShotInfo = shots_with_results[Coord.A1]
+        assert hit_shot.round_number == 1
+        assert hit_shot.is_hit is True
+        assert hit_shot.ship_type == ShipType.DESTROYER
+
+        # B1 should show as miss
+        miss_shot: ShotInfo = shots_with_results[Coord.B1]
+        assert miss_shot.round_number == 1
+        assert miss_shot.is_hit is False
+        assert miss_shot.ship_type is None
+
+    def test_get_shots_fired_with_results_multiple_rounds(self) -> None:
+        """Test get_shots_fired_with_results tracks hits across multiple rounds."""
+        player_board: GameBoard = GameBoard()
+        opponent_board: GameBoard = GameBoard()
+
+        carrier: Ship = Ship(ShipType.CARRIER)
+        opponent_board.place_ship(carrier, Coord.C1, Orientation.HORIZONTAL)  # C1-C5
+
+        # Round 1: hit C1
+        player_board.record_fired_shots({Coord.C1}, round_number=1)
+        opponent_board.receive_shots({Coord.C1}, round_number=1)
+
+        # Round 2: hit C2, miss D1
+        player_board.record_fired_shots({Coord.C2, Coord.D1}, round_number=2)
+        opponent_board.receive_shots({Coord.C2, Coord.D1}, round_number=2)
+
+        # Get all shots with results
+        shots_with_results: dict[Coord, ShotInfo] = (
+            player_board.get_shots_fired_with_results(opponent_board)
+        )
+
+        # Should have 3 total shots
+        assert len(shots_with_results) == 3
+
+        # Check round numbers preserved
+        assert shots_with_results[Coord.C1].round_number == 1
+        assert shots_with_results[Coord.C2].round_number == 2
+        assert shots_with_results[Coord.D1].round_number == 2
+
+        # Check hit/miss status
+        assert shots_with_results[Coord.C1].is_hit is True
+        assert shots_with_results[Coord.C2].is_hit is True
+        assert shots_with_results[Coord.D1].is_hit is False
+
     valid_horizontal_ship_placement_data: list[
         tuple[ShipType, Coord, Orientation, list[Coord]]
     ] = [

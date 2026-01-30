@@ -1,13 +1,20 @@
-Feature: Two-Player Shot Selection
+Feature: Two-Player Core Gameplay
   As a player in a two-player Battleships game
-  I want to select and aim multiple shot coordinates per round
-  So that I can target enemy ships strategically
+  I want to select shots, fire them, and progress through rounds
+  So that I can play against my opponent
+
+  # This feature consolidates:
+  # - Shot selection mechanics
+  # - Round resolution (simultaneous firing)
+  # - Round progression
 
   Background:
     Given both players have completed ship placement
     And both players are ready
     And the game has started
     And I am on the gameplay page
+
+  # === Shot Selection ===
 
   Scenario: Game starts at Round 1 with 6 shots available
     Given the game just started
@@ -56,3 +63,57 @@ Feature: Two-Player Shot Selection
     Then my 4 shots should be submitted
     And I should see "Waiting for opponent to fire..." displayed
     And I should not be able to aim additional shots
+
+  # === Round Resolution ===
+
+  Scenario: Both players fire shots simultaneously in the same round
+    Given it is Round 1
+    And I have selected 6 coordinates to aim at
+    And I have clicked "Fire Shots"
+    And I am waiting for my opponent
+    When my opponent fires their shots
+    Then both players' shots should be processed together
+    And I should see the round results within 5 seconds
+    And the round number should increment to Round 2
+
+  Scenario: Waiting for opponent to fire their shots
+    Given it is Round 1
+    And I have fired my 6 shots
+    When I am waiting for my opponent to fire
+    Then I should see "Waiting for opponent to fire..." displayed
+    And I should see a loading indicator
+    And I should not be able to aim or fire additional shots
+    And the page should update automatically when opponent fires
+
+  Scenario: Opponent fires before me
+    Given it is Round 1
+    And my opponent has already fired their shots
+    And I am still aiming my shots
+    Then I should see "Opponent has fired - waiting for you" displayed
+    And I should still be able to aim and fire my shots
+    When I fire my shots
+    Then the round should resolve immediately
+    And I should see the round results within 2 seconds
+
+  # === Round Progression ===
+
+  Scenario: Round number increments after both players fire
+    Given it is Round 1
+    And I have fired my shots
+    And my opponent has fired their shots
+    When the round resolves
+    Then I should see "Round 2" displayed
+    And I should be able to aim new shots for Round 2
+
+  Scenario: Round doesn't advance while waiting
+    Given it is Round 3
+    And I have fired my shots
+    But my opponent has not yet fired
+    Then I should see "Round 3" displayed
+    And I should see "Waiting for opponent to fire..." displayed
+
+  Scenario: Round advances when both players have fired
+    Given it is Round 3
+    And I have already fired my shots
+    When my opponent fires their shots
+    Then I should see "Round 4" displayed 

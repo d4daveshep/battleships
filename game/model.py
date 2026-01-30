@@ -387,6 +387,41 @@ class GameBoard:
 
         return hits_made
 
+    def get_shots_fired_with_results(
+        self, opponent_board: "GameBoard"
+    ) -> dict[Coord, ShotInfo]:
+        """Get shots_fired enriched with actual hit/miss status from opponent board.
+
+        Cross-references this board's shots_fired with opponent's board to determine
+        which shots were hits or misses.
+
+        Args:
+            opponent_board: The opponent's game board to check for hits
+
+        Returns:
+            Dictionary mapping coordinates to ShotInfo with accurate is_hit and ship_type:
+            {
+                Coord.A1: ShotInfo(round_number=1, is_hit=True, ship_type=ShipType.DESTROYER),
+                Coord.B1: ShotInfo(round_number=1, is_hit=False, ship_type=None),
+                ...
+            }
+        """
+        shots_with_results: dict[Coord, ShotInfo] = {}
+
+        for coord, shot_info in self.shots_fired.items():
+            # Check if this coordinate hit a ship on opponent's board
+            ship_type: ShipType | None = opponent_board.ship_type_at(coord)
+            is_hit: bool = ship_type is not None
+
+            # Create new ShotInfo with actual hit status
+            shots_with_results[coord] = ShotInfo(
+                round_number=shot_info.round_number,
+                is_hit=is_hit,
+                ship_type=ship_type,
+            )
+
+        return shots_with_results
+
     def _invalid_coords(self) -> set[Coord]:
         invalid_coords: set[Coord] = set()
         for ship in self.ships:

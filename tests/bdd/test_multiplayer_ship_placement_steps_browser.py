@@ -6,8 +6,6 @@ import pytest
 from playwright.sync_api import Browser, Page, expect
 from pytest_bdd import given, parsers, scenarios, then, when
 
-from tests.bdd.conftest import BASE_URL
-
 # Load scenarios
 scenarios("../../features/multiplayer_ship_placement.feature")
 
@@ -52,7 +50,7 @@ def place_ship_via_form(
 
 
 @pytest.fixture
-def context(browser: Browser) -> MultiplayerBrowserContext:
+def context(browser: Browser, base_url: str) -> MultiplayerBrowserContext:
     """Create two separate browser contexts/pages for multiplayer testing"""
     # Create two isolated browser contexts
     c1 = browser.new_context()
@@ -66,7 +64,10 @@ def context(browser: Browser) -> MultiplayerBrowserContext:
     p1.set_default_timeout(45000)  # 45 seconds for long polling
     p2.set_default_timeout(45000)
 
-    return MultiplayerBrowserContext(p1, p2)
+    # Store base_url in context for use in step definitions
+    ctx = MultiplayerBrowserContext(p1, p2)
+    setattr(ctx, "base_url", base_url)
+    return ctx
 
 
 # === Background Steps ===
@@ -77,15 +78,16 @@ def setup_multiplayer_game(context: MultiplayerBrowserContext) -> None:
     """Setup two players in a multiplayer game"""
     # Reset lobby first (using one of the pages to trigger the reset endpoint)
     # We can use a simple fetch or navigate to the reset endpoint
-    context.p1.request.post(f"{BASE_URL}test/reset-lobby")
+    base_url = getattr(context, "base_url", "http://localhost:8000/")
+    context.p1.request.post(f"{base_url}test/reset-lobby")
 
     # Login Player 1
-    context.p1.goto(f"{BASE_URL}login")
+    context.p1.goto(f"{base_url}login")
     context.p1.fill('input[name="player_name"]', context.p1_name)
     context.p1.click('button[value="human"]')
 
     # Login Player 2
-    context.p2.goto(f"{BASE_URL}login")
+    context.p2.goto(f"{base_url}login")
     context.p2.fill('input[name="player_name"]', context.p2_name)
     context.p2.click('button[value="human"]')
 
@@ -472,9 +474,10 @@ def connection_active(context: MultiplayerBrowserContext) -> None:
 def opponent_leaves(context: MultiplayerBrowserContext) -> None:
     """Opponent leaves"""
     # Call the leave-placement endpoint to update server state
-    context.p2.request.post(f"{BASE_URL}leave-placement")
+    base_url = getattr(context, "base_url", "http://localhost:8000/")
+    context.p2.request.post(f"{base_url}leave-placement")
     # Then navigate away (simulates the redirect that would happen)
-    context.p2.goto(f"{BASE_URL}login")
+    context.p2.goto(f"{base_url}login")
 
 
 @then('I should see a message "Opponent has left the game"')

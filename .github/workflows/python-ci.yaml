@@ -32,17 +32,17 @@ jobs:
       #   run: uv run ruff format --check .
 
       - name: Run unit tests with pytest
-        run: uv run pytest tests/unit/
+        run: uv run pytest -n auto tests/unit/
 
       - name: Run endpoint tests with pytest
-        run: uv run pytest tests/endpoint/
+        run: uv run pytest -n auto tests/endpoint/
 
       - name: Run BDD FastAPI tests with pytest
-        run: uv run pytest tests/bdd/*fastapi.py
+        run: uv run pytest -n auto tests/bdd/*fastapi.py
 
       - name: Install Playwright browsers
         run: |
           uv run python -m playwright install --with-deps
 
       - name: Run BDD browser tests with pytest
-        run: uv run pytest tests/bdd/*browser.py
+        run: uv run pytest -n auto tests/bdd/*browser.py

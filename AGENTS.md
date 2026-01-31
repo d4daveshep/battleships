@@ -53,7 +53,7 @@ battleships/
 
 ## Code Style
 
-**Type Hints**: Required everywhere - params, returns, variables (especially `Response`, `Tag`, `dict`, `list`). Use modern syntax: `str | None` not `Optional[str]`, `dict[str, str]`, `list[int]`. Use `typing.Any` for **kwargs.
+**Type Hints**: Required everywhere - params, returns, variables (especially `Response`, `Tag`, `dict`, `list`). Use modern syntax: `str | None` not `Optional[str]`, `dict[str, str]`, `list[int]`. Use `typing.Any` for \*\*kwargs.
 
 **Imports**: Separate standard library, third-party, local (game/, services/) with blank lines. Type-only imports from typing.
 
@@ -73,22 +73,22 @@ battleships/
 
 ### Player Statuses
 
-| Status | Description |
-|--------|-------------|
-| `AVAILABLE` | Ready to play, can receive game requests |
-| `REQUESTING_GAME` | Sent a game request, awaiting response |
+| Status             | Description                                      |
+| ------------------ | ------------------------------------------------ |
+| `AVAILABLE`        | Ready to play, can receive game requests         |
+| `REQUESTING_GAME`  | Sent a game request, awaiting response           |
 | `PENDING_RESPONSE` | Received a game request, needs to accept/decline |
-| `IN_GAME` | Currently playing a game |
+| `IN_GAME`          | Currently playing a game                         |
 
 ### Ship Types
 
-| Ship | Length | Code |
-|------|--------|------|
-| Carrier | 5 | A |
-| Battleship | 4 | B |
-| Cruiser | 3 | C |
-| Submarine | 3 | S |
-| Destroyer | 2 | D |
+| Ship       | Length | Code |
+| ---------- | ------ | ---- |
+| Carrier    | 5      | A    |
+| Battleship | 4      | B    |
+| Cruiser    | 3      | C    |
+| Submarine  | 3      | S    |
+| Destroyer  | 2      | D    |
 
 ### Orientations
 
@@ -125,9 +125,9 @@ battleships/
 - `uv run pytest -k "test_name"` - Run tests matching pattern
 - `uv run pytest features/` - Run BDD feature tests
 - `uv run pytest -m wip` - Run ONLY work-in-progress tests
-- `uv run pytest tests/unit/` - Unit tests only
-- `uv run pytest tests/endpoint/` - Endpoint/integration tests only
-- `uv run pytest tests/bdd/` - BDD step definitions
+- `uv run pytest -n auto tests/unit/` - Unit tests only
+- `uv run pytest -n auto tests/endpoint/` - Endpoint/integration tests only
+- `uv run pytest -n auto tests/bdd/` - BDD step definitions
 
 ### Development Server
 
@@ -148,17 +148,17 @@ skill({ name: "tdd-workflow-guide" })
 
 ### Available Skills
 
-| Skill | Category | When to Use |
-|-------|----------|-------------|
-| `battleships-dev` | orchestration | Primary development orchestration |
-| `tdd-workflow-guide` | workflow | Implementing features or fixing bugs (RED-GREEN-REFACTOR) |
-| `bdd-feature-writer` | testing | Creating or refining Gherkin feature files |
-| `dual-test-implementer` | testing | Implementing both FastAPI and Playwright BDD tests |
-| `fastapi-service-builder` | backend | Creating new endpoints or refactoring routes/services |
-| `htmx-template-builder` | frontend | Building UI components or pages (NO JavaScript) |
-| `css-theme-designer` | frontend | Adding visual design, styling, themes |
-| `endpoint-test-writer` | testing | Writing FastAPI endpoint integration tests |
-| `type-hint-enforcer` | quality | Reviewing code for comprehensive type hints |
+| Skill                     | Category      | When to Use                                               |
+| ------------------------- | ------------- | --------------------------------------------------------- |
+| `battleships-dev`         | orchestration | Primary development orchestration                         |
+| `tdd-workflow-guide`      | workflow      | Implementing features or fixing bugs (RED-GREEN-REFACTOR) |
+| `bdd-feature-writer`      | testing       | Creating or refining Gherkin feature files                |
+| `dual-test-implementer`   | testing       | Implementing both FastAPI and Playwright BDD tests        |
+| `fastapi-service-builder` | backend       | Creating new endpoints or refactoring routes/services     |
+| `htmx-template-builder`   | frontend      | Building UI components or pages (NO JavaScript)           |
+| `css-theme-designer`      | frontend      | Adding visual design, styling, themes                     |
+| `endpoint-test-writer`    | testing       | Writing FastAPI endpoint integration tests                |
+| `type-hint-enforcer`      | quality       | Reviewing code for comprehensive type hints               |
 
 ### Skill Details
 
@@ -215,15 +215,18 @@ skill({ name: "tdd-workflow-guide" })
 ### New Feature (Standard Flow)
 
 1. **Understand the requirement**
+
    - Clarify what the user wants
    - Break down into testable behaviors
    - Create a todo list using `todowrite`
 
 2. **Create/Update BDD Feature** (if applicable)
+
    - Delegate to `@bdd-feature-writer`
    - Review the feature file for completeness
 
 3. **Implement using TDD**
+
    - Delegate to `@tdd-workflow-guide` for RED-GREEN-REFACTOR cycle
    - Within TDD cycles, use specialists as needed:
      - Need endpoints? → `@fastapi-service-builder`
@@ -231,6 +234,7 @@ skill({ name: "tdd-workflow-guide" })
      - Need BDD step definitions? → `@dual-test-implementer`
 
 4. **Verify Quality**
+
    - Delegate to `@type-hint-enforcer` to check type hints
    - Run all relevant tests (unit, integration, BDD)
    - Update todo list as tasks complete
@@ -257,43 +261,25 @@ skill({ name: "tdd-workflow-guide" })
 For each user request, ask yourself:
 
 1. **Is this a new feature?**
-   - YES → Use `@tdd-workflow-guide` to enforce TDD discipline
+
+   - YES → Use `tdd-workflow-guide` skill to enforce TDD discipline
    - Create todos if complex
 
 2. **Does this need specialized expertise?**
-   - BDD features → `@bdd-feature-writer`
-   - Templates → `@htmx-template-builder`
-   - Styling → `@css-theme-designer`
-   - Endpoints → `@fastapi-service-builder`
-   - BDD tests → `@dual-test-implementer`
-   - Integration tests → `@endpoint-test-writer`
+
+   - BDD features → `bdd-feature-writer` skill
+   - Templates → `htmx-template-builder` skill
+   - Styling → `css-theme-designer` skill
+   - Endpoints → `fastapi-service-builder` skill
+   - BDD tests → `dual-test-implementer` skill
+   - Integration tests → `endpoint-test-writer` skill
 
 3. **Is this a simple change to existing code?**
+
    - Handle directly BUT write test first (TDD!)
 
 4. **About to commit?**
-   - Delegate to `@type-hint-enforcer` first
-
-## Delegation vs Self-Handling
-
-### Always Delegate:
-- ✅ **New feature requests** → Start with `@tdd-workflow-guide`
-- ✅ **BDD feature creation** → `@bdd-feature-writer`
-- ✅ **BDD test implementation** → `@dual-test-implementer`
-- ✅ **New endpoints/routes** → `@fastapi-service-builder`
-- ✅ **Template/UI work** → `@htmx-template-builder`
-- ✅ **Styling/theming** → `@css-theme-designer`
-- ✅ **Endpoint integration tests** → `@endpoint-test-writer`
-- ✅ **Before commits** → `@type-hint-enforcer` to verify type hints
-
-### Handle Yourself:
-- ⚡ Simple bug fixes in existing code (after writing a test first!)
-- ⚡ Code review and analysis
-- ⚡ Documentation updates (AGENTS.md, README.md)
-- ⚡ Configuration changes (pyproject.toml, etc.)
-- ⚡ Answering questions about the codebase
-- ⚡ Running tests and interpreting results
-- ⚡ Simple unit tests for straightforward functions
+   - Use `type-hint-enforcer` skill
 
 ## Architecture
 

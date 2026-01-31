@@ -74,45 +74,61 @@ Feature: Two-Player Core Gameplay
 
   # === Round Resolution ===
 
-  # Scenario: Both players fire shots simultaneously in the same round
-  #   Given it is Round 1
-  #   And I have selected 6 coordinates to aim at
-  #   And I have clicked "Fire Shots"
-  #   And I am waiting for my opponent
-  #   When my opponent fires their shots
-  #   Then both players' shots should be processed together
-  #   And I should see the round results within 5 seconds
-  #   And the round number should increment to Round 2
-  #
-  # Scenario: Waiting for opponent to fire their shots
-  #   Given it is Round 1
-  #   And I have fired my 6 shots
-  #   When I am waiting for my opponent to fire
-  #   Then I should see "Waiting for opponent to fire..." displayed
-  #   And I should see a loading indicator
-  #   And I should not be able to aim or fire additional shots
-  #   And the page should update automatically when opponent fires
-  #
-  # Scenario: Opponent fires before me
-  #   Given it is Round 1
-  #   And my opponent has already fired their shots
-  #   And I am still aiming my shots
-  #   Then I should see "Opponent has fired - waiting for you" displayed
-  #   And I should still be able to aim and fire my shots
-  #   When I fire my shots
-  #   Then the round should resolve immediately
-  #   And I should see the round results within 2 seconds
+  Scenario: Both players fire shots simultaneously in the same round
+    Given it is Round 1
+    And I have selected 6 coordinates to aim at
+    And I have clicked "Fire Shots"
+    And I am waiting for my opponent
+    When my opponent fires their shots
+    Then both players' shots should be processed together
+    And I should see the round results within 5 seconds
+    And the round number should increment to Round 2
+
+  Scenario: Waiting for opponent to fire their shots
+    Given it is Round 1
+    And I have fired my 6 shots
+    When I am waiting for my opponent to fire
+    Then I should see "Waiting for opponent to fire..." displayed
+    And I should see a loading indicator
+    And I should not be able to aim or fire additional shots
+    And the page should update automatically when opponent fires
+
+  Scenario: Opponent fires before me
+    Given it is Round 1
+    And my opponent has already fired their shots
+    And I am still aiming my shots
+    Then I should see "Opponent has fired - waiting for you" displayed
+    And I should still be able to aim and fire my shots
+    When I fire my shots
+    Then the round should resolve immediately
+    And I should see the round results within 2 seconds
+
+  # === Round Results
+
+  Scenario: Round results for all shots missed
+    Given it is Round 1
+    And I have selected 6 coordinates to aim at
+    And I have clicked "Fire Shots"
+    And I am waiting for my opponent
+    When my opponent fires their shots
+    And I should see my round results within 5 seconds
+    And the round results should display "All shots missed"
+    And I should be prompted to proceed to Round 2
+
+  # Scenario: Round results show a ship hit
+
+  # Scenario: Round results show multiple ships hit
 
   # === Round Progression ===
 
-  # Scenario: Round number increments after both players fire
-  #   Given it is Round 1
-  #   And I have fired my shots
-  #   And my opponent has fired their shots
-  #   When the round resolves
-  #   Then I should see "Round 2" displayed
-  #   And I should be able to aim new shots for Round 2
-  #
+  Scenario: Round number increments after both players fire and view round results
+    Given it is Round 1
+    And I have fired my shots
+    And my opponent has fired their shots
+    And I have viewed my round results
+    When I click "Proceed to Round 2"
+    Then I should see "Round 2" displayed
+
   # Scenario: Round doesn't advance while waiting
   #   Given it is Round 3
   #   And I have fired my shots
@@ -125,3 +141,30 @@ Feature: Two-Player Core Gameplay
   #   And I have already fired my shots
   #   When my opponent fires their shots
   #   Then I should see "Round 4" displayed 
+
+  # === Real-Time Updates (Long Polling) ===
+
+  Scenario: Real-time update when opponent fires
+    Given it is Round 1
+    And I have already fired my shots
+    And I am waiting for my opponent to fire
+    When my opponent fires their shots
+    Then I should see my round results within 5 seconds
+    And I should not have to manually refresh the page
+    And I should be prompted to proceed to Round 2
+
+  Scenario: Real-time update when both players fire simultaneously
+    Given it is Round 1
+    And I fire my shots at the same moment my opponent fires
+    When both shots are submitted
+    Then both players should see their round results within 5 seconds
+    And both players should be prompted to proceed to Round 2
+
+  Scenario: Long polling connection resilience
+    Given it is Round 1
+    And I am waiting for my opponent to fire
+    And the long polling connection times out after 30 seconds
+    When the connection is re-established
+    And my opponent fires their shots
+    Then I should see my round results within 5 seconds
+    And the game should continue normally

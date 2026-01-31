@@ -642,8 +642,20 @@ class Game:
         raise ValueError(f"Player with ID {player_id} not found in this game")
 
     def get_shots_available(self, player_id: str) -> int:
+        """Get the number of shots available for a player based on unsunk ships.
+
+        Args:
+            player_id: The player's ID
+
+        Returns:
+            Total shots available from all unsunk ships
+        """
         player = self._get_player_by_id(player_id)
-        return sum(ship.shots_available for ship in self.board[player].ships)
+        return sum(
+            ship.shots_available
+            for ship in self.board[player].ships
+            if not ship.is_sunk
+        )
 
     def aim_at(self, player_id: str, coord: Coord) -> None:
         """Add a coordinate to the player's aimed shots for this round."""
@@ -656,6 +668,16 @@ class Game:
         # Check if already aimed at this coordinate (no validation needed)
         if coord in self.aimed_shots[player_id]:
             return
+
+        # Check if coordinate has already been fired at in a previous round
+        player = self._get_player_by_id(player_id)
+        player_board = self.board[player]
+        if coord in player_board.shots_fired:
+            from game.exceptions import CoordinateAlreadyFiredAtError
+
+            raise CoordinateAlreadyFiredAtError(
+                f"Cannot aim at {coord.name} - already fired at in a previous round"
+            )
 
         # Validate we haven't exceeded available shots
         shots_available: int = self.get_shots_available(player_id)

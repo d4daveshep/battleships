@@ -94,3 +94,9 @@ class NoShotsAimedError(GameplayError):
     """Raised when attempting to fire with no shots aimed."""
 
     pass
+
+
+class CoordinateAlreadyFiredAtError(GameplayError):
+    """Raised when attempting to aim at a coordinate that was already fired at."""
+
+    pass

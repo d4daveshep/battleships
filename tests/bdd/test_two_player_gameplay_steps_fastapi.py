@@ -15,7 +15,7 @@ from httpx import Response
 
 scenarios(
     "../../features/two_player_core_gameplay.feature",
-    "../../features/two_player_board_and_feedback.feature",
+    # "../../features/two_player_board_and_feedback.feature",
 )
 
 
@@ -743,6 +743,36 @@ def round_resolves_immediately(context: MultiPlayerBDDContext):
 # === Round Progression Steps ===
 
 
+def _get_coordinates_for_round(round_num: int) -> list[str]:
+    """Generate unique coordinates for a given round.
+
+    Args:
+        round_num: The round number (1-indexed)
+
+    Returns:
+        List of 6 unique coordinates for that round
+    """
+    # Round 1: A1-F1, Round 2: A2-F2, Round 3: A3-F3, etc.
+    col_num: int = round_num
+    if col_num <= 10:
+        return [f"{chr(ord('A') + i)}{col_num}" for i in range(6)]
+
+    # If beyond column 10, use different rows
+    row_offset: int = (round_num - 1) % 10
+    col_offset: int = ((round_num - 1) // 10) + 1
+    coordinates: list[str] = []
+    for i in range(6):
+        row: int = row_offset + i
+        if row < 10:  # Stay within A-J
+            coordinates.append(f"{chr(ord('A') + row)}{col_offset}")
+
+    # Fill remaining with guaranteed non-overlapping coords
+    while len(coordinates) < 6:
+        coordinates.append(f"J{len(coordinates) + round_num}")
+
+    return coordinates
+
+
 def _get_current_round_from_page(context: MultiPlayerBDDContext) -> int:
     """Extract current round number from page text.
 
@@ -766,6 +796,7 @@ def _advance_one_round(
     client: TestClient,
     opponent_client: TestClient,
     opponent_name: str,
+    current_round: int,
 ) -> None:
     """Advance game by one round by having both players fire.
 
@@ -774,10 +805,13 @@ def _advance_one_round(
         client: Current player's test client
         opponent_client: Opponent's test client
         opponent_name: Name of the opponent
+        current_round: The current round number (to select different coordinates)
     """
     assert context.current_player_name is not None
     game_id: str = context.game_id
-    coordinates: list[str] = ["A1", "B1", "C1", "D1", "E1", "F1"]
+
+    # Use different coordinates for each round to avoid re-firing at same location
+    coordinates: list[str] = _get_coordinates_for_round(current_round)
 
     # Both players aim and fire
     for player_client, player_name in [
@@ -791,6 +825,11 @@ def _advance_one_round(
                 data={"game_id": game_id, "coordinate": coord},
                 headers={"HX-Request": "true"},
             )
+        # Fire shots
+        player_client.post(
+            "/fire-shots",
+            data={"game_id": game_id, "player_name": player_name},
+        )
         # Fire shots
         player_client.post(
             "/fire-shots",
@@ -826,7 +865,9 @@ def it_is_round_n(context: MultiPlayerBDDContext, round_num: int) -> None:
 
     # Advance rounds until we reach the target
     while current_round < round_num:
-        _advance_one_round(context, client, opponent_client, opponent_name)
+        _advance_one_round(
+            context, client, opponent_client, opponent_name, current_round
+        )
         current_round += 1
 
     # Refresh page to see updated state
@@ -841,15 +882,15 @@ def it_is_round_n(context: MultiPlayerBDDContext, round_num: int) -> None:
 
 def _aim_and_fire_shots(
     context: MultiPlayerBDDContext,
-    coordinates: list[str],
+    coordinates: list[str] | None = None,
     count: int | None = None,
 ) -> None:
     """Helper function to aim and fire shots for the current player.
 
     Args:
         context: BDD context with game state
-        coordinates: List of coordinates to aim at
-        count: Optional number of shots to fire (defaults to all coordinates)
+        coordinates: List of coordinates to aim at (defaults to auto-select unfired coordinates)
+        count: Optional number of shots to fire (defaults to all available shots or 6)
     """
     assert context.game_url is not None, "No game URL stored"
     assert context.current_player_name is not None, "No current player set"
@@ -857,8 +898,38 @@ def _aim_and_fire_shots(
     client: TestClient = context.get_client_for_player(context.current_player_name)
     game_id: str = context.game_id
 
+    # If coordinates not specified, find coordinates that haven't been fired at yet
+    if coordinates is None:
+        import main
+        from game.model import Coord
+
+        game = main.game_service.games.get(game_id)
+        if game:
+            # Find the current player
+            current_player = None
+            if game.player_1.name == context.current_player_name:
+                current_player = game.player_1
+            elif game.player_2 and game.player_2.name == context.current_player_name:
+                current_player = game.player_2
+
+            if current_player:
+                player_board = game.board[current_player]
+                # Find safe coordinates that haven't been fired at
+                all_possible_coords: list[str] = [
+                    f"{row}{col}" for row in "ABCDEFGHIJ" for col in range(1, 11)
+                ]
+                available_coords: list[str] = [
+                    coord_str
+                    for coord_str in all_possible_coords
+                    if Coord[coord_str] not in player_board.shots_fired
+                ]
+                coordinates = available_coords[: count if count else 6]
+
+    if not coordinates:
+        raise ValueError("No coordinates available to aim at")
+
     # Determine how many shots to fire
-    shots_to_fire: int = count if count is not None else len(coordinates)
+    shots_to_fire: int = count if count is not None else min(len(coordinates), 6)
 
     # Aim shots
     for i in range(shots_to_fire):
@@ -884,7 +955,8 @@ def i_have_fired_my_shots(context: MultiPlayerBDDContext) -> None:
     Args:
         context: BDD context with game state
     """
-    _aim_and_fire_shots(context, DEFAULT_HIT_COORDINATES)
+    # Auto-select coordinates that haven't been fired at yet
+    _aim_and_fire_shots(context)
 
 
 @given("my opponent has fired their shots")

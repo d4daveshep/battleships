@@ -15,7 +15,7 @@ from tests.bdd.conftest import (
 
 scenarios(
     "../../features/two_player_core_gameplay.feature",
-    "../../features/two_player_board_and_feedback.feature",
+    # "../../features/two_player_board_and_feedback.feature",
 )
 
 

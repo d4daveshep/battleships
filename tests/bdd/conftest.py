@@ -534,14 +534,42 @@ def opponent_fires_via_api(
         client: HTTP client (httpx or TestClient)
         game_id: The game ID
         opponent_name: Name of the opponent player
-        coordinates: Coordinates to fire at (defaults to A1-F1)
-        count: Number of shots to fire (defaults to all coordinates)
+        coordinates: Coordinates to fire at (defaults to coordinates not yet fired)
+        count: Number of shots to fire (defaults to all coordinates or 6)
     """
+    # If coordinates not specified, find coordinates that haven't been fired at yet
     if coordinates is None:
-        coordinates = DEFAULT_HIT_COORDINATES
+        import main
+        from game.model import Coord
+
+        game = main.game_service.games.get(game_id)
+        if game:
+            # Find the opponent player
+            opponent = None
+            if game.player_1.name == opponent_name:
+                opponent = game.player_1
+            elif game.player_2 and game.player_2.name == opponent_name:
+                opponent = game.player_2
+
+            if opponent:
+                opponent_board = game.board[opponent]
+                # Find safe coordinates that haven't been fired at
+                all_safe_coords: list[str] = [f"J{col}" for col in range(1, 11)] + [
+                    f"{row}{col}" for row in "ABCDEFGHI" for col in range(6, 11)
+                ]
+                available_coords: list[str] = [
+                    coord_str
+                    for coord_str in all_safe_coords
+                    if Coord[coord_str] not in opponent_board.shots_fired
+                ]
+                coordinates = available_coords
+            else:
+                coordinates = DEFAULT_HIT_COORDINATES
+        else:
+            coordinates = DEFAULT_HIT_COORDINATES
 
     # Determine how many shots to fire
-    shots_to_fire: int = count if count is not None else len(coordinates)
+    shots_to_fire: int = count if count is not None else min(len(coordinates), 6)
 
     for i in range(shots_to_fire):
         coord = coordinates[i]
@@ -552,3 +580,61 @@ def opponent_fires_via_api(
         )
 
     client.post("/fire-shots", data={"game_id": game_id, "player_name": opponent_name})
+
+
+# =============================================================================
+# Ship Damage/Sinking Utilities
+# =============================================================================
+
+
+def get_ship_by_type(board: Any, ship_type: Any) -> Any:
+    """Find a ship on the board by its type.
+
+    Args:
+        board: GameBoard instance
+        ship_type: ShipType enum value
+
+    Returns:
+        Ship instance or None if not found
+    """
+    for ship in board.ships:
+        if ship.ship_type == ship_type:
+            return ship
+    return None
+
+
+def damage_ship_on_board(board: Any, ship_type: Any, num_hits: int) -> None:
+    """Register hits on a specific ship without using round tracking.
+
+    Args:
+        board: GameBoard instance
+        ship_type: ShipType enum value
+        num_hits: Number of hits to register on the ship
+
+    Raises:
+        ValueError: If ship not found on board
+    """
+    ship = get_ship_by_type(board, ship_type)
+    if ship is None:
+        raise ValueError(f"Ship {ship_type} not found on board")
+    for i, coord in enumerate(ship.positions):
+        if i >= num_hits:
+            break
+        ship.hits.add(coord)
+
+
+def sink_ship_on_board(board: Any, ship_type: Any) -> None:
+    """Sink a ship by hitting all its positions.
+
+    Args:
+        board: GameBoard instance
+        ship_type: ShipType enum value
+
+    Raises:
+        ValueError: If ship not found on board
+    """
+    ship = get_ship_by_type(board, ship_type)
+    if ship is None:
+        raise ValueError(f"Ship {ship_type} not found on board")
+    for coord in ship.positions:
+        ship.hits.add(coord)

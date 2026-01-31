@@ -25,68 +25,55 @@ Feature: Two-Player Shot Rules and Tracking
 
   # === Shot Validation ===
 
-  # Scenario: Cannot fire at coordinates already fired at in previous rounds
-  #   Given it is Round 3
-  #   And I fired at "E5" in Round 1
-  #   When I attempt to select coordinate "E5" to aim at
-  #   Then I should see an error message "You have already fired at this coordinate"
-  #   And the coordinate should not be selectable
-  #   And it should show as already fired with round number "1"
-  #
-  # Scenario: Cannot fire at invalid coordinates
-  #   Given it is Round 1
-  #   When I attempt to fire at coordinate "K11"
-  #   Then I should see an error message "Invalid coordinate"
-  #   And the shot should not be recorded
-  #
-  # Scenario: Must fire at unique coordinates within the same round
-  #   Given it is Round 1
-  #   And I have selected coordinates "A1", "B2", "C3"
-  #   When I attempt to select "A1" again in the same round
-  #   Then I should see an error message "Coordinate already selected for this round"
-  #   And I should still have 3 shots aimed, not 4
+  Scenario: Cannot fire at coordinates already fired at in previous rounds
+    Given it is Round 3
+    And I fired at "E5" in Round 1
+    And Coordinate "E5" on the "Shots Fired" display shows round number "1"
+    When I attempt to select coordinate "E5" to aim at
+    Then the coordinate should not be selectable
+    And it should still show as already fired with round number "1"
 
   # === Shots Available Tracking ===
 
-  # Scenario: Shots available decreases when opponent ship is sunk
-  #   Given it is Round 1
-  #   And I have 6 shots available
-  #   And my opponent has a Destroyer with 1 hit already
-  #   And I fire shots that sink the opponent's Destroyer
-  #   When Round 2 begins
-  #   Then my opponent should see "Shots Available: 5" displayed
-  #   And I should still see "Shots Available: 6" displayed
-  #
-  # Scenario: Shots available decreases when my ship is sunk
-  #   Given it is Round 2
-  #   And I have 6 shots available
-  #   And my Battleship has 3 hits already
-  #   And my opponent fires shots that sink my Battleship
-  #   When Round 3 begins
-  #   Then I should see "Shots Available: 5" displayed
-  #   And the available shots should be 5
-  #
-  # Scenario: Multiple ships sunk reduces shots proportionally
-  #   Given it is Round 5
-  #   And my Destroyer is sunk
-  #   And my Submarine is sunk
-  #   And my Cruiser is sunk
-  #   When Round 6 begins
-  #   Then I should see "Shots Available: 3" displayed
-  #   And the available shots should be 3
-  #
-  # Scenario: All ships sunk means zero shots available
-  #   Given it is Round 8
-  #   And all my ships are sunk
-  #   Then I should see "Shots Available: 0" displayed
-  #   And I should see "You Lose!" displayed
-  #   And the game should be marked as finished
-  #
-  # Scenario: Firing fewer shots than available
-  #   Given it is Round 4
-  #   And I have 5 shots available
-  #   When I select only 3 coordinates to aim at
-  #   And I click "Fire Shots"
-  #   Then my 3 shots should be submitted
-  #   And I should not be prevented from firing fewer shots than available
-  #   And the round should resolve normally when opponent fires
+  Scenario: Shots available decreases when opponent ship is sunk
+    Given it is Round 1
+    And I have 6 shots available
+    And my opponent has a Destroyer with 1 hit already
+    And I fire shots that sink the opponent's Destroyer
+    When Round 2 begins
+    Then my opponent should see "Shots Available: 5" displayed
+    And I should still see "Shots Available: 6" displayed
+
+  Scenario: Shots available decreases when my ship is sunk
+    Given it is Round 2
+    And I have 6 shots available
+    And my Battleship has 3 hits already
+    And my opponent fires shots that sink my Battleship
+    When Round 3 begins
+    Then I should see "Shots Available: 5" displayed
+    And the available shots should be 5
+
+  Scenario: Multiple ships sunk reduces shots proportionally
+    Given it is Round 5
+    And my Destroyer is sunk
+    And my Submarine is sunk
+    And my Cruiser is sunk
+    When Round 6 begins
+    Then I should see "Shots Available: 3" displayed
+    And the available shots should be 3
+
+  Scenario: All ships sunk means zero shots available
+    Given it is Round 8
+    And all my ships are sunk
+    Then I should see "Shots Available: 0" displayed
+    And I should see "You Lose!" displayed
+    And the game should be marked as finished
+
+  Scenario: Firing fewer shots than available
+    Given it is Round 4
+    And I have 5 shots available
+    When I select only 3 coordinates to aim at
+    And I click "Fire Shots"
+    Then my 3 shots should be submitted
+    And I should not be prevented from firing fewer shots than available
+    And the round should resolve normally when opponent fires

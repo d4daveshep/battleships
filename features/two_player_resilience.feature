@@ -17,16 +17,6 @@ Feature: Two-Player Game Resilience
 
   # === Edge Cases ===
 
-  # Scenario: First round of the game
-  #   Given the game just started
-  #   And no shots have been fired yet
-  #   And it is Round 1
-  #   When I fire my 6 shots
-  #   And my opponent fires their 6 shots
-  #   Then the shots should be recorded
-  #   And the round should resolve
-  #   And Round 2 should begin
-  #
   # Scenario: Multiple hits on same ship in one round
   #   Given it is Round 2
   #   And my opponent has a Carrier at "A1", "A2", "A3", "A4", "A5"

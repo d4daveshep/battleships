@@ -13,6 +13,7 @@ from game.exceptions import (
     ShotLimitExceededError,
     ActionAfterFireError,
     NoShotsAimedError,
+    CoordinateAlreadyFiredAtError,
 )
 
 from routes.helpers import (
@@ -230,6 +231,20 @@ async def aim_shot(
     # Toggle aim and get result
     try:
         result: AimResult = game_service.toggle_aim(game_id, player.id, coordinate)
+    except CoordinateAlreadyFiredAtError:
+        # Return error message for trying to aim at previously fired coordinate
+        aimed_coords: set[Coord] = game.get_aimed_shots(player.id)
+        aimed_count: int = len(aimed_coords)
+        shots_available: int = game.get_shots_available(player.id)
+        return templates.TemplateResponse(
+            request=request,
+            name="components/error_message.html",
+            context={
+                "error_message": f"Cannot aim at {coordinate} - already fired at in a previous round",
+                "aimed_count": aimed_count,
+                "shots_available": shots_available,
+            },
+        )
     except ShotLimitExceededError:
         # Get current aimed count for the display
         aimed_coords: set[Coord] = game.get_aimed_shots(player.id)

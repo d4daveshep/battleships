@@ -224,6 +224,24 @@
         </div>
     </div>
 
+    <!-- Shots Fired Display -->
+    <div class="ship-board-container" data-testid="shots-fired-display">
+        <h3>Shots Fired History</h3>
+        <p>Coordinates you've already fired at</p>
+        
+        {% if shots_fired_results %}
+            <div class="shots-fired-list">
+                {% for coord_name, shot_info in shots_fired_results.items() | sort %}
+                    <span class="shot-fired-item">
+                        {{ coord_name }} (Round {{ shot_info.round_number }}){% if shot_info.is_hit %} - HIT{% else %} - Miss{% endif %}
+                    </span>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p>No shots fired yet</p>
+        {% endif %}
+    </div>
+
     <!-- Hits Made Area -->
     <div class="ship-board-container" data-testid="hits-made-area">
         <h3>Hits Made</h3>

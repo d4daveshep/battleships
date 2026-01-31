@@ -91,6 +91,41 @@ class TestGameModel:
 
         assert game.get_shots_available(alice.id) == 6
 
+    def test_game_get_shots_available_with_sunk_ship(self, alice):
+        """Test that sunk ships don't contribute to shots available"""
+        game = Game(player_1=alice, game_mode=GameMode.SINGLE_PLAYER)
+        board = game.board[alice]
+
+        # Place all ships with spacing
+        board.place_ship(Ship(ShipType.CARRIER), Coord.A1, Orientation.HORIZONTAL)
+        board.place_ship(Ship(ShipType.BATTLESHIP), Coord.C1, Orientation.HORIZONTAL)
+        board.place_ship(Ship(ShipType.CRUISER), Coord.E1, Orientation.HORIZONTAL)
+        board.place_ship(Ship(ShipType.SUBMARINE), Coord.G1, Orientation.HORIZONTAL)
+        board.place_ship(Ship(ShipType.DESTROYER), Coord.I1, Orientation.HORIZONTAL)
+
+        # Initially have 6 shots
+        assert game.get_shots_available(alice.id) == 6
+
+        # Sink the Destroyer (2 length, 1 shot)
+        destroyer = board.get_ship_at(Coord.I1)
+        assert destroyer is not None
+        for coord in destroyer.positions:
+            destroyer.register_hit(coord)
+        assert destroyer.is_sunk is True
+
+        # Should now have 5 shots (6 - 1 from Destroyer)
+        assert game.get_shots_available(alice.id) == 5
+
+        # Sink the Submarine (3 length, 1 shot)
+        submarine = board.get_ship_at(Coord.G1)
+        assert submarine is not None
+        for coord in submarine.positions:
+            submarine.register_hit(coord)
+        assert submarine.is_sunk is True
+
+        # Should now have 4 shots (6 - 1 - 1)
+        assert game.get_shots_available(alice.id) == 4
+
 
 class TestGameAimedShots:
     """Unit tests for aimed shots functionality"""

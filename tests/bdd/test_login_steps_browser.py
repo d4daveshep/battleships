@@ -1,6 +1,5 @@
 from pytest_bdd import scenarios, given, when, then, parsers
 from playwright.sync_api import Page, Locator
-from tests.bdd.conftest import BASE_URL
 
 
 scenarios("../../features/login.feature")
@@ -12,8 +11,8 @@ def on_login_page(page: Page) -> None:
 
 
 @given("I am on the login page")
-def goto_login_page(page: Page) -> None:
-    page.goto(f"{BASE_URL}login")
+def goto_login_page(page: Page, base_url: str) -> None:
+    page.goto(f"{base_url}login")
     on_login_page(page)
 
 

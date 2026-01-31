@@ -1,6 +1,5 @@
 from pytest_bdd import scenarios, given, when, then, parsers
 from playwright.sync_api import Page, Locator
-from tests.bdd.conftest import BASE_URL
 from dataclasses import dataclass, field
 from typing import Any
 import pytest
@@ -40,10 +39,10 @@ def on_ship_placement_page(page: Page) -> None:
 
 @given("I have logged in and selected a game mode")
 def logged_in_and_selected_game_mode(
-    page: Page, ship_context: ShipPlacementContext
+    page: Page, ship_context: ShipPlacementContext, base_url: str
 ) -> None:
     """Login and select a game mode"""
-    page.goto(f"{BASE_URL}login")
+    page.goto(f"{base_url}login")
     page.locator('input[type="text"][name="player_name"]').fill("TestPlayer")
     page.locator(f'button[value="{ship_context.game_mode}"]').click()
     ship_context.current_player_name = "TestPlayer"

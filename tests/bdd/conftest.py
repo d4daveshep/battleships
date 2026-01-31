@@ -1,3 +1,4 @@
+import os
 import subprocess
 import time
 from dataclasses import dataclass, field
@@ -15,11 +16,36 @@ from starlette.testclient import TestClient
 # Constants
 # =============================================================================
 
-BASE_URL = "http://localhost:8000/"
-
 # Long-polling timeout in milliseconds
 # Server-side long-poll timeout is 35 seconds, so client timeout must be higher
 LONG_POLL_TIMEOUT_MS = 40000
+
+
+# =============================================================================
+# Worker Port Management for Parallel Testing
+# =============================================================================
+
+
+def get_worker_port() -> int:
+    """Get unique port for this pytest-xdist worker.
+
+    Each worker gets its own port to avoid conflicts when running tests in parallel.
+    Port assignment:
+    - master/single process: 8000
+    - gw0: 8000
+    - gw1: 8001
+    - gw2: 8002
+    - etc.
+
+    Returns:
+        Port number for this worker
+    """
+    worker_id: str = os.environ.get("PYTEST_XDIST_WORKER", "master")
+    if worker_id == "master":
+        return 8000
+    # worker_id format: "gw0", "gw1", etc.
+    worker_num: int = int(worker_id.replace("gw", ""))
+    return 8000 + worker_num
 
 
 # =============================================================================
@@ -306,12 +332,12 @@ def place_all_ships_fastapi(
 
 
 @pytest.fixture(autouse=True)
-def reset_lobby(fastapi_server):
+def reset_lobby(fastapi_server, base_url: str):
     """Reset global lobby state before each BDD scenario"""
     # Reset lobby state via HTTP call to the running server
     try:
         with httpx.Client() as client:
-            response = client.post(f"{BASE_URL}test/reset-lobby", timeout=5)
+            response = client.post(f"{base_url}test/reset-lobby", timeout=5)
             if response.status_code == 200:
                 print(f"Lobby reset successful: {response.json()}")
             else:
@@ -324,34 +350,52 @@ def reset_lobby(fastapi_server):
     # Optional: cleanup after test too
     try:
         with httpx.Client() as client:
-            client.post(f"{BASE_URL}test/reset-lobby", timeout=5)
+            client.post(f"{base_url}test/reset-lobby", timeout=5)
     except Exception:
         pass  # Ignore cleanup failures
 
 
 @pytest.fixture(scope="session")
 def fastapi_server():
-    """Start FastAPI server for the entire test session"""
+    """Start FastAPI server for this worker on a unique port.
+
+    Each pytest-xdist worker gets its own server instance on a separate port
+    to enable parallel test execution without conflicts.
+    """
+    port: int = get_worker_port()
+    base_url: str = f"http://localhost:{port}/"
+
     process = subprocess.Popen(
-        ["uv", "run", "uvicorn", "main:app", "--port", "8000", "--host", "0.0.0.0"]
+        ["uv", "run", "uvicorn", "main:app", "--port", str(port), "--host", "0.0.0.0"]
     )
 
     # Wait for server to be ready with health check
     for _ in range(30):  # 30 second timeout
         try:
             with httpx.Client() as client:
-                response = client.get(f"{BASE_URL}health", timeout=1)
+                response = client.get(f"{base_url}health", timeout=1)
                 if response.status_code == 200:
                     break
         except Exception:
             time.sleep(1)
     else:
         process.kill()
-        raise RuntimeError("FastAPI server failed to start")
+        raise RuntimeError(f"FastAPI server failed to start on port {port}")
 
     yield process
     process.terminate()
     process.wait()
+
+
+@pytest.fixture(scope="session")
+def base_url() -> str:
+    """Get the base URL for this worker's server.
+
+    Returns:
+        Base URL with correct port for this worker
+    """
+    port: int = get_worker_port()
+    return f"http://localhost:{port}/"
 
 
 @pytest.fixture(scope="function")
@@ -372,12 +416,12 @@ def page(browser: Browser, fastapi_server):
 
 
 @pytest.fixture(scope="function")
-def opponent_client(fastapi_server):
+def opponent_client(fastapi_server, base_url: str):
     """Fixture for a second player client in multiplayer tests.
 
     Provides an independent httpx Client that can interact with the running server.
     """
-    with httpx.Client(base_url=BASE_URL) as client:
+    with httpx.Client(base_url=base_url) as client:
         yield client
 
 
@@ -386,9 +430,14 @@ def opponent_client(fastapi_server):
 # =============================================================================
 
 
-def navigate_to_login(page: Page) -> None:
-    """Navigate to login page."""
-    page.goto(f"{BASE_URL}login")
+def navigate_to_login(page: Page, base_url: str) -> None:
+    """Navigate to login page.
+
+    Args:
+        page: Playwright Page instance
+        base_url: Base URL for this worker's server
+    """
+    page.goto(f"{base_url}login")
 
 
 def fill_player_name(page: Page, player_name: str) -> None:
@@ -406,27 +455,33 @@ def click_computer_button(page: Page) -> None:
     page.locator('button[value="computer"]').click()
 
 
-def login_and_select_multiplayer(page: Page, player_name: str = "TestPlayer") -> None:
+def login_and_select_multiplayer(
+    page: Page, base_url: str, player_name: str = "TestPlayer"
+) -> None:
     """Complete login flow and select multiplayer mode.
 
     Args:
         page: Playwright Page instance
+        base_url: Base URL for this worker's server
         player_name: Name for the player (defaults to "TestPlayer")
     """
-    navigate_to_login(page)
+    navigate_to_login(page, base_url)
     fill_player_name(page, player_name)
     click_multiplayer_button(page)
     page.wait_for_url("**/lobby*")
 
 
-def login_and_select_computer(page: Page, player_name: str = "TestPlayer") -> None:
+def login_and_select_computer(
+    page: Page, base_url: str, player_name: str = "TestPlayer"
+) -> None:
     """Complete login flow and select single-player (computer) mode.
 
     Args:
         page: Playwright Page instance
+        base_url: Base URL for this worker's server
         player_name: Name for the player (defaults to "TestPlayer")
     """
-    navigate_to_login(page)
+    navigate_to_login(page, base_url)
     fill_player_name(page, player_name)
     click_computer_button(page)
     page.wait_for_url("**/start-game*")

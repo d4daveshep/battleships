@@ -1,6 +1,5 @@
 from pytest_bdd import scenarios, given, when, then
 from playwright.sync_api import Page, Locator
-from tests.bdd.conftest import BASE_URL
 import pytest
 from dataclasses import dataclass
 
@@ -35,11 +34,11 @@ def on_start_game_confirmation_page(page: Page) -> None:
 
 @given("I am on the start game confirmation page")
 def goto_start_game_confirmation_page(
-    page: Page, confirmation_context: StartGameConfirmationContext
+    page: Page, confirmation_context: StartGameConfirmationContext, base_url: str
 ) -> None:
     """Navigate to start game confirmation page"""
     # First login to create a session
-    page.goto(f"{BASE_URL}login")
+    page.goto(f"{base_url}login")
     page.locator('input[type="text"][name="player_name"]').fill(
         confirmation_context.player_name
     )
@@ -114,7 +113,7 @@ def choose_abandon_game(page: Page) -> None:
 @then("I should be redirected to the login page")
 def redirected_to_login_page(page: Page) -> None:
     """Verify redirect to login page"""
-    page.wait_for_url(f"{BASE_URL}login")
+    page.wait_for_url("**/login")
     assert "login" in page.url
 
     # Verify we're on the login page

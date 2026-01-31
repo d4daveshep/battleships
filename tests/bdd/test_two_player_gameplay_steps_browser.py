@@ -3,7 +3,6 @@ import pytest
 from playwright.sync_api import Page, expect
 from pytest_bdd import scenarios, given, when, then, parsers
 from tests.bdd.conftest import (
-    BASE_URL,
     GamePageLocators,
     navigate_to_login,
     fill_player_name,
@@ -24,17 +23,25 @@ def setup_opponent(client: httpx.Client, player_name: str = "Player2") -> None:
     client.post("/login", data={"player_name": player_name, "game_mode": "human"})
 
 
-def setup_game_with_opponent(page: Page, opponent_client: httpx.Client) -> None:
-    """Orchestrate the full game setup flow."""
+def setup_game_with_opponent(
+    page: Page, opponent_client: httpx.Client, base_url: str
+) -> None:
+    """Orchestrate the full game setup flow.
+
+    Args:
+        page: Playwright Page instance
+        opponent_client: HTTP client for opponent player
+        base_url: Base URL for this worker's server
+    """
     # Reset lobby state
-    with httpx.Client(base_url=BASE_URL) as admin_client:
+    with httpx.Client(base_url=base_url) as admin_client:
         admin_client.post("/test/reset-lobby")
 
     # Setup opponent (Player 2)
     setup_opponent(opponent_client)
 
     # Setup current player (Player 1) in browser
-    navigate_to_login(page)
+    navigate_to_login(page, base_url)
     fill_player_name(page, "Player1")
     click_multiplayer_button(page)
 
@@ -51,8 +58,10 @@ def setup_game_with_opponent(page: Page, opponent_client: httpx.Client) -> None:
 
 
 @given("both players have completed ship placement")
-def players_completed_placement(page: Page, opponent_client: httpx.Client):
-    setup_game_with_opponent(page, opponent_client)
+def players_completed_placement(
+    page: Page, opponent_client: httpx.Client, base_url: str
+):
+    setup_game_with_opponent(page, opponent_client, base_url)
 
     # Player 1 places ships
     page.locator(GamePageLocators.RANDOM_PLACEMENT_BUTTON).click()

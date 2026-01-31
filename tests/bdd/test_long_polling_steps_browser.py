@@ -24,9 +24,9 @@ def multiplayer_lobby_system_available(page: Page) -> None:
 
 
 @given(parsers.parse('I\'ve logged in as "{player_name}" and selected human opponent'))
-def logged_in_as_player(page: Page, player_name: str) -> None:
+def logged_in_as_player(page: Page, base_url: str, player_name: str) -> None:
     """Login as specific player and enter lobby"""
-    login_and_select_multiplayer(page, player_name)
+    login_and_select_multiplayer(page, base_url, player_name)
     setattr(page, "current_player_name", player_name)
 
 
@@ -38,11 +38,11 @@ def i_see_message(page: Page, message: str) -> None:
 
 
 @given(parsers.parse('another player "{player_name}" is already in the lobby'))
-def player_already_in_lobby(page: Page, player_name: str) -> None:
+def player_already_in_lobby(page: Page, base_url: str, player_name: str) -> None:
     """Simulate another player already in lobby"""
     with httpx.Client() as client:
         client.post(
-            "http://localhost:8000/login",
+            f"{base_url}login",
             data={"player_name": player_name, "game_mode": "human"},
         )
     # Brief wait for lobby to update
@@ -65,12 +65,12 @@ def long_polling_enabled(page: Page) -> None:
 
 
 @when(parsers.parse('another player "{player_name}" joins the lobby within 5 seconds'))
-def player_joins_within_time(page: Page, player_name: str) -> None:
+def player_joins_within_time(page: Page, base_url: str, player_name: str) -> None:
     """Simulate another player joining the lobby"""
     # Use httpx to add player via API
     with httpx.Client() as client:
         client.post(
-            "http://localhost:8000/login",
+            f"{base_url}login",
             data={"player_name": player_name, "game_mode": "human"},
         )
     # Store join time for verification
@@ -117,12 +117,12 @@ def no_polling_interval_wait(page: Page) -> None:
 
 
 @when(parsers.parse('"{player_name}" leaves the lobby'))
-def player_leaves_lobby(page: Page, player_name: str) -> None:
+def player_leaves_lobby(page: Page, base_url: str, player_name: str) -> None:
     """Simulate a player leaving the lobby"""
     # Use test endpoint to bypass authentication
     with httpx.Client() as client:
         client.post(
-            "http://localhost:8000/test/remove-player-from-lobby",
+            f"{base_url}test/remove-player-from-lobby",
             data={"player_name": player_name},
         )
     setattr(page, "player_leave_time", time.time())
@@ -154,14 +154,14 @@ def player_disappears_within_time(page: Page, player_name: str) -> None:
 
 
 @when(parsers.parse('"{sender}" sends me a game request'))
-def player_sends_game_request(page: Page, sender: str) -> None:
+def player_sends_game_request(page: Page, base_url: str, sender: str) -> None:
     """Simulate another player sending a game request"""
     current_player = getattr(page, "current_player_name", "Alice")
 
     # Use test endpoint to bypass authentication
     with httpx.Client() as client:
         client.post(
-            "http://localhost:8000/test/send-game-request",
+            f"{base_url}test/send-game-request",
             data={"sender_name": sender, "target_name": current_player},
         )
 
@@ -215,12 +215,12 @@ def i_sent_game_request(page: Page, opponent: str) -> None:
 
 
 @when(parsers.parse('"{opponent}" accepts my game request'))
-def opponent_accepts_request(page: Page, opponent: str) -> None:
+def opponent_accepts_request(page: Page, base_url: str, opponent: str) -> None:
     """Simulate opponent accepting the game request"""
     # Accept via test endpoint
     with httpx.Client() as client:
         client.post(
-            "http://localhost:8000/test/accept-game-request",
+            f"{base_url}test/accept-game-request",
             data={"player_name": opponent},
         )
 
@@ -281,12 +281,12 @@ def verify_game_opponent(page: Page, opponent: str) -> None:
 
 
 @when(parsers.parse('"{opponent}" declines my game request'))
-def opponent_declines_request(page: Page, opponent: str) -> None:
+def opponent_declines_request(page: Page, base_url: str, opponent: str) -> None:
     """Simulate opponent declining the game request"""
     # Decline via test endpoint
     with httpx.Client() as client:
         client.post(
-            "http://localhost:8000/test/decline-game-request",
+            f"{base_url}test/decline-game-request",
             data={"player_name": opponent},
         )
 
@@ -331,7 +331,7 @@ def both_players_available(page: Page, player1: str, player2: str) -> None:
 
 
 @when("the following players join in quick succession:")
-def players_join_quickly(page: Page, datatable) -> None:
+def players_join_quickly(page: Page, base_url: str, datatable) -> None:
     """Simulate multiple players joining rapidly"""
     setattr(page, "rapid_join_start_time", time.time())
 
@@ -339,7 +339,7 @@ def players_join_quickly(page: Page, datatable) -> None:
         for row in datatable[1:]:  # Skip header
             player_name = row[0]
             client.post(
-                "http://localhost:8000/login",
+                f"{base_url}login",
                 data={"player_name": player_name, "game_mode": "human"},
             )
             # Small delay between joins to simulate realistic timing
@@ -377,11 +377,11 @@ def player_appears_in_lobby(page: Page, player_name: str) -> None:
 
 
 @when(parsers.parse('another player "{player_name}" joins the lobby'))
-def another_player_joins(page: Page, player_name: str) -> None:
+def another_player_joins(page: Page, base_url: str, player_name: str) -> None:
     """Simulate another player joining the lobby"""
     with httpx.Client() as client:
         client.post(
-            "http://localhost:8000/login",
+            f"{base_url}login",
             data={"player_name": player_name, "game_mode": "human"},
         )
 
@@ -401,12 +401,14 @@ def long_poll_reconnected(page: Page) -> None:
 
 
 @when(parsers.parse('"{sender}" sends a game request to "{receiver}"'))
-def other_player_sends_request(page: Page, sender: str, receiver: str) -> None:
+def other_player_sends_request(
+    page: Page, base_url: str, sender: str, receiver: str
+) -> None:
     """Simulate one player sending request to another"""
     # Use test endpoint to bypass authentication
     with httpx.Client() as client:
         client.post(
-            "http://localhost:8000/test/send-game-request",
+            f"{base_url}test/send-game-request",
             data={"sender_name": sender, "target_name": receiver},
         )
 

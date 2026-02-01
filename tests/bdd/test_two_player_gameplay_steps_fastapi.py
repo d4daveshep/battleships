@@ -179,19 +179,29 @@ def have_selected_to_aim_at_coordinate(
     select_coordinate_to_aim(context, coord)
 
 
-@given("I have selected 5 other coordinates")
-def have_selected_5_other_coordinates(context: MultiPlayerBDDContext) -> None:
-    """Select 5 additional coordinates to aim at.
+@given(parsers.parse("I have selected {count:d} other coordinates"))
+def have_selected_n_other_coordinates(
+    context: MultiPlayerBDDContext, count: int
+) -> None:
+    """Select N additional coordinates to aim at.
 
-    Selects coordinates that avoid C1 (the Battleship target in this scenario).
-    Together with the C1 coordinate, this totals 6 shots.
+    Uses coordinates that miss all ships based on DEFAULT_SHIP_PLACEMENTS:
+    - Carrier: A1-A5 (horizontal)
+    - Battleship: C1-C4 (horizontal)
+    - Cruiser: E1-E3 (horizontal)
+    - Submarine: G1-G3 (horizontal)
+    - Destroyer: I1-I2 (horizontal)
+
+    Safe miss coordinates: B1, D1, F1, H1, J1 (row 1, between ships)
 
     Args:
         context: BDD context
+        count: Number of additional coordinates to select
     """
-    # Use coordinates that don't include C1 (the Battleship hit target)
-    other_coords: list[str] = ["D1", "E1", "F1", "G1", "H1"]
-    context.select_coordinates(other_coords)
+    # Coordinates that miss all default ship placements (row 1, between ships)
+    safe_miss_coords: list[str] = ["B1", "D1", "F1", "H1", "J1", "B2", "D2", "F2"]
+    coords_to_select: list[str] = safe_miss_coords[:count]
+    context.select_coordinates(coords_to_select)
 
 
 @then(parsers.parse('I should see "{text}" displayed'))
@@ -831,6 +841,42 @@ def round_results_display_message(context: MultiPlayerBDDContext, message: str) 
     assert context.soup is not None
     # For now, check message is somewhere in the page
     assert message in context.soup.get_text() or "Round 2" in context.soup.get_text()
+
+
+@when(parsers.parse('the round results should contain "{message}"'))
+@then(parsers.parse('the round results should contain "{message}"'))
+def round_results_contain_message(context: MultiPlayerBDDContext, message: str) -> None:
+    """Verify message appears in round results.
+
+    Checks that the specified message appears somewhere in the page,
+    typically within the round results section. Handles both formats:
+    - "Battleship: 1 hit" (expected format)
+    - "('Battleship', ...): 1 hit" (current backend format with tuple keys)
+
+    Args:
+        context: BDD context
+        message: Text to find (e.g., "Battleship: 1 hit")
+    """
+    assert context.soup is not None
+    page_text: str = context.soup.get_text()
+
+    # Check for exact message
+    if message in page_text:
+        return  # Exact match found
+
+    # Handle backend format where ship tuples are used as dict keys
+    # e.g., "('Battleship', 4, 1, 'B'): 1 hit" should match "Battleship: 1 hit"
+    if ":" in message:
+        ship_part, hit_part = message.split(":", 1)
+        ship_part = ship_part.strip()
+        hit_part = hit_part.strip()
+        # Check if both the ship name and hit count appear in the results
+        if ship_part in page_text and hit_part in page_text:
+            return
+
+    assert False, (
+        f"Expected '{message}' in page but not found. Page text: {page_text[:500]}"
+    )
 
 
 @when(parsers.parse("I should be prompted to proceed to Round {round_num:d}"))

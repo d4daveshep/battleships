@@ -12,15 +12,16 @@ Feature: Two-Player Core Gameplay
 
   # === Start a round ===
 
-  # Scenario: First round of the game
-  #   Given the game just started
-  #   And no shots have been fired yet
-  #   And it is Round 1
-  #   When I fire my 6 shots
-  #   And my opponent fires their 6 shots
-  #   Then the shots should be recorded
-  #   And the round should resolve
-  #   And Round 2 should begin
+  Scenario: First round of the game
+    Given the game just started
+    And no shots have been fired yet
+    And it is Round 1
+    When I fire my 6 shots
+    And my opponent fires their 6 shots
+    Then the shots should be recorded
+    And the results should be displayed to each player
+    And the round should resolve
+    And Round 2 should begin
 
   # === Shot Selection ===
 
@@ -112,10 +113,20 @@ Feature: Two-Player Core Gameplay
     And I am waiting for my opponent
     When my opponent fires their shots
     And I should see my round results within 5 seconds
-    And the round results should display "All shots missed"
+    And the round results should display "No Hits, all shots missed"
     And I should be prompted to proceed to Round 2
 
   # Scenario: Round results show a ship hit
+  #   Given it is Round 1
+  #   And my opponent has placed their Battleship with coordinate "A1"
+  #   And I have selected to aim at coordinate "A1"
+  #   And I have selected 5 other coordinates
+  #   And I have clicked "Fire Shots"
+  #   And I am waiting for my opponent
+  #   When my opponent fires their shots
+  #   And I should see my round results within 5 seconds
+  #   And the round results should display "1 hit on Battleship"
+  #   And I should be prompted to proceed to Round 2
 
   # Scenario: Round results show multiple ships hit
 
@@ -129,18 +140,20 @@ Feature: Two-Player Core Gameplay
     When I click "Proceed to Round 2"
     Then I should see "Round 2" displayed
 
-  # Scenario: Round doesn't advance while waiting
-  #   Given it is Round 3
-  #   And I have fired my shots
-  #   But my opponent has not yet fired
-  #   Then I should see "Round 3" displayed
-  #   And I should see "Waiting for opponent to fire..." displayed
-  #
-  # Scenario: Round advances when both players have fired
-  #   Given it is Round 3
-  #   And I have already fired my shots
-  #   When my opponent fires their shots
-  #   Then I should see "Round 4" displayed 
+  Scenario: Round doesn't advance while waiting
+    Given it is Round 1
+    And I have fired my shots
+    But my opponent has not yet fired
+    Then I should see "Round 1" displayed
+    And I should see "Waiting for opponent to fire..." displayed
+
+  Scenario: Round advances when both players have fired
+    Given it is Round 1
+    And I have already fired my shots
+    When my opponent fires their shots
+    And we have both viewed our round results
+    And we have both selected to proceed with Round 2
+    Then I should see "Round 2" displayed 
 
   # === Real-Time Updates (Long Polling) ===
 

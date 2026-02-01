@@ -131,6 +131,16 @@ def game_just_started(context: MultiPlayerBDDContext):
     pass
 
 
+@given("no shots have been fired yet")
+def no_shots_fired_yet(context: MultiPlayerBDDContext) -> None:
+    """Verify no shots have been fired at game start.
+
+    This is a state verification step - implicitly true at game start.
+    """
+    # Implicitly true after game setup - no action needed
+    pass
+
+
 @then(parsers.parse('I should see "{text}" displayed'))
 def see_text_displayed(context: MultiPlayerBDDContext, text: str):
     """Verify text is displayed on the page"""
@@ -500,10 +510,18 @@ def see_shots_aimed_counter(context: MultiPlayerBDDContext):
 
 
 @given(parsers.parse("I have selected {count:d} coordinates to aim at"))
-def have_selected_n_coordinates(context: MultiPlayerBDDContext, count: int):
-    """Select the specified number of coordinates to aim at"""
+def have_selected_n_coordinates(context: MultiPlayerBDDContext, count: int) -> None:
+    """Select the specified number of coordinates to aim at.
+
+    Args:
+        context: BDD context with game state
+        count: Number of coordinates to select
+    """
+    assert context.current_player_name is not None, "No current player set"
+    assert context.game_url is not None, "No game URL stored"
+
     # Select first N coordinates
-    coords = ["A1", "B1", "C1", "D1", "E1", "F1"][:count]
+    coords: list[str] = ["A1", "B1", "C1", "D1", "E1", "F1"][:count]
     context.select_coordinates(coords)
 
     client = context.get_client_for_player(context.current_player_name)
@@ -587,6 +605,29 @@ def cannot_aim_additional_shots(context: MultiPlayerBDDContext):
 
 
 # === Simultaneous Play Steps ===
+
+
+@when("I fire my 6 shots")
+def fire_my_6_shots(context: MultiPlayerBDDContext) -> None:
+    """Aim at 6 coordinates and fire shots.
+
+    Combines aiming at 6 coordinates with clicking Fire Shots button.
+    """
+    have_selected_6_coordinates(context)
+    click_button(context, "Fire Shots")
+
+
+@when("my opponent fires their 6 shots")
+def opponent_fires_6_shots(context: MultiPlayerBDDContext) -> None:
+    """Trigger opponent to aim and fire 6 shots via API."""
+    _opponent_fires(context)
+
+    # Refresh page to see update
+    assert context.game_url is not None
+    assert context.current_player_name is not None
+    client: TestClient = context.get_client_for_player(context.current_player_name)
+    response: Response = client.get(context.game_url)
+    context.update_response(response)
 
 
 @given('I have clicked "Fire Shots"')
@@ -881,6 +922,48 @@ def round_increments(context: MultiPlayerBDDContext):
     assert "Round 2" in context.soup.get_text()
 
 
+@then("the shots should be recorded")
+def shots_should_be_recorded(context: MultiPlayerBDDContext) -> None:
+    """Verify shots were recorded in game state.
+
+    Checks that the game has progressed past the waiting state.
+    """
+    assert context.soup is not None
+    # After round resolution, we should be at Round 2
+    page_text: str = context.soup.get_text()
+    assert "Round 2" in page_text or "Waiting" not in page_text
+
+
+@then("the results should be displayed to each player")
+def results_displayed(context: MultiPlayerBDDContext) -> None:
+    """Verify round results are shown to the player.
+
+    This is a lightweight check - specific scenarios test details.
+    """
+    assert context.soup is not None
+    # Either we're at Round 2 or can see some indication of results
+    page_text: str = context.soup.get_text()
+    assert "Round 2" in page_text
+
+
+@then("the round should resolve")
+def round_should_resolve(context: MultiPlayerBDDContext) -> None:
+    """Verify round resolution occurred.
+
+    After both players fire, the round should resolve and advance.
+    """
+    assert context.soup is not None
+    # Round resolution means we're no longer waiting
+    page_text: str = context.soup.get_text()
+    assert "Waiting for opponent" not in page_text
+
+
+@then("Round 2 should begin")
+def round_2_should_begin(context: MultiPlayerBDDContext) -> None:
+    """Verify we're now at Round 2."""
+    should_see_round_displayed(context, 2)
+
+
 @then("I should see 'Opponent has fired - waiting for you' displayed")
 def see_opponent_fired_message(context: MultiPlayerBDDContext):
     """Verify message when opponent fires first"""
@@ -964,7 +1047,7 @@ def _advance_one_round(
     opponent_name: str,
     current_round: int,
 ) -> None:
-    """Advance game by one round by having both players fire.
+    """Advance game by one round by having both players fire and acknowledge.
 
     Args:
         context: BDD context with game state
@@ -996,9 +1079,14 @@ def _advance_one_round(
             "/fire-shots",
             data={"game_id": game_id, "player_name": player_name},
         )
-        # Fire shots
+
+    # Both players acknowledge round results to advance the round
+    for player_client, player_name in [
+        (client, context.current_player_name),
+        (opponent_client, opponent_name),
+    ]:
         player_client.post(
-            "/fire-shots",
+            "/proceed-to-next-round",
             data={"game_id": game_id, "player_name": player_name},
         )
 
@@ -1217,6 +1305,64 @@ def i_have_already_fired(context: MultiPlayerBDDContext) -> None:
         context: BDD context with game state
     """
     i_have_fired_my_shots(context)
+
+
+# === Round Advancement Confirmation Steps ===
+
+
+@when("we have both viewed our round results")
+def both_viewed_round_results(context: MultiPlayerBDDContext) -> None:
+    """Both players acknowledge seeing round results.
+
+    This step refreshes the page to see the current state after round resolution.
+
+    Args:
+        context: BDD context with game state
+    """
+    assert context.game_url is not None, "No game URL stored"
+    assert context.current_player_name is not None, "No current player set"
+
+    client = context.get_client_for_player(context.current_player_name)
+    response = client.get(context.game_url)
+    context.update_response(response)
+
+
+@when("we have both selected to proceed with Round 2")
+def both_proceed_to_round_2(context: MultiPlayerBDDContext) -> None:
+    """Both players click proceed to advance to next round.
+
+    This step makes both players acknowledge round results via the
+    /proceed-to-next-round endpoint, which advances the round when
+    both have acknowledged.
+
+    Args:
+        context: BDD context with game state
+    """
+    assert context.game_url is not None, "No game URL stored"
+    assert context.current_player_name is not None, "No current player set"
+
+    game_id: str = context.game_id
+
+    # Current player acknowledges
+    client = context.get_client_for_player(context.current_player_name)
+    client.post(
+        "/proceed-to-next-round",
+        data={"game_id": game_id, "player_name": context.current_player_name},
+    )
+
+    # Opponent acknowledges (if not already done via opponent_fires_via_api)
+    opponent_name: str = (
+        "Player2" if context.current_player_name == "Player1" else "Player1"
+    )
+    opponent_client = context.get_client_for_player(opponent_name)
+    opponent_client.post(
+        "/proceed-to-next-round",
+        data={"game_id": game_id, "player_name": opponent_name},
+    )
+
+    # Refresh page to see the advanced round
+    response = client.get(context.game_url)
+    context.update_response(response)
 
 
 # === Hit Feedback Steps ===

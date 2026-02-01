@@ -116,17 +116,17 @@ Feature: Two-Player Core Gameplay
     And the round results should display "No Hits, all shots missed"
     And I should be prompted to proceed to Round 2
 
-  # Scenario: Round results show a ship hit
-  #   Given it is Round 1
-  #   And my opponent has placed their Battleship with coordinate "A1"
-  #   And I have selected to aim at coordinate "A1"
-  #   And I have selected 5 other coordinates
-  #   And I have clicked "Fire Shots"
-  #   And I am waiting for my opponent
-  #   When my opponent fires their shots
-  #   And I should see my round results within 5 seconds
-  #   And the round results should display "1 hit on Battleship"
-  #   And I should be prompted to proceed to Round 2
+  Scenario: Round results show a ship hit
+    Given it is Round 1
+    And my opponent has placed their Battleship with coordinate "C1"
+    And I have selected to aim at coordinate "C1"
+    And I have selected 5 other coordinates
+    And I have clicked "Fire Shots"
+    And I am waiting for my opponent
+    When my opponent fires their shots
+    And I should see my round results within 5 seconds
+    And the round results should display "Battleship: 1 hit"
+    And I should be prompted to proceed to Round 2
 
   # Scenario: Round results show multiple ships hit
 

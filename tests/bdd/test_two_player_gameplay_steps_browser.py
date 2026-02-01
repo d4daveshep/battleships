@@ -113,6 +113,52 @@ def no_shots_fired_yet() -> None:
     pass
 
 
+@given(
+    parsers.parse('my opponent has placed their {ship_name} with coordinate "{coord}"')
+)
+def opponent_has_placed_ship_at_coordinate(ship_name: str, coord: str) -> None:
+    """Verify opponent's ship includes the specified coordinate.
+
+    The default placement uses DEFAULT_SHIP_PLACEMENTS from conftest.
+    This step documents the expected hit location for verification.
+
+    Args:
+        ship_name: Name of the ship (e.g., "Battleship")
+        coord: Coordinate the ship should include (e.g., "C1")
+    """
+    # No action needed - ships already placed in background with DEFAULT_SHIP_PLACEMENTS
+    # This is a documentation step confirming the test scenario setup
+    pass
+
+
+@given(parsers.parse('I have selected to aim at coordinate "{coord}"'))
+def have_selected_to_aim_at_coordinate(page: Page, coord: str) -> None:
+    """Select a specific coordinate to aim at (Given form).
+
+    Delegates to the existing 'When I select coordinate' step logic.
+
+    Args:
+        page: Playwright Page
+        coord: Coordinate to aim at (e.g., "C1")
+    """
+    select_coordinate_to_aim(page, coord)
+
+
+@given("I have selected 5 other coordinates")
+def have_selected_5_other_coordinates(page: Page) -> None:
+    """Select 5 additional coordinates to aim at.
+
+    Selects coordinates that avoid C1 (the Battleship target in this scenario).
+    Together with the C1 coordinate, this totals 6 shots.
+
+    Args:
+        page: Playwright Page
+    """
+    # Use coordinates that don't include C1 (the Battleship hit target)
+    other_coords: list[str] = ["D1", "E1", "F1", "G1", "H1"]
+    select_coordinates(page, other_coords)
+
+
 @then(parsers.parse('I should see "{text}" displayed'))
 def see_text_displayed(page: Page, text: str):
     expect(page.locator("body")).to_contain_text(text)

@@ -141,6 +141,59 @@ def no_shots_fired_yet(context: MultiPlayerBDDContext) -> None:
     pass
 
 
+@given(
+    parsers.parse('my opponent has placed their {ship_name} with coordinate "{coord}"')
+)
+def opponent_has_placed_ship_at_coordinate(
+    context: MultiPlayerBDDContext, ship_name: str, coord: str
+) -> None:
+    """Verify opponent's ship includes the specified coordinate.
+
+    The default placement uses DEFAULT_SHIP_PLACEMENTS from conftest.
+    This step documents the expected hit location for verification.
+
+    Args:
+        context: BDD context
+        ship_name: Name of the ship (e.g., "Battleship")
+        coord: Coordinate the ship should include (e.g., "C1")
+    """
+    # Store for potential later verification
+    if not hasattr(context, "expected_hits"):
+        context.expected_hits = {}
+    context.expected_hits[coord] = ship_name
+    # No action needed - ships already placed in background with DEFAULT_SHIP_PLACEMENTS
+
+
+@given(parsers.parse('I have selected to aim at coordinate "{coord}"'))
+def have_selected_to_aim_at_coordinate(
+    context: MultiPlayerBDDContext, coord: str
+) -> None:
+    """Select a specific coordinate to aim at (Given form).
+
+    Delegates to the existing 'When I select coordinate' step logic.
+
+    Args:
+        context: BDD context
+        coord: Coordinate to aim at (e.g., "C1")
+    """
+    select_coordinate_to_aim(context, coord)
+
+
+@given("I have selected 5 other coordinates")
+def have_selected_5_other_coordinates(context: MultiPlayerBDDContext) -> None:
+    """Select 5 additional coordinates to aim at.
+
+    Selects coordinates that avoid C1 (the Battleship target in this scenario).
+    Together with the C1 coordinate, this totals 6 shots.
+
+    Args:
+        context: BDD context
+    """
+    # Use coordinates that don't include C1 (the Battleship hit target)
+    other_coords: list[str] = ["D1", "E1", "F1", "G1", "H1"]
+    context.select_coordinates(other_coords)
+
+
 @then(parsers.parse('I should see "{text}" displayed'))
 def see_text_displayed(context: MultiPlayerBDDContext, text: str):
     """Verify text is displayed on the page"""

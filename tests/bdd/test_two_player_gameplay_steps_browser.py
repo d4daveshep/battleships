@@ -709,6 +709,20 @@ def round_results_contain_message(page: Page, message: str) -> None:
         expect(page.locator("body")).to_contain_text(message, timeout=5000)
 
 
+@given("I am still aiming my shots")
+def still_aiming(page: Page) -> None:
+    """Verify I am still in aiming phase.
+
+    This is a state verification step - confirms the player hasn't fired yet.
+    The page should show the aiming interface with shots available.
+
+    Args:
+        page: Playwright Page
+    """
+    # Verify we're on the gameplay page and can still aim
+    expect(page.locator('[data-testid="shots-available"]')).to_be_visible()
+
+
 @then("I should see 'Opponent has fired - waiting for you' displayed")
 def see_opponent_fired_message(page: Page):
     """Verify message when opponent fires first"""
